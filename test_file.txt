@@ -1,0 +1,7 @@
+This is a test file to show the backup works!
+
+If you can see this file in your backup folder after running SAFE_BACKUP.bat, 
+then you know the backup system is working perfectly.
+
+Date created: 2025-10-31
+Purpose: Testing the backup system
