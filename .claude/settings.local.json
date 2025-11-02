@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Bash(wsl ls:*)",
+      "Bash(wsl.exe ls:*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''\\\\wsl.localhost\\Ubuntu\\home\\poteete\\.claude'' -Force\")",
+      "Bash(powershell.exe -Command \"Test-Path ''\\\\wsl$\\Ubuntu\\home\\poteete\\.claude''\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''\\\\wsl$\\Ubuntu\\home\\poteete\\.claude'' -Force 2>&1\")",
+      "Bash(powershell.exe:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
