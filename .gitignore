@@ -7,6 +7,12 @@
 *.sqlite
 *.sqlite3
 
+# Vehicle data files (large CSV/Excel files)
+Vehicle data/
+vehicle data zip files/
+**/Vehicle data/
+**/vehicle data zip files/
+
 # Backup files
 *.backup
 *.bak
