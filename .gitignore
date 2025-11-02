@@ -13,6 +13,10 @@ vehicle data zip files/
 **/Vehicle data/
 **/vehicle data zip files/
 
+# Common failure data (source markdown)
+Common Failure data/
+**/Common Failure data/
+
 # Backup files
 *.backup
 *.bak

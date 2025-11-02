@@ -20,6 +20,17 @@ CREATE TABLE IF NOT EXISTS vehicles (
     transmission_type TEXT,  -- "Automatic", "Manual", "CVT"
     fuel_type TEXT,  -- "Gasoline", "Diesel", "Hybrid", "Electric"
     vin_pattern TEXT,  -- VIN prefix for identification
+
+    -- EPA Fuel Economy Data Fields (added in schema v1.1)
+    forced_induction TEXT,  -- "Turbo", "Supercharger", "Twin-Turbo", NULL
+    mpg_city INTEGER,  -- EPA city MPG rating
+    mpg_highway INTEGER,  -- EPA highway MPG rating
+    mpg_combined INTEGER,  -- EPA combined MPG rating
+    valves_per_cylinder INTEGER,  -- Number of valves per cylinder
+    vehicle_class TEXT,  -- EPA vehicle class: "PICKUP TRUCKS", "MINICOMPACT CARS", etc.
+    gas_guzzler INTEGER DEFAULT 0 CHECK(gas_guzzler IN (0, 1)),  -- EPA gas guzzler tax flag
+    annual_fuel_cost INTEGER,  -- EPA estimated annual fuel cost (USD)
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(make, model, year, engine)
@@ -340,10 +351,11 @@ CREATE TABLE IF NOT EXISTS metadata (
 
 -- Initialize metadata
 INSERT OR IGNORE INTO metadata (key, value) VALUES
-    ('schema_version', '1.0'),
+    ('schema_version', '1.1'),
     ('created_date', datetime('now')),
     ('last_updated', datetime('now')),
-    ('data_sources', 'Common_Automotive_failures.md, OBD_II_Diagnostic_Codes.txt, MyFixit_Dataset');
+    ('data_sources', 'EPA_Fuel_Economy_Guide, Common_Automotive_failures.md, OBD_II_Diagnostic_Codes.txt, MyFixit_Dataset'),
+    ('schema_changelog', 'v1.0: Initial schema; v1.1: Added EPA fuel economy fields (forced_induction, mpg_*, valves_per_cylinder, vehicle_class, gas_guzzler, annual_fuel_cost)');
 
 -- ============================================================================
 -- VIEWS FOR COMMON QUERIES
@@ -411,4 +423,4 @@ ORDER BY v.make, v.model, v.year;
 PRAGMA foreign_keys = ON;
 
 -- Validate schema
-SELECT 'Schema created successfully. Version 1.0' as status;
+SELECT 'Schema created successfully. Version 1.1 (EPA Fuel Economy fields added)' as status;
