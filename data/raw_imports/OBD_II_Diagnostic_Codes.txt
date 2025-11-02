@@ -1,0 +1,319 @@
+Part 1: Generic Diagnostic Trouble Codes (DTCs)
+This section lists the specific standardized generic codes (P0xxx, U0xxx) and the defined generic ranges for all code families (P, C, B, U) as established by the SAE OBD-II standards.
+Code Ranges and System Categories
+| Family | Type | Range | System | Source |
+|---|---|---|---|---|
+| P | Generic | P0xxx | Powertrain | |
+| P | Generic | P2xxx | Powertrain | |
+| P | Generic | P34xx – P39xx | Powertrain | |
+| C | Generic | C0xxx | Chassis | |
+| C | Generic | C3xxx | Chassis | |
+| B | Generic | B0xxx | Body | |
+| B | Generic | B3xxx | Body | |
+| U | Generic | U0xxx | Network & Integration | |
+| U | Generic | U3xxx | Network & Integration | |
+Specific Powertrain Codes (P0xxx)
+| DTC | Description | Source |
+|---|---|---|
+| P0001 | Fuel Volume Regulator Control Circuit/Open | |
+| P0002 | Fuel Volume Regulator Control Circuit Range/Performance | |
+| P0003 | Fuel Volume Regulator Control Circuit Low | |
+| P0004 | Fuel Volume Regulator Control Circuit High | |
+| P0005 | Fuel Shutoff Valve "A" Control Circuit/Open | |
+| P0006 | Fuel Shutoff Valve "A" Control Circuit Low | |
+| P0100 | Mass or Volume Air Flow Circuit Malfunction | |
+| P0101 | Mass or Volume Air Flow Circuit Range/Performance Problem | |
+| P0102 | Mass or Volume Air Flow Circuit Low Input | |
+| P0103 | Mass or Volume Air Flow Circuit High Input | |
+| P0104 | Mass or Volume Air Flow Circuit Intermittent | |
+| P0105 | Manifold Absolute Pressure/Barometric Pressure Circuit Malfunction | |
+| P0106 | Manifold Absolute Pressure/Barometric Pressure Circuit Range/Performance Problem | |
+| P0107 | Manifold Absolute Pressure/Barometric Pressure Circuit Low Input | |
+| P0108 | Manifold Absolute Pressure/Barometric Pressure Circuit High Input | |
+| P0109 | Manifold Absolute Pressure/Barometric Pressure Circuit Intermittent | |
+| P0111 | Intake Air Temperature Circuit Range/Performance Problem | |
+| P0112 | Intake Air Temperature Circuit Low Input | |
+| P0113 | Intake Air Temperature Circuit High Input | |
+| P0114 | Intake Air Temperature Circuit Intermittent | |
+| P0115 | Engine Coolant Temperature Circuit Malfunction | |
+| P0116 | Engine Coolant Temperature Circuit Range/Performance Problem | |
+| P0117 | Engine Coolant Temperature Circuit Low Input | |
+| P0118 | Engine Coolant Temperature Circuit High Input | |
+| P0119 | Engine Coolant Temperature Circuit Intermittent | |
+| ...source P0126 | Insufficient Coolant Temperature for Stable Operation | |
+| P0130 | O2 Sensor Circuit Malfunction (Bank I Sensor 1) | |
+| P0131 | O2 Sensor Circuit Low Voltage (Bank I Sensor I) | |
+| P0132 | O2 Sensor Circuit High Voltage (Bank I Sensor 1) | |
+| P0133 | O2 Sensor Circuit Slow Response (Bank 1 Sensor 1) | |
+| P0134 | O2 Sensor Circuit No Activity Detected (Bank I Sensor 1) | |
+| P0135 | O2 Sensor Heater Circuit Malfunction (Bank 1 Sensor 1) | |
+| P0136 | O2 Sensor Circuit Malfunction (Bank I Sensor 2) | |
+| P0137 | O2 Sensor Circuit Low Voltage (Bank I Sensor 2) | |
+| P0138 | O2 Sensor Circuit High Voltage (Bank I Sensor 2) | |
+| P0139 | O2 Sensor Circuit Slow Response (Bank 1 Sensor 2) | |
+| P0140 | O2 Sensor Circuit No Activity Detected (Bank 1 Sensor 2) | |
+| P0141 | O2 Sensor Heater Circuit Malfunction (Bank 1 Sensor 2) | |
+| P0142 | O2 Sensor Circuit Malfunction (Bank I Sensor 3) | |
+| P0143 | O2 Sensor Circuit Low Voltage (Bank I Sensor 3) | |
+| P0144 | O2 Sensor Circuit High Voltage (Bank I Sensor 3) | |
+| P0145 | O2 Sensor Circuit Slow Response (Bank 1 Sensor 3) | |
+| P0146 | O2 Sensor Circuit No Activity Detected (Bank I Sensor 3) | |
+| P0147 | O2 Sensor Heater Circuit Malfunction (Bank I Sensor 3) | |
+| P0150 | O2 Sensor Circuit Malfunction (Bank 2 Sensor I) | |
+| P0151 | O2 Sensor Circuit Low Voltage (Bank 2 Sensor I) | |
+| P0152 | O2 Sensor Circuit High Voltage (Bank 2 Sensor 1) | |
+| P0153 | O2 Sensor Circuit Slow Response (Bank 2 Sensor 1) | |
+| P0154 | O2 Sensor Circuit No Activity Detected (Bank 2 Sensor 1) | |
+| P0155 | O2 Sensor Heater Circuit Malfunction (Bank 2 Sensor 1) | |
+| P0156 | O2 Sensor Circuit Malfunction...source Oil Temperature Sensor High | |
+| P0199 | Engine Oil Temperature Sensor Intermittent | |
+| P0200 | Injector Circuit Malfunction | |
+| P0201 | Injector Circuit Malfunction - Cylinder 1 | |
+| P0202 | Injector Circuit Malfunction - Cylinder 2 | |
+| P0203 | Injector Circuit...source Position Sensor/Switch B Circuit Malfunction | |
+| P0221 | Throttle/Petal Position...source | |
+| P0230 | Fuel Pump Primary Circuit Malfunction | |
+| P0231 | Fuel Pump Secondary Circuit Low | |
+| P0232 | Fuel Pump Secondary Circuit High | |
+| P0233 | Fuel Pump Secondary Circuit...source Injection Pump Fuel Metering Control "A" Low (Cam/Rotor/Injector) | |
+| P0254 | Injection Pump Fuel Metering Control "A" High (Cam/Rotor/Injector) | |
+| P0255 | Injection Pump Fuel Metering Control "A" Intermittent (Cam/Rotor/Injector) | |
+| P0256 | Injection Pump Fuel Metering Control "B" Malfunction (Cam/Rotor/Injector) | |
+| P0257 | Injection Pump Fuel Metering Control "B" Range/Performance Injector) | |
+| P0258 | Injection Pump Fuel Metering Control "B" Low (Cam/Rotor/Injector) | |
+| P0259 | Injection Pump Fuel Metering Control "B" High (Cam/Rotor/Injector) | |
+| P0260 | Injection Pump Fuel Metering Control "B" Intermittent Injector) | |
+| P0261 | Cylinder I Injector Circuit Low | |
+| P0262 | Cylinder I Injector Circuit High | |
+| P0263 | Cylinder I Contribution/Balance Fault | |
+| P0264 | Cylinder 2 Injector Circuit Low | |
+| P0265 | Cylinder 2 Injector Circuit High | |
+| P0266 | Cylinder 2 Contribution/Balance Fault | |
+| P0267 | Cylinder 3 Injector Circuit Low | |
+| P0268 | Cylinder 3 Injector Circuit High | |
+| P0269 | Cylinder 3 Contribution/Balance Fault | |
+| P0270 | Cylinder 4 Injector Circuit Low | |
+| P0271 | Cylinder 4 Injector Circuit High | |
+| P0272 | Cylinder 4 Contribution/Balance Fault | |
+| P0273 | Cylinder 5 Injector Circuit Low | |
+| P0274 | Cylinder 5 Injector Circuit High | |
+| P0275 | Cylinder S Contribution/Balance Fault | |
+| P0276 | Cylinder 6 Injector Circuit Low | |
+| P0277 | Cylinder 6 Injector Circuit...source | |
+| P0300 | Random/Multiple Cylinder Misfire Detected | |
+| P0301 | Cylinder 1 Misfire Detected | |
+| P0302 | Cylinder 2 Misfire Detected | |
+| P0303 | Cylinder 3 Misfire Detected | |
+| P0304 | Cylinder 4 Misfire Detected | |
+| P0305 | Cylinder 5 Misfire Detected | |
+| P0306 | Cylinder 6 Misfire Detected | |
+| P0307 | Cylinder 7 Misfire Detected | |
+| P0308 | Cylinder 8 Misfire Detected | |
+| P0309 | Cylinder 9 Misfire Detected | |
+| P0311 | Cylinder 11 Misfire Detected | |
+| P0312 | Cylinder 12 Misfire Detected | |
+| P0320 | Ignition/Distributor Engine Speed Input Circuit Malfunction | |
+| P0321 | Ignition/Distributor Engine Speed Input Circuit Range/Performance | |
+| P0322 | Ignition/Distributor Engine Speed Input Circuit No Signal | |
+| P0323 | Ignition/Distributor Engine Speed Input Circuit Intermittent | |
+| P0325 | Knock Sensor 1 Circuit Malfunction (Bank I or Single Sensor) | |
+| P0326 | Knock Sensor 1 Circuit Range/Performance (Bank 1 or Single Sensor) | |
+| P0327 | Knock Sensor 1 Circuit Low Input (Bank I or Single Sensor) | |
+| P0328 | Knock Sensor 1 Circuit High Input (Bank I or Single Sensor) | |
+| P0329 | Knock Sensor 1 Circuit Intermittent (Bank 1 or Single Sensor) | |
+| P0330 | Knock Sensor 2 Circuit Malfunction (Bank 2) | |
+| P0331 | Knock Sensor 2 Circuit Range/Performance (Bank 2) | |
+| P0332 | Knock Sensor 2 Circuit Low Input (Bank 2) | |
+| P0333 | Knock Sensor 2 Circuit High Input (Bank 2) | |
+| P0334 | Knock Sensor 2 Circuit Intermittent (Bank 2) | |
+| P0335 | Crankshaft Position Sensor A Circuit Malfunction | |
+| P0336 | Crankshaft Position Sensor A Circuit Range/Performance | |
+| P0337 | Crankshaft Position Sensor A Circuit Low Input | |
+| P0338 | Crankshaft Position Sensor A Circuit High Input | |
+| P0339 | Crankshaft Position Sensor A Circuit Intermittent | |
+| P0340 | Camshaft Position Sensor Circuit Malfunction | |
+| P0341 | Camshaft Position Sensor Circuit Range/Performance | |
+| P0342 | Camshaft Position Sensor Circuit Low Input | |
+| P0343 | Camshaft Position Sensor Circuit High Input | |
+| P0344 | Camshaft Position Sensor Circuit Intermittent | |
+| P0350 | Ignition Coil Primary/Secondary Circuit Malfunction | |
+| P0351 | Ignition Coil A Primary/Secondary Circuit Malfunction | |
+| P0352 | Ignition Coil B Primary/Secondary Circuit Malfunction | |
+| P0353 | Ignition Coil C Primary/Secondary Circuit Malfunction | |
+| P0354 | Ignition Coil D Primary/Secondary Circuit Malfunction | |
+| P0355 | Ignition Coil E Primary/Secondary Circuit Malfunction | |
+| P0356 | Ignition Coil F Primary/Secondary Circuit Malfunction | |
+| P0357 | Ignition Coil G Primary/Secondary Circuit Malfunction | |
+| P0358 | Ignition Coil H Primary/Secondary Circuit Malfunction | |
+| P0385 | Crankshaft Position Sensor "B" Circuit | |
+| P0386 | Crankshaft Position Sensor "B" Circuit Range/Performance | |
+| P0387 | Crankshaft Position Sensor "B" Circuit Low | |
+| P0388 | Crankshaft Position Sensor "B" Circuit High | |
+| P0389 | Crankshaft Position Sensor "B" Circuit Intermittent | |
+| P0390 | Camshaft Position Sensor "B" Circuit | |
+| P0391 | Camshaft Position Sensor "B" Circuit Range/Performance | |
+| P0392 | Camshaft Position Sensor "B" Circuit | |
+| P0600 | Serial Communication Link Malfunction | |
+| P0601 | Internal Control Module Read Only Memory (ROM) Error | |
+| P0602 | Internal Control Module Random Access Memory (RAM) Error | |
+| P0604 | Internal Control Module Read Only Memory (ROM) Error | |
+| P0605 | PCM Processor Fault | |
+| P0606 | Control Module VSS Output "A’ Malfunction | |
+| P0608 | Control Module VSS Output "B" Malfunction | |
+| P0609 | Generator Control Circuit Malfunction | |
+| P0620 | Generator Lamp "L" Control Circuit Malfunction | |
+| P0621 | Generator Field "F" Control Circuit Malfunction | |
+| P0622 | Malfunction Indicator Lamp (MIL) Control Circuit Malfunction | |
+| P0650 | Engine RPM Output Circuit Malfunction | |
+| P0654 | Engine Hot Lamp Output Control Circuit Malfunction | |
+| P0655 | Fuel Level Output Circuit Malfunction | |
+| P0656 | (Definition not provided in source) | |
+| P0700 | Transmission Control System Malfunction | |
+| P0701 | Transmission Control System Range/Performance | |
+| P0702 | Transmission Control System Electrical | |
+| P0703 | Torque Converter/Brake Switch B Circuit Malfunction | |
+| P0704 | Clutch Switch Input Circuit Malfunction | |
+| P0705 | Transmission Range Sensor Circuit malfunction (PRNDL Input) | |
+| P0706 | Transmission Range Sensor Circuit Range/Performance | |
+| P0707 | Transmission Range...source | |
+| P0715 | Input/Turbine Speed Sensor Circuit Malfunction | |
+| P0716 | Input/Turbine Speed Sensor Circuit Range/Performance | |
+| P0717 | Input/Turbine Speed Sensor Circuit No Signal | |
+| P0718 | Input/Turbine Speed Sensor Circuit Intermittent | |
+| P0719 | Torque Converter/Brake Switch B Circuit Low | |
+| P0720 | Output Speed Sensor Circuit Malfunction | |
+| P0721 | Output Speed Sensor Range/Performance | |
+| P0722 | Output Speed Sensor No Signal | |
+| P0723 | Output Speed Sensor Intermittent | |
+| P0724 | Torque Converter/Brake Switch B Circuit High | |
+| P0725 | Engine Speed Input Circuit Malfunction | |
+| P0726 | Engine Speed Input Circuit Range/Performance | |
+| P0727 | Engine Speed Input Circuit No Signal | |
+| P0728 | Engine Speed Input Circuit Intermittent | |
+| P0730 | Incorrect Gear Ratio | |
+| P0731 | Gear I Incorrect ratio | |
+| P0732 | Gear 2 Incorrect ratio | |
+| P0733 | Gear 3 Incorrect ratio | |
+| P0734 | Gear 4 Incorrect ratio | |
+| P0735 | Gear 5 Incorrect ratio | |
+| P0736 | Reverse incorrect gear ratio | |
+| P0740 | Torque Converter Clutch Circuit Malfunction | |
+| P0741 | Torque Converter Clutch Circuit Performance or Stuck Off | |
+| P0742 | Torque Converter Clutch Circuit Stock On | |
+| P0743 | Torque Converter Clutch Circuit Electrical | |
+| P0744 | Torque Converter Clutch Circuit Intermittent | |
+| P0745 | Pressure Control Solenoid Malfunction | |
+| P0746 | Pressure Control Solenoid Performance or Stuck Off | |
+| P0747 | Pressure Control Solenoid Stuck On | |
+| P0748 | Pressure Control Solenoid Electrical | |
+| P0749 | Pressure Control Solenoid Intermittent | |
+| P0750 | Shift Solenoid A Malfunction | |
+| P0751 | Shift Solenoid A Performance or Stuck Off | |
+| P0752 | Shift Solenoid A Stuck On | |
+| P0753 | Shift Solenoid A Electrical | |
+| P0754 | Shift Solenoid A Intermittent | |
+| P0755 | Shift Solenoid B Malfunction | |
+Specific Network Codes (U0xxx)
+| DTC | Description | Source |
+|---|---|---|
+| U0001 | High Speed CAN Communication Bus Performance | |
+| U0002 | High Speed CAN Communication Bus Performance | |
+| U0003 | High Speed CAN Communication Bus (+) Low | |
+| U0004 | High Speed CAN Communication Bus (+) High | |
+| U0005 | High Speed CAN Communication Bus (-) Low | |
+| U0006 | High Speed CAN Communication Bus (-) High | |
+| U0007 | High Speed CAN Communication Bus Performance | |
+| U0008 | High Speed CAN Communication Bus Performance | |
+| U0009 | High Speed CAN Communication Bus Performance | |
+| U0010 | Medium Speed CAN Communication Bus Performance | |
+| U0011 | Medium Speed CAN Communication Bus Performance | |
+| U0012 | Medium Speed CAN Communication Bus (+) Low | |
+| U0013 | Medium Speed CAN Communication Bus (+) High | |
+| U0014 | Medium Speed CAN Communication Bus (-) Low | |
+| U0015 | Medium Speed CAN Communication Bus (-) High | |
+| U0016 | Medium Speed CAN Communication Bus Performance | |
+| U0017 | Medium Speed CAN Communication Bus Performance | |
+| U0018 | Medium Speed CAN Communication Bus Performance | |
+| U0019 | Low Speed CAN Communication Bus Performance | |
+| U0020 | Low Speed CAN Communication Bus Performance | |
+| U0021 | Low Speed CAN Communication Bus (+) Low | |
+| U0022 | Low Speed CAN Communication Bus (+) High | |
+| U0023 | Low Speed CAN Communication Bus (-) Low | |
+| U0024 | Low Speed CAN Communication Bus (-) High | |
+| U0025 | Low Speed CAN Communication Bus Performance | |
+| U0026 | Low Speed CAN Communication Bus Performance | |
+| U0027 | Low Speed CAN Communication Bus Performance | |
+| U0028 | Vehicle Communication Bus A Performance | |
+| U0029 | Vehicle Communication Bus A Performance | |
+| U0030 | Vehicle Communication Bus A (+) Low | |
+| U0031 | Vehicle Communication Bus A (+) High | |
+| U0032 | Vehicle Communication Bus A (-) Low | |
+| U0033 | Vehicle Communication Bus A (-) High | |
+| U0034 | Vehicle Communication Bus A Performance | |
+| U0035 | Vehicle Communication Bus A Performance | |
+| U0036 | Vehicle Communication Bus A Performance | |
+| U0037 | Vehicle Communication Bus B Performance | |
+| U0038 | Vehicle Communication Bus B Performance | |
+| U0039 | Vehicle Communication Bus B (+) Low | |
+| U0040 | Vehicle Communication Bus B (+) High | |
+| U0041 | Vehicle Communication Bus B (-) Low | |
+| U0042 | Vehicle Communication Bus B (-) High | |
+| U0043 | Vehicle Communication Bus B Performance | |
+| U0044 | Vehicle Communication Bus B Performance | |
+| U0045 | Vehicle Communication Bus B Performance | |
+| U0046 | Vehicle Communication Bus C Performance | |
+| U0047 | Vehicle Communication Bus C Performance | |
+| U0048 | Vehicle Communication Bus C (+) Low | |
+| U0049 | Vehicle Communication Bus C (+) High | |
+| U0050 | Vehicle Communication Bus C (-) Low | |
+| U0051 | Vehicle Communication Bus C (-) High | |
+| U0052 | Vehicle Communication Bus C Performance | |
+| U0053 | Vehicle Communication Bus C Performance | |
+| U0054 | Vehicle Communication Bus C Performance | |
+| U0055 | Vehicle Communication Bus D Performance | |
+| U0056 | Vehicle Communication Bus D Performance | |
+| U0057 | Vehicle Communication Bus D (+) Low | |
+| U0058 | Vehicle Communication Bus D (+) High | |
+| U0059 | Vehicle Communication Bus D (-) Low | |
+| U0060 | Vehicle Communication Bus D (-) High | |
+| U0061 | Vehicle Communication Bus D Performance | |
+| U0062 | Vehicle Communication Bus D Performance | |
+| U0063 | Vehicle Communication Bus D Performance | |
+| U0064 | Vehicle Communication Bus E Performance | |
+| U0065 | Vehicle Communication Bus E Performance | |
+| U0066 | Vehicle Communication Bus E (+) Low | |
+| U0067 | Vehicle Communication Bus E (+) High | |
+| U0068 | Vehicle Communication Bus E (-) Low | |
+| U0069 | Vehicle Communication Bus E (-) High | |
+| U0070 | Vehicle Communication Bus E Performance | |
+| U0071 | Vehicle Communication Bus E Performance | |
+| U0072 | Vehicle Communication Bus E Performance | |
+| U0073 | Control Module Communication Bus OFF | |
+Part 2: Standardized DTC Failure Type Bytes (Suffix Codes)
+These suffix codes (the sixth and seventh characters of an extended DTC) provide the specific electrical or logical failure mode as standardized by the SAE J2012/ISO 15031-6 documents. They are used to refine the diagnosis of the primary DTC (P0xxx, C0xxx, B0xxx, U0xxx).
+| Failure Type Byte (Hex) | Description of Failure Mode |
+|---|---|
+| 00 | No Sub Type Information (Default or General Electrical Failure) |
+| 01 | General Electrical Failure |
+| 02 | General Signal Failure (General rationality or data fault) |
+| 03 | Voltage Below Threshold (Circuit voltage is too low) |
+| 04 | Voltage Above Threshold (Circuit voltage is too high) |
+| 05 | Current Below Threshold (Circuit current is too low) |
+| 06 | Current Above Threshold (Circuit current is too high) |
+| 07 | Mechanical Failure |
+| 08 | Bus Signal / Message Failure |
+| 09 | Component Protection Activation |
+| 0A | Rate of Change Below Threshold |
+| 0B | Rate of Change Above Threshold |
+| 0C | Signal Intermittent / Erratic / Incorrect |
+| 0D | Calibration / Learning Not Performed |
+| 0E | System Shutdown Due to Fault |
+| 0F | Component / System Intermittent |
+| 11 | Circuit Shorted to Ground |
+| 12 | Circuit Shorted to Battery (or B+) |
+| 13 | Circuit Open |
+| 14 | Plausibility Fault / Signal Rationality Error |
+| 15 | Reserved by SAE J2012 |
+| 16 | Reserved by SAE J2012 |
+| 17 | Reserved by SAE J2012 |
+| 18 | Reserved by SAE J2012 |
