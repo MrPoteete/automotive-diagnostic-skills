@@ -1,8 +1,8 @@
 # Automotive Diagnostic Skills
 
 A modular system of Claude skills for automotive fault diagnosis and
-troubleshooting, powered by a comprehensive SQLite database containing 22,800+
-vehicle configurations spanning 20 years.
+troubleshooting, powered by a comprehensive SQLite database containing **2.1 MILLION+
+real-world vehicle complaints** from NHTSA plus vehicle specifications and diagnostic data.
 
 ## About
 
@@ -12,6 +12,7 @@ deliver fast, accurate diagnostic recommendations.
 
 ### Key Features
 
+- **🔥 NHTSA Complaint Database**: **2,144,604 real-world complaints** from vehicle owners (1995-2025)
 - **Comprehensive Vehicle Database**: 22,800+ vehicles (2005-2025) with engine
   specifications
 - **SQLite Architecture**: Sub-50ms query performance with full-text search
@@ -20,7 +21,7 @@ deliver fast, accurate diagnostic recommendations.
 - **Failure Pattern Analysis**: Common failures with confidence ratings
 - **Service Procedures**: Integration with MyFixit repair manuals
 - **Technical Service Bulletins**: Manufacturer TSB tracking
-- **Safety Recalls**: NHTSA recall database
+- **Safety-Critical Tracking**: Fire, crash, injury, and death incidents
 
 ### Current Status
 
@@ -95,10 +96,70 @@ automotive-diagnostic-skills/
 
 For detailed installation instructions, see [SETUP_GUIDE.md](docs/SETUP_GUIDE.md).
 
+## 🔥 Using the NHTSA Complaints Database (2.1M+ Records)
+
+### Quick Start - View Your Data
+
+**Easiest way - Run the explorer:**
+```powershell
+python scripts\explore_complaints.py
+```
+
+This shows you everything: top complaints, safety stats, vehicle breakdowns, and more!
+
+### Search for a Specific Vehicle
+
+**Find all complaints for a 2018 Ford F-150:**
+```python
+# Save as search_vehicle.py
+import sqlite3
+
+conn = sqlite3.connect('database/automotive_diagnostics.db')
+cursor = conn.execute("""
+    SELECT component_description, COUNT(*) as complaints
+    FROM nhtsa_complaints
+    WHERE make = 'FORD' AND model = 'F-150' AND year = 2018
+    GROUP BY component_description
+    ORDER BY complaints DESC
+    LIMIT 10
+""")
+
+print("\nTop 10 Issues for 2018 Ford F-150:\n")
+for row in cursor:
+    print(f"  {row[1]:3d} complaints - {row[0]}")
+
+conn.close()
+```
+
+### Documentation
+
+- **📋 Quick Reference**: [docs/NHTSA_QUICK_REFERENCE.md](docs/NHTSA_QUICK_REFERENCE.md) - **START HERE!**
+  - Copy/paste commands
+  - Common queries
+  - Usage examples
+
+- **📚 Full Documentation**: [docs/NHTSA_COMPLAINTS_USAGE.md](docs/NHTSA_COMPLAINTS_USAGE.md)
+  - Advanced queries
+  - Full-text search
+  - Integration patterns
+
+### What's In The Database
+
+- **2,144,604 complaints** from real vehicle owners
+- **Decades of data** (1995-2025)
+- **All manufacturers**: Ford, GM, RAM, Chevrolet, Dodge, Toyota, Honda, etc.
+- **Component-level details**: Engine, brakes, transmission, airbags, etc.
+- **Safety incidents**: Fires, crashes, injuries, deaths
+- **Full narratives**: Searchable complaint descriptions
+- **Fast queries**: Full-text search with FTS5
+
+---
+
 ## Database Overview
 
 ### Core Tables
 
+- **nhtsa_complaints** - 🔥 **2.1M+ real-world complaints** from vehicle owners (ACTIVE)
 - **vehicles** - Vehicle configurations (make, model, year, engine)
 - **dtc_codes** - OBD-II diagnostic trouble codes
 - **failure_patterns** - Common failures with confidence ratings
