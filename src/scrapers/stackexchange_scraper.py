@@ -129,8 +129,8 @@ class StackExchangeScraper:
         # Add required parameters
         params.update({
             'site': self.SITE,
-            # Use default filter (withbody) for questions
-            'filter': 'withbody' if endpoint == '/questions' else 'default',
+            # Always use withbody filter to get question AND answer bodies
+            'filter': 'withbody',
         })
 
         url = f"{self.BASE_URL}{endpoint}"
