@@ -7,8 +7,8 @@ import json
 import sys
 from pathlib import Path
 
-# Add parent to path
-sys.path.append(str(Path(__file__).parent.parent))
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 from rag.process_forum_data import ForumDataProcessor
 from rag import config
 
