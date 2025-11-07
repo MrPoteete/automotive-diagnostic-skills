@@ -202,8 +202,10 @@ class StackExchangeScraper:
         Returns:
             List of question dictionaries
         """
+        # Don't use default tags - they're too restrictive
+        # If user wants tags, they can specify them explicitly
         if tags is None:
-            tags = self.AUTOMOTIVE_TAGS
+            tags = []  # Changed: Don't default to AUTOMOTIVE_TAGS
 
         if from_date is None:
             from_date = datetime.now() - timedelta(days=365 * 10)  # 10 years
@@ -216,9 +218,12 @@ class StackExchangeScraper:
             'pagesize': 100,  # Max allowed by API
             'sort': 'activity',
             'order': 'desc',
-            'tagged': ';'.join(tags),
             'fromdate': int(from_date.timestamp()),
         }
+
+        # Only add tagged parameter if tags are specified
+        if tags:
+            params['tagged'] = ';'.join(tags)
 
         # Only add todate if explicitly specified (don't default to "now")
         if to_date is not None:
@@ -440,11 +445,13 @@ def main():
     """
     scraper = StackExchangeScraper()
 
-    # Scrape last 10 years of automotive diagnostic discussions
+    # Scrape last 10 years of ALL automotive discussions
+    # Note: Tag filtering returns 0 results, so we scrape everything
+    # and filter by content afterwards
     from_date = datetime.now() - timedelta(days=365 * 10)
 
     questions = scraper.scrape_full_threads(
-        tags=None,  # Use default automotive tags
+        tags=None,  # No tags = get all mechanics questions
         from_date=from_date,
         to_date=None,  # Up to now
         max_questions=5000,  # Start with 5000 to be safe on quota

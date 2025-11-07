@@ -18,24 +18,18 @@ def main():
     print("="*70)
     print("SIMPLIFIED STACK EXCHANGE SCRAPER")
     print("="*70)
-    print("\nStrategy: Scraping with BROADER tags for better coverage")
-    print("Using: diagnostics, troubleshooting, obd-ii")
-    print("\nThis ensures we get actual results instead of 0 questions.")
+    print("\nStrategy: Get ALL automotive questions (no tag filtering)")
+    print("Source: mechanics.stackexchange.com")
+    print("\nWhy no tags? Tag filtering returns 0 results.")
+    print("Instead, we scrape all questions and filter by content afterwards.")
     print("="*70 + "\n")
 
-    # Use just a few highly relevant tags instead of 18
-    # This dramatically increases the chance of finding questions
-    simplified_tags = [
-        'diagnostics',
-        'troubleshooting',
-        'obd-ii',
-    ]
-
-    # Scrape last 10 years with simplified tags
+    # Don't use tags - they cause 0 results
+    # We'll filter by content after scraping
     from_date = datetime.now() - timedelta(days=365 * 10)
 
     questions = scraper.scrape_full_threads(
-        tags=simplified_tags,  # Much simpler tag list
+        tags=None,  # No tags = get all questions
         from_date=from_date,
         to_date=None,
         max_questions=1000,  # Start with 1000 to test
