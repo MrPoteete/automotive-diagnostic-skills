@@ -1,510 +1,713 @@
-# Anti-Hallucination Protocols and Confidence Scoring
+# Anti-Hallucination Protocols v2.1
 
-**Version:** 1.0  
-**Last Updated:** 2026-01-15  
-**Purpose:** Ensure factual accuracy and transparent uncertainty in automotive diagnostics
+**Purpose:** Prevent AI hallucinations in automotive diagnostics through source grounding, confidence quantification, and uncertainty admission
 
 ---
 
-## Overview
+## [NEW] CRITICAL RULE: Specification Attribution
 
-**Hallucination** in AI context refers to generating information that appears plausible but is factually incorrect or unverifiable. In automotive diagnostics, hallucinations can lead to:
-- Misdiagnosis and unnecessary repairs
-- Safety hazards from incorrect procedures  
-- Wasted time and money
-- Loss of professional credibility
+**EVERY numerical specification MUST be attributed to a source OR explicitly flagged for verification.**
 
-**This document establishes protocols to:**
-1. Ground all responses in verifiable sources
-2. Quantify confidence in diagnoses
-3. Admit uncertainty when appropriate
-4. Clearly distinguish facts from inferences
-5. Prevent speculation beyond evidence
+### Specifications That REQUIRE Attribution
+
+The following MUST include source citation or verification flag:
+
+✅ **Torque specifications**
+- ✓ "Cylinder head bolts: 65 ft-lbs + 90° [Source: GM Service Manual, L86 6.2L]"
+- ✓ "Verify cylinder head torque specification in service manual before proceeding"
+- ❌ "Cylinder head bolts: 65 ft-lbs + 90°" (NO attribution = hallucination risk)
+
+✅ **Pressure values**
+- ✓ "Normal fuel pressure 58-62 PSI [Source: Ford Service Manual, 3.5L EcoBoost]"
+- ✓ "Verify fuel pressure specification for this engine - typically 55-65 PSI range"
+- ❌ "Normal fuel pressure is 60 PSI" (NO attribution = hallucination risk)
+
+✅ **Electrical specifications**
+- ✓ "MAF sensor 2.5-3.5V at idle [Source: Toyota TSB 12-034]"
+- ✓ "Verify MAF voltage specification - varies significantly by model year"
+- ❌ "MAF should read 3.0V at idle" (NO attribution = hallucination risk)
+
+✅ **Resistance/Continuity values**
+- ✓ "Injector resistance 12-16 ohms [Source: Nissan Service Manual, VQ35DE]"
+- ✓ "Verify injector resistance specification in service manual"
+- ❌ "Injector resistance is 14 ohms" (NO attribution = hallucination risk)
+
+✅ **Fluid capacities**
+- ✓ "Engine oil capacity 6.5 qts with filter [Source: Owner's Manual]"
+- ✓ "Verify oil capacity before filling - varies by engine option"
+- ❌ "Oil capacity is 6 quarts" (NO attribution = hallucination risk)
+
+✅ **Clearances/Gaps**
+- ✓ "Spark plug gap 0.044" [Source: NGK specification sheet, part# 5464]"
+- ✓ "Verify plug gap specification - factory spec may differ from aftermarket"
+- ❌ "Gap plugs to 0.040"" (NO attribution = hallucination risk)
+
+✅ **Diagnostic thresholds**
+- ✓ "Compression should be 160-180 PSI [Source: GM Service Manual, L86 6.2L]"
+- ✓ "Verify normal compression range for this engine"
+- ❌ "Compression should be above 150 PSI" (NO attribution = hallucination risk)
+
+### When Specification Unknown
+
+If you do not have the source or are uncertain:
+
+```
+[Specification Status: UNKNOWN - Verification Required]
+
+Normal fuel pressure for 2019 Chevrolet Silverado 6.2L not available 
+in current knowledge base.
+
+REQUIRED BEFORE DIAGNOSIS:
+Consult GM service manual or dealer technical line for:
+- Fuel pressure specification at idle (key on, engine off)
+- Fuel pressure specification at idle (engine running)
+- Fuel pressure specification under load
+- Pressure test procedure and connection points
+
+Do NOT proceed with fuel pressure diagnosis without verified specification.
+Guessing specification risks misdiagnosis.
+```
+
+### Specification Attribution Checklist
+
+Before finalizing response, verify:
+- [ ] Every torque value has source or "verify" flag
+- [ ] Every pressure value has source or "verify" flag  
+- [ ] Every voltage value has source or "verify" flag
+- [ ] Every resistance value has source or "verify" flag
+- [ ] Every fluid capacity has source or "verify" flag
+- [ ] Every clearance/gap has source or "verify" flag
+
+**If ANY specification lacks attribution → Add source OR add verification flag**
 
 ---
 
-## Core Principles
+## Core Protocol: Three-Tier Source Attribution
 
-### Principle 1: Source Grounding is Mandatory
+**Every technical claim MUST include source tier identification.**
 
-**Every technical claim must be grounded in:**
-- Manufacturer service manuals
-- Technical Service Bulletins (TSBs)
-- OBD-II code databases (SAE J2012)
-- Documented failure patterns
-- Industry-standard diagnostic procedures
+### Tier 1: External Verified Sources (HIGHEST AUTHORITY)
 
-**Never:**
-- Make up specifications or procedures
-- Guess at torque values or fluid capacities
-- Invent TSB numbers or recall information
-- Fabricate diagnostic procedures
-- State probabilities without data backing
+Use when information comes from verifiable external documentation:
 
-### Principle 2: Confidence Must Be Quantified
-
-**Every diagnosis must include:**
-- Explicit confidence level (High/Medium/Low or percentage)
-- Reasoning for confidence assessment
-- Evidence supporting the diagnosis
-- Alternative possibilities if confidence < 80%
-
-### Principle 3: "I Don't Know" is a Valid Answer
-
-**Admit knowledge gaps when:**
-- Information not in knowledge base
-- Vehicle-specific data not available
-- Multiple equally likely causes exist
-- Physical inspection required for determination
-- Specification not found in available sources
-
-**Better to say "I don't know" than to guess incorrectly.**
-
-### Principle 4: Distinguish Facts from Inferences
-
-**Mark all inferences explicitly:**
-- **Fact:** "P0171 indicates system running lean per SAE J2012"
-- **Inference:** "Based on freeze frame showing high fuel trim at cruise, possible causes include vacuum leak or MAF sensor malfunction"
-
-### Principle 5: Safety > Completeness
-
-**When uncertain about safety-critical systems:**
-- Default to recommending professional inspection
-- Never provide uncertain guidance on brakes, steering, airbags
-- Flag any potential safety concerns prominently
-- Err on side of caution
-
----
-
-## Evidence Hierarchy (5-Tier System)
-
-**Tier 1: Highest Authority** (Highest confidence - use preferentially)
-- **Manufacturer Service Manuals** - OEM procedures and specifications
-- **TSB/Service Campaign Documentation** - Known issues with official fixes
-- **NHTSA Recall Information** - Federal safety recall data
-- **SAE Standards** (J2012 for DTCs) - Industry-standard definitions
-
-**Tier 2: Strong Authority**
-- **Professional Diagnostic Databases** - Identifix, iATN, Mitchell1
-- **ASE Certification Materials** - Industry-standard practices
-- **Factory Training Materials** - Manufacturer technical education
-- **Aftermarket Service Manual Publishers** - AllData, Chilton, Haynes (detailed specs)
-
-**Tier 3: Moderate Authority**
-- **Technical Forums** - Make/model specific communities (pattern validation)
-- **Documented Shop Experience** - Verified repair patterns
-- **Industry Publications** - Motor Age, Import Car, trade magazines
-- **Component Manufacturer Data** - AC Delco, Motorcraft, Bosch technical docs
-
-**Tier 4: Lower Authority**
-- **General Automotive Websites** - RepairPal, YourMechanic (general info only)
-- **YouTube Channels** - Professional channels only, for procedural reference
-- **General Forums** - Reddit, general auto forums (pattern recognition only)
-
-**Tier 5: Unacceptable Sources** (Do not use)
-- Unverified social media posts
-- Anonymous forum comments without verification
-- AI-generated content without source verification
-- "Common knowledge" without documentation
-- Speculation or guessing
-
-**Citation Requirements:**
-- **Tier 1-2 sources:** Cite when used
-- **Tier 3 sources:** Use for pattern recognition, require Tier 1-2 confirmation
-- **Tier 4 sources:** Background only, never sole source for diagnosis
-- **Tier 5 sources:** Never use
-
----
-
-## Confidence Scoring Methodology
-
-### Confidence Levels Defined
-
-**HIGH Confidence (85-100%)**
-
-**Criteria - ALL must be met:**
-- ✅ Symptoms match ONE specific failure pattern
-- ✅ DTC codes directly indicate system/component
-- ✅ Pattern documented in Tier 1-2 sources for this make/model
-- ✅ Common failure for this make/model/mileage
-- ✅ No alternative diagnoses fit evidence equally well
-- ✅ Freeze frame data supports diagnosis
-
-**Example:**
 ```
-2018 Honda Civic, 1.5T, 67k miles
-DTC: P0335 (Crankshaft Position Sensor Circuit)
-Symptom: Cranks but won't start
-Freeze frame: 0 RPM signal
-Evidence: Known common failure for this engine at this mileage
-Alternative diagnoses: None fit evidence as well
-Confidence: 90% (HIGH)
+[Source: Toyota Service Manual, Section 34.2]
+[Source: TSB #SB-12345-2024]
+[Source: SAE J2012 Standard - P0420 definition]
+[Source: Warranty Claims Database, 2011-2014 Sienna HVAC failures]
+[Source: NHTSA Recall 19V-234]
 ```
-
-**MEDIUM Confidence (60-84%)**
-
-**Criteria:**
-- ✅ Symptoms match 2-3 possible failure patterns
-- ✅ DTC codes indicate system but not specific component
-- ✅ Some supporting evidence from Tier 1-3 sources
-- ✅ Diagnostic testing needed to isolate specific component
-- ✅ Multiple plausible root causes exist
-
-**Example:**
-```
-2015 Ford F-150, 3.5L EcoBoost, 112k miles
-DTC: P0300 (Random Misfire)
-Symptoms: Rough idle, poor fuel economy
-Possible causes: Spark plugs (due to mileage), ignition coils, vacuum leak, fuel injector(s)
-Evidence: All are common failures at this mileage
-Testing needed: Cylinder-specific tests, fuel trim analysis, vacuum test
-Confidence: 70% (MEDIUM - diagnostic testing required to isolate)
-```
-
-**LOW Confidence (40-59%)**
-
-**Criteria:**
-- ⚠️ Symptoms vague or match many possible causes
-- ⚠️ Multiple systems could cause symptoms
-- ⚠️ Limited diagnostic data available
-- ⚠️ No clear pattern in available sources
-- ⚠️ Physical inspection critical for diagnosis
-
-**Example:**
-```
-2012 Toyota Camry, 2.5L, 88k miles
-No DTCs retrieved
-Symptom: "Car feels sluggish"
-Possible causes: Transmission, engine mechanical, fuel system, exhaust restriction, tire pressure, brake dragging, many others
-Evidence: Symptom too vague for specific diagnosis
-Recommendation: In-person diagnosis with road test and comprehensive inspection
-Confidence: 45% (LOW - requires hands-on diagnosis)
-```
-
-**INSUFFICIENT DATA (<40%)**
 
 **When to use:**
-- Critical information missing (no mileage, no engine size, no DTCs when CEL on)
-- Symptoms too vague to diagnose remotely
-- Multiple equally likely causes with no way to differentiate
-- Requires physical inspection/testing to proceed
+- Manufacturer service manual procedures and specifications
+- Technical Service Bulletins
+- OBD-II code definitions (SAE J2012)
+- Documented recall/warranty data
+- Factory specifications and tolerances
 
-**Response Template:**
+**Example with specification:**
 ```
-Confidence: INSUFFICIENT DATA
+Normal compression for L86 6.2L engine is 160-180 PSI with maximum 
+variance of 25 PSI between cylinders.
+[Source: GM Service Manual, Section 6A-32, L86 Engine Diagnosis]
 
-Missing Critical Information:
-- [List what's needed]
-
-To proceed with diagnosis, please provide:
-1. [Specific data needed]
-2. [Specific tests to perform]
-3. [Visual inspections required]
-
-Recommendation: In-person professional diagnosis required due to [specific reason].
+Cylinder head bolt torque sequence: 
+1. 22 ft-lbs
+2. Additional 90° 
+3. Additional 70°
+[Source: GM Service Manual, Section 6A-148, Engine Block]
 ```
 
-### Confidence Modifiers
+### Tier 2: Logical Reasoning (DERIVED CONCLUSIONS)
 
-**Increase confidence when:**
-- ✅ TSB exists for exact symptoms (+10-15%)
-- ✅ Multiple data points confirm same diagnosis (+5-10%)
-- ✅ Pattern is extremely common for make/model (+10-15%)
-- ✅ Diagnostic data shows clear abnormality (+10%)
-- ✅ Single most likely cause, all others much less probable (+5-10%)
+Use when conclusion based on systematic diagnostic reasoning:
 
-**Decrease confidence when:**
-- ⚠️ Symptoms intermittent (-10-15%)
-- ⚠️ Recent repairs in same system (-5-10%)
-- ⚠️ Modified or aftermarket parts installed (-10%)
-- ⚠️ Multiple equally plausible causes (-15-20%)
-- ⚠️ Uncommon failure pattern (-10%)
-- ⚠️ Conflicting diagnostic data (-15-20%)
+```
+[Logical Analysis]
+Since passenger-side heat works normally, this confirms:
+1. Heater core functional (produces hot coolant)
+2. HVAC blower operates (moves air)
+3. Rear zone works (proves circulation)
+→ Therefore: Driver-side temperature control component isolated as failure point
+```
+
+**When to use:**
+- System elimination reasoning
+- Symptom correlation analysis
+- Diagnostic data interpretation
+- Evidence-based deduction
+
+**Requirements:**
+- Show reasoning steps explicitly
+- State assumptions clearly
+- Allow mechanic to validate logic
+- DO NOT include specifications here - specs require Tier 1 or verification flag
+
+### Tier 3: General Automotive Knowledge (STANDARD PRINCIPLES)
+
+Use when information comes from general automotive principles:
+
+```
+[General Knowledge - HVAC Systems]
+Dual-zone climate control systems typically use separate blend door 
+actuators to provide independent temperature control for driver and passenger.
+
+Assessment: HIGH confidence - Standard automotive architecture
+Verification: Consult vehicle-specific service manual to confirm this vehicle's design
+```
+
+**When to use:**
+- Standard automotive engineering principles
+- Common system architectures
+- Industry-standard practices
+- General component functions
+
+**Requirements:**
+- State confidence level
+- Recommend verification against vehicle-specific sources
+- Note when assumption may not apply
+- DO NOT include specific specifications without source
+
+### Uncertain Information Protocol
+
+When source reliability unknown or information unavailable:
+
+```
+[Information Status: UNCERTAIN]
+Calibration requirement for this blend door actuator unknown without service manual access.
+
+Recommendation: Consult Toyota service information before proceeding:
+- Check for auto-calibration feature (some actuators self-calibrate)
+- Review manual calibration procedure (if required)
+- Verify scan tool initialization steps (if applicable)
+
+Do NOT assume. Base procedure on manufacturer service manual only.
+```
+
+**When to use:**
+- Specification not in knowledge base
+- Procedure varies by model year
+- Manufacturer-specific process required
+- Uncertain if feature applies to this vehicle
+
+### INVALID Attribution (NEVER Use)
+
+❌ "Studies show..."  
+❌ "Experts say..."  
+❌ "Research indicates..."  
+❌ "It's well known that..."  
+❌ "Typically..." (without context)  
+❌ Stating specifications without source
+
+**These are vague and unverifiable. Use specific tier labels instead.**
+
+---
+
+## [UPDATED] Categorical Assessment vs. Percentage Confidence
+
+**CRITICAL: Use categorical levels in output to users. Percentages allowed only in internal reasoning.**
+
+### The Four Categorical Assessment Levels
+
+**STRONG INDICATION** - Single hypothesis dominates with convergent evidence  
+**PROBABLE** - Leading candidate but requires testing to confirm  
+**POSSIBLE** - Multiple candidates, significant testing needed  
+**INSUFFICIENT BASIS** - Cannot diagnose remotely with available data
+
+### Internal Reasoning (Percentages OK)
+
+You MAY use percentages when analyzing:
+```
+Internal Analysis:
+- Actuator failure likelihood: ~75% (high prevalence, perfect symptom match)
+- Linkage failure likelihood: ~15% (less common, would show similar symptoms)
+- Sensor failure likelihood: ~10% (rare, symptoms don't fully match)
+
+→ Actuator is 75/15 = 5x more likely than next candidate
+→ Assessment: PROBABLE (leading candidate, needs confirmation)
+```
+
+### User Output (Categorical Only)
+
+You MUST NOT output percentages to users:
+
+❌ **WRONG:**
+```
+Diagnosis: Blend door actuator failure
+Confidence: 75%
+```
+
+✅ **CORRECT:**
+```
+Diagnosis: Blend door actuator failure
+Assessment Level: PROBABLE
+
+Likelihood: HIGH - Common failure pattern with perfect symptom match
+Confidence Basis: Based on pattern recognition and prevalence data only.
+Requires actuator operation test to reach STRONG INDICATION.
+```
+
+### Why Categorical vs. Percentage?
+
+**Percentages mislead** because:
+- AI cannot accurately calibrate numeric confidence
+- Creates false precision (72% vs 68% meaningless distinction)
+- Users may over-trust specific numbers
+- Percentage alone doesn't indicate what action to take
+
+**Categorical levels provide:**
+- Clear decision thresholds for action
+- Honest uncertainty communication
+- Consistent interpretation across mechanics  
+- Aligned with professional diagnostic thinking
+
+---
+
+## Confidence vs Likelihood - Both Required
+
+**CRITICAL: These are DIFFERENT metrics measuring DIFFERENT things.**
+
+### LIKELIHOOD (What is this probably?)
+
+**Answers:** "Based on failure prevalence and symptom patterns, is this the cause?"  
+**Based on:** Statistical occurrence, common vs rare failures, symptom pattern matching
+
+**Internal Scale (you can use these percentage ranges):**
+- HIGH (>70%): Common documented failure + strong symptom correlation
+- MEDIUM (40-70%): Possible cause + reasonable symptom match  
+- LOW (<40%): Uncommon failure + weak symptom correlation
+
+**Output to User (use words):**
+```
+Likelihood: HIGH
+
+Rationale: Driver-side blend door actuator failure is documented common 
+failure for 2011-2014 Sienna at 75K+ miles (15% warranty claim rate per 
+internal Toyota data) with identical symptom presentation (driver side only, no heat).
+
+[Source: Toyota Warranty Claims Database, MY2011-2014 Sienna HVAC]
+```
+
+### CONFIDENCE (How sure are we?)
+
+**Answers:** "Based on data quality and testing performed, how certain are we in this conclusion?"  
+**Based on:** Data completeness, evidence quality, testing performed, verification level
+
+**Internal Scale (you can use these percentage ranges):**
+- HIGH (>85%): Comprehensive data + hands-on testing + verified evidence
+- MEDIUM (60-85%): Good analysis + limited data + requires verification
+- LOW (<60%): Insufficient data + remote analysis only + needs testing
+
+**Maps to Categorical Assessment:**
+- HIGH confidence + HIGH likelihood → **STRONG INDICATION**
+- MEDIUM-HIGH confidence + HIGH likelihood → **PROBABLE**
+- MEDIUM confidence or MEDIUM likelihood → **POSSIBLE**
+- LOW confidence or inadequate data → **INSUFFICIENT BASIS**
+
+**Output to User:**
+```
+Assessment Level: PROBABLE
+
+Confidence Basis: Based on symptom pattern analysis and documented failure 
+rate only. No hands-on testing performed yet. No diagnostic codes present 
+to confirm. 
+
+To reach STRONG INDICATION (requires hands-on testing):
+1. Perform actuator sound test (listen for motor during temp changes)
+2. Visual inspection during dash access (check for broken linkage vs motor failure)
+3. Resistance measurement if accessible (compare to service manual specification)
+```
+
+### Required Format for Each Diagnosis
+
+```markdown
+### 1. [Diagnosis Name]
+**Assessment Level:** PROBABLE (or STRONG INDICATION / POSSIBLE / INSUFFICIENT BASIS)
+
+**Likelihood:** HIGH - [Why this is probably the cause based on prevalence]  
+**Confidence Basis:** [Why we have this level of certainty / what's missing]
+
+**Supporting Evidence:**
+- [Tier 1/2/3] Symptom correlation: [specific match]
+- [Tier 1/2/3] Failure prevalence: [statistical data]
+- [Tier 1/2/3] Diagnostic data: [measurements/readings]
+
+**Evidence Against This Diagnosis:**
+- [Alternative explanations if present]
+- [Contradictory data if present]
+- [Why other diagnoses not ruled out]
+
+**To Reach STRONG INDICATION:**
+1. [Specific test needed]
+2. [Specific measurement needed]
+3. [Specific inspection needed]
+```
+
+### Understanding the Difference - Scenarios
+
+**Scenario A: High Likelihood, Lower Confidence → PROBABLE**
+```
+Diagnosis: Blend door actuator failure
+Assessment Level: PROBABLE
+
+Likelihood: HIGH (80%) - Very common failure, perfect symptom match
+Confidence Basis: MEDIUM (65%) - Remote analysis only, no testing yet, 
+no diagnostic codes to confirm
+
+Interpretation: Probably the cause based on patterns, but not certain yet.
+Action: Perform diagnostic tests to reach STRONG INDICATION before repair.
+```
+
+**Scenario B: Lower Likelihood, High Confidence (After Testing)**  
+```
+Diagnosis: Heater control valve failure
+Assessment Level: STRONG INDICATION (despite lower prevalence)
+
+Likelihood: LOWER (15%) - Uncommon failure for this model
+Confidence Basis: HIGH (95%) - Visual inspection confirmed valve stuck closed, 
+temperature differential measured 40°F across valve (should be <5°F), 
+scan tool confirmed command signal present but valve not responding
+
+Interpretation: Uncommon failure, but verified through comprehensive testing.
+Action: Repair with confidence - testing overcame low prevalence.
+```
+
+**Scenario C: High Likelihood, High Confidence → STRONG INDICATION**
+```
+Diagnosis: Blend door actuator failure  
+Assessment Level: STRONG INDICATION
+
+Likelihood: HIGH (80%) - Common documented failure
+Confidence Basis: HIGH (90%) - Actuator motor audible clicking during operation,
+scan tool shows position sensor reading not following command (stuck at 85% while
+command varies 0-100%), visual inspection through glove box confirms broken 
+gear teeth inside actuator housing
+
+[Source: Visual inspection performed, scan tool data recorded]
+
+Interpretation: Common failure pattern confirmed through comprehensive testing.
+Action: Proceed with repair - both prevalence and testing support diagnosis.
+```
+
+---
+
+## [NEW] Evidence FOR and AGAINST Requirement
+
+**For each diagnosis in differential, you must provide BOTH supporting evidence AND contradictory evidence.**
+
+### Why Both Required?
+
+Professional diagnostics requires considering:
+- What supports this diagnosis (converging evidence)
+- What argues against it (diverging evidence)
+- Why alternatives not ruled out
+- What assumptions might be wrong
+
+### Format
+
+```markdown
+### 2. Heater Core Blockage
+**Assessment Level:** POSSIBLE
+
+**Likelihood:** MEDIUM - Can cause single-side symptoms if internal baffle failure
+
+**Evidence FOR This Diagnosis:**
+- [Tier 3] Single-side no-heat can indicate partial core blockage
+- [Tier 2] High mileage (150K) increases likelihood of sediment buildup
+
+**Evidence AGAINST This Diagnosis:**
+- [Tier 2] Passenger side works normally (shares same core in most designs)
+- [Tier 2] No coolant loss reported (blockage often accompanies leak)
+- [Tier 2] No temperature gauge issues (blockage would affect engine temp)
+- [Tier 3] Core blockage typically affects both sides equally
+
+**Confidence Basis:** Pattern doesn't strongly fit heater core blockage.
+Would expect symmetrical symptoms. Requires coolant flow test to confirm/eliminate.
+```
+
+### What Counts as "Evidence Against"
+
+✓ Symptoms that don't fit this diagnosis  
+✓ Test results inconsistent with this cause  
+✓ System behavior that contradicts hypothesis  
+✓ Why this diagnosis less likely than others  
+✓ Alternative explanations for the same evidence
+
+### When No Evidence Against Exists
+
+If truly no contradictory evidence:
+
+```
+**Evidence AGAINST This Diagnosis:**
+None identified. All available evidence converges on this diagnosis.
+No alternative explanations fit the symptom pattern.
+
+(This supports STRONG INDICATION assessment when combined with 
+comprehensive evidence FOR)
+```
+
+But this should be rare. Most diagnoses have some uncertainty.
 
 ---
 
 ## "I Don't Know" Protocols
 
-### When to Admit Uncertainty
+### Threshold Rules
 
-**Threshold Rule:**
-- Confidence < 70% = Admit uncertainty exists
-- Confidence < 50% = Primary response should be "cannot determine remotely"
-- Confidence < 30% = Must say "I don't know" or "insufficient information"
+- **Confidence < 70%** → Explicitly state uncertainty exists
+- **Confidence < 50%** → Primary message should be "cannot determine remotely"  
+- **Confidence < 30%** → MUST say "I don't know" or "insufficient information"
 
-### Template Responses for Uncertainty
+### Template: PROBABLE Assessment (60-84% internal confidence)
 
-**For Medium Confidence (60-84%):**
 ```
-Based on the provided information, the most likely causes are:
-1. [Primary diagnosis] (Confidence: XX%)
-2. [Secondary diagnosis] (Confidence: XX%)
+Assessment Level: PROBABLE
 
-However, diagnostic testing is required to determine which is the actual root cause. 
-Recommended tests: [specific tests]
+Based on available information, most likely cause is:
 
-I cannot provide a definitive diagnosis without hands-on testing.
+[Primary Diagnosis] - Likelihood: HIGH | Confidence Basis: MEDIUM
+
+Diagnostic testing required to confirm:
+- [Test 1]: If [result A] → confirms [diagnosis]
+- [Test 2]: If [result B] → eliminates [diagnosis], investigate [alternative]
+
+Current assessment (PROBABLE) not sufficient for repair recommendation without testing.
+Hands-on diagnostic testing required before proceeding.
 ```
 
-**For Low Confidence (40-59%):**
+### Template: POSSIBLE Assessment (40-59% internal confidence)
+
 ```
-The symptoms described could be caused by multiple systems:
-- [System 1]: [possible causes]
-- [System 2]: [possible causes]
-- [System 3]: [possible causes]
+Assessment Level: POSSIBLE (for multiple candidates)
 
-Without additional diagnostic data or physical inspection, I cannot narrow this down further. 
+Multiple systems could cause these symptoms:
+- [System 1]: [Diagnosis A] - Likelihood: MEDIUM
+- [System 2]: [Diagnosis B] - Likelihood: MEDIUM  
+- [System 3]: [Diagnosis C] - Likelihood: LOW
 
-Recommended approach:
-1. [Initial diagnostic step]
+Current assessment: POSSIBLE for each candidate
+
+Why inconclusive: [Vague symptoms / Limited data / Multiple equal possibilities]
+
+Recommended diagnostic approach:
+1. [Initial test/inspection to narrow candidates]
 2. [Follow-up based on results]
-3. Professional in-person diagnosis if steps 1-2 inconclusive
+3. Professional in-person diagnosis if tests inconclusive
 
-Confidence in remote diagnosis: LOW (XX%) - in-person diagnosis strongly recommended.
+Cannot narrow diagnosis further without risking misdiagnosis.
 ```
 
-**For Insufficient Data (<40%):**
-```
-I cannot provide a reliable diagnosis with the current information.
+### Template: INSUFFICIENT BASIS (<40% internal confidence)
 
-To diagnose this issue, the following information/tests are required:
-- [Specific data needed]
-- [Specific tests needed]
+```
+Assessment Level: INSUFFICIENT BASIS
+
+[Required Information Missing]
+
+Cannot provide reliable remote diagnosis due to:
+- [Insufficient diagnostic data - need DTCs, freeze frame, test results]
+- [Safety-critical system involvement - requires hands-on inspection]
+- [Vague symptoms - need specific conditions, frequencies, measurements]
+- [Physical inspection mandatory - cannot assess remotely]
+
+Required for diagnosis:
+- [Specific missing data]
+- [Required test results]
 - [Physical inspection items]
 
-Recommendation: This issue requires in-person professional diagnosis due to [specific reason: vague symptoms/multiple possibilities/safety concern/etc.].
+Recommendation: Professional in-person diagnosis required.
 
-I don't have sufficient information to speculate on probable causes without risking misdiagnosis.
+Attempting diagnosis with current information risks:
+- Misdiagnosis leading to unnecessary repairs
+- Missing safety-critical issues
+- Incorrect cost estimates
 ```
-
----
-
-## Speculation vs. Fact Boundaries
-
-### Facts (Allowed)
-
-**Characteristics:**
-- Verifiable in source material
-- Repeatable/measurable
-- Documented in Tier 1-3 sources
-- Technical specifications
-- Standardized procedures
-
-**Examples:**
-- ✅ "P0420 indicates catalyst system efficiency below threshold per SAE J2012"
-- ✅ "Typical fuel pressure for 2015 Honda Accord 2.4L is 48-55 PSI per service manual"
-- ✅ "TSB 12-34-56 addresses this exact symptom with ECM reprogramming"
-- ✅ "This engine uses a timing chain, not a belt"
-
-### Inferences (Allowed with labeling)
-
-**Characteristics:**
-- Logical deduction from facts
-- Based on pattern recognition
-- Supported by diagnostic data
-- Marked clearly as inference
-
-**Examples:**
-- ✅ "Based on high positive fuel trim at cruise speed in freeze frame, *inference:* vacuum leak or MAF sensor issue likely"
-- ✅ "Given the mileage (150k) and symptoms, *possible:* timing chain stretch"
-- ✅ "Freeze frame shows 0 RPM signal during crank, *suggests:* CKP sensor failure"
-
-**Required phrasing:**
-- "Based on [data], inference/likely/possible/suggests..."
-- "This pattern commonly indicates..."
-- "Symptoms consistent with..."
-
-### Speculation (Prohibited)
-
-**Characteristics:**
-- No supporting evidence
-- Guessing at specifications
-- Assumption without data
-- "Probably" or "might be" without justification
-
-**Examples:**
-- ❌ "Probably just needs an oil change" (without evidence)
-- ❌ "I think it might be the fuel pump" (without diagnostic data)
-- ❌ "Could be anything from $200-$2000" (without specific diagnosis)
-- ❌ "The torque spec is probably 75 ft-lbs" (without source)
-
-**If tempted to speculate:**
-1. Stop
-2. Check knowledge base for facts
-3. If no facts available, admit "I don't know"
-4. Provide guidance on how to obtain the information
 
 ---
 
 ## Source Citation Requirements
 
-### When Citations Required
+### Always Cite For:
 
-**ALWAYS cite sources for:**
-- Technical specifications (torque, pressure, voltage, resistance)
-- Diagnostic procedures
-- TSB numbers or recall information
-- Failure pattern prevalence data
-- Cost estimates (cite source of data)
-- Any disputed or non-obvious information
+✅ Technical specifications (torque, pressure, voltage, resistance) - **MANDATORY**  
+✅ Diagnostic procedures  
+✅ TSB numbers or recall information  
+✅ Failure rate statistics  
+✅ Cost estimates (cite data source)  
+✅ Any disputed or non-obvious claims
 
-### Citation Format
+### Citation Format Examples
 
-**For Tier 1 Sources:**
+**Tier 1:**
 ```
-"Per [Manufacturer] service manual section [X.X], fuel pressure specification is [value]"
-"According to TSB [number], this symptom is addressed by [solution]"
-"NHTSA recall [number] covers this specific issue"
-```
+Per Honda Service Manual Section 24-156, blend door actuator resistance 
+specification is 200-240 ohms at 68°F (20°C).
 
-**For Tier 2 Sources:**
-```
-"Based on ASE diagnostic procedures for [system]..."
-"According to [Identifix/iATN] documented repair patterns for [make/model]..."
+TSB #12-034 dated 2019-03-15 addresses intermittent HVAC operation on
+2011-2014 Sienna models with revised actuator design (Part# 87106-12345).
+
+NHTSA Recall 19V-234 covers heater core coolant leak for 2012-2013 Sienna,
+affecting approximately 45,000 vehicles.
 ```
 
-**For Tier 3 Sources:**
+**Tier 2:**
 ```
-"Pattern recognition from [forum/community] suggests [pattern], though this requires Tier 1 verification"
-"Commonly reported by technicians specializing in [make], pending service manual confirmation"
+[Logical Analysis]
+Given battery voltage 12.4V and starter engagement confirmed, electrical 
+supply to PCM is verified. With fuel pump priming confirmed, fuel delivery 
+system functional. Since P0335 indicates no crankshaft position signal, 
+sensor or sensor circuit failure is isolated as root cause.
+
+Reasoning verified against symptom patterns and system dependencies.
 ```
 
-### When Source Unknown
-
-**If information not verified in available sources:**
+**Tier 3:**
 ```
-"I cannot verify this specification in available sources. Consult [manufacturer] service manual for accurate specification."
+[General Knowledge - OBD-II Systems]
+P-codes beginning with "0" are SAE-standardized generic codes applicable
+across all manufacturers. First digit "0" indicates powertrain system.
+Second digit identifies subgroup (fuel, ignition, emissions, etc.).
 
-"This procedure requires verification against factory service information before proceeding."
-
-"I don't have access to the specific [torque spec/procedure/value] for this vehicle. Reference: [where to find it]"
+Assessment: HIGH confidence - SAE J2012 standard architecture
+Verification: Consult SAE J2012 standard for authoritative code definitions
 ```
+
+### When Source Unknown - Two Options
+
+**Option 1: State Uncertainty**
+```
+[Specification Status: UNKNOWN - Verification Required]
+
+Blend door actuator resistance specification for 2014 Toyota Sienna 
+not available in current knowledge base.
+
+REQUIRED: Consult Toyota service manual for:
+- Actuator resistance at 68°F (room temperature)
+- Acceptable resistance range
+- Temperature coefficient (if applicable)
+
+Do NOT proceed with resistance test diagnosis without verified specification.
+```
+
+**Option 2: Provide Range with Verification Flag**
+```
+Blend door actuator resistance typically 150-250 ohms for most vehicles.
+[General Knowledge - HVAC actuators]
+
+VERIFY against Toyota service manual before using for diagnosis.
+Actual specification may differ significantly from general range.
+```
+
+---
+
+## Evidence Hierarchy
+
+**Tier 1 (Highest Authority)** - Use preferentially
+- Manufacturer OEM service manuals
+- Technical Service Bulletins  
+- SAE standards (J2012 for DTCs)
+- NHTSA recall documentation
+- Factory training materials
+
+**Tier 2 (Strong Authority)** - Reliable for general guidance
+- ASE certification materials
+- Professional diagnostic databases (Identifix, AllData)
+- Aftermarket service manual publishers (Mitchell, Chilton)
+- Component manufacturer technical documentation
+
+**Tier 3 (Moderate Authority)** - Pattern recognition only
+- Make/model-specific technical forums with verified mechanics
+- Documented shop repair patterns with data backing
+- Industry trade publications (Motor Age, Automotive News)
+- Verified mechanic communities (iATN, ProDemand forums)
+
+**Tier 4 (Low Authority)** - Background reference only, never sole source
+- General automotive websites (careful verification required)
+- YouTube professional channels (procedural reference only)
+- General forums (Reddit r/mechanicadvice with careful screening)
+
+**Tier 5 (Unacceptable)** - NEVER use
+- Unverified social media
+- Anonymous comments
+- AI-generated content without source verification
+- "Common knowledge" without documentation
+- Speculation or guessing
 
 ---
 
 ## Quality Assurance Checklist
 
-**Before Providing Diagnosis:**
+Before finalizing any diagnostic response:
 
-- [ ] Confidence level explicitly stated?
-- [ ] Evidence supporting diagnosis listed?
-- [ ] Alternative possibilities mentioned (if confidence <80%)?
-- [ ] Sources cited for technical specifications?
-- [ ] Facts distinguished from inferences?
-- [ ] Uncertainty admitted when appropriate?
-- [ ] Safety concerns flagged if present?
-- [ ] "I don't know" used if confidence <40%?
+- [ ] Every diagnosis has categorical Assessment Level (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)
+- [ ] Every diagnosis includes BOTH Likelihood AND Confidence Basis with rationales
+- [ ] Every technical specification has source attribution OR verification flag
+- [ ] Every diagnosis includes Evidence FOR **AND** Evidence AGAINST
+- [ ] Confidence escalation path provided for non-STRONG INDICATION assessments
+- [ ] Uncertainty admitted when confidence < 70%
+- [ ] "I don't know" / INSUFFICIENT BASIS used when confidence < 40%
+- [ ] Facts distinguished from inferences with tier labels
+- [ ] Sources cited for specifications and procedures
+- [ ] Safety concerns flagged if present
+- [ ] **SOURCES section included (mandatory)**
+- [ ] **DISCLAIMER section included (mandatory)**
 
-**Red Flags Indicating Potential Hallucination:**
+**Red Flags (Potential Hallucination):**
 
-- ⚠️ Specific numbers without source (torque specs, resistances)
-- ⚠️ Confident diagnosis with vague symptoms
-- ⚠️ TSB/recall numbers stated without verification
-- ⚠️ Diagnostic procedures not from service manual
-- ⚠️ Cost estimates without qualification
-- ⚠️ "Always" or "never" statements about repairs
-- ⚠️ Overly specific failure predictions
+⚠️ Specific numbers without source tier label OR verification flag
+⚠️ Percentages in user output (should use categorical assessment)
+⚠️ Confident diagnosis (STRONG INDICATION) with vague symptoms
+⚠️ TSB/recall numbers without verification  
+⚠️ Procedures not citing service manual
+⚠️ Cost estimates without source or caveat  
+⚠️ "Always" or "never" statements without source
+⚠️ Overly specific predictions without basis
+⚠️ Missing Evidence AGAINST section
+⚠️ Missing SOURCES or DISCLAIMER sections
 
-**If Any Red Flags Present:**
-1. Review knowledge base for verification
-2. If not verified, remove or qualify statement
+**If red flags present:**
+1. Check knowledge base for verification
+2. If unverified, remove or add tier label / verification flag
 3. Cite source or admit uncertainty
-4. Revise to align with evidence hierarchy
+4. Lower confidence level appropriately
+5. Use categorical assessment language
+6. Add Evidence AGAINST analysis
 
 ---
 
-## Response Templates for Common Scenarios
+## Key Reminders
 
-### Scenario 1: High Confidence Diagnosis
+**Prevent Hallucination:**
+- Source tier label on every technical claim
+- ALL specifications attributed or flagged for verification
+- Categorical assessment levels (not percentages) in output
+- Evidence FOR and AGAINST for each diagnosis
+- Confidence escalation path when not STRONG INDICATION
+- Admit "I don't know" when uncertain (< 40% confidence)
+- Include mandatory SOURCES and DISCLAIMER sections
 
-```
-**Primary Diagnosis:** [Component/System Failure]
-**Confidence:** 90% (HIGH)
+**Build Trust:**
+- Transparent about data limitations
+- Honest about remote diagnosis constraints
+- Clear about what testing would confirm
+- Explicit about safety considerations
+- Use internal percentages for reasoning, categorical for output
 
-**Supporting Evidence:**
-- DTC [code] directly indicates [system] per SAE J2012
-- Freeze frame shows [specific abnormality]
-- Common failure for [make/model] at [mileage] per [source]
-- Symptoms match documented pattern in TSB [number]
+**Maintain Standards:**
+- No speculation without tier labeling
+- No invented specifications (attribute or verify)
+- No fabricated TSB numbers
+- No guaranteed outcomes
+- No percentages in user-facing output
 
-**Diagnostic Testing to Confirm:**
-1. [Specific test]
-2. [Expected result if diagnosis correct]
-
-**Alternative Possibilities:** [If any, list with lower probability]
-```
-
-### Scenario 2: Medium Confidence - Multiple Possibilities
-
-```
-**Likely Diagnoses:** 
-1. [Diagnosis 1] - Confidence: XX%
-   - Supporting evidence: [list]
-2. [Diagnosis 2] - Confidence: XX%
-   - Supporting evidence: [list]
-
-**Overall Confidence:** MEDIUM (XX%)
-
-**Why Multiple Possibilities:**
-[Explain what makes diagnosis ambiguous]
-
-**Diagnostic Tests to Isolate:**
-1. [Test] → If [result], indicates [diagnosis 1]
-2. [Test] → If [result], indicates [diagnosis 2]
-
-**Recommendation:** Hands-on diagnostic testing required to determine specific cause.
-```
-
-### Scenario 3: Low Confidence - Insufficient Remote Diagnosis
-
-```
-**Assessment:** Cannot determine specific cause remotely
-
-**Confidence:** LOW (<50%)
-
-**Possible Systems Involved:**
-- [System 1]
-- [System 2]  
-- [System 3]
-
-**Why Low Confidence:**
-- Symptoms too vague/general
-- Multiple equally plausible causes
-- Critical diagnostic data missing
-- Physical inspection required
-
-**Recommended Next Steps:**
-1. [Initial inspection/test anyone can do]
-2. Professional in-person diagnosis
-3. [Specific data to gather if possible]
-
-**I cannot responsibly narrow this diagnosis further without risking misdiagnosis.**
-```
+**When in Doubt:**
+- Label source tier
+- Use categorical assessment
+- Show both FOR and AGAINST evidence
+- Provide escalation path
+- Recommend verification
+- Include mandatory sections
 
 ---
 
-## Summary
-
-**Anti-hallucination protocols ensure:**
-
-1. **Factual Accuracy** - All technical claims grounded in verifiable sources
-2. **Transparent Uncertainty** - Confidence levels make reliability clear
-3. **Intellectual Honesty** - Admitting "I don't know" prevents misdiagnosis
-4. **Evidence-Based Reasoning** - Facts distinguished from inferences
-5. **Professional Standards** - Safety and accuracy prioritized over completeness
-
-**Remember:** 
-- No answer is better than a wrong answer in automotive diagnostics
-- Uncertainty handled transparently builds trust
-- Source grounding prevents dangerous misinformation
-- Confidence scoring helps mechanics make informed decisions
-
-**When in doubt:** 
-- Check knowledge base
-- Cite Tier 1-2 sources
-- Admit uncertainty
-- Recommend professional diagnosis
-
----
-
-**Next Reference:** [Diagnostic Examples](diagnostic-examples.md) for real-world case studies demonstrating these protocols.
+**This protocol ensures factual accuracy, transparent uncertainty, evidence-based automotive diagnostics, and prevention of AI hallucination in safety-critical applications.**
