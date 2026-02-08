@@ -1,31 +1,31 @@
 # Automotive Diagnostic Skills - Project Status
 
-**Last Updated**: November 2, 2025
-**Project Phase**: Phase 1 - Foundation Complete
+**Last Updated**: February 8, 2026
+**Project Phase**: Phase 3 - Agent Framework & Diagnostic Engine
 **Overall Status**: On Track
 
 ---
 
 ## Executive Summary
 
-The Automotive Diagnostic Skills project has successfully completed Phase 1,
-transitioning from a JSON-based architecture to a production-ready SQLite
-database system. The database infrastructure is now prepared to scale to
-22,800+ vehicle configurations spanning 20 years.
-
-**Key Milestone**: Production-ready database infrastructure created in
-approximately 2 hours, demonstrating efficient architecture design and
-implementation.
+The Automotive Diagnostic Skills project has completed Phases 1 and 2,
+establishing a production-ready SQLite database with 18,607 vehicles,
+270 DTC codes, 65 failure patterns, and 2,144,604 real-world NHTSA complaints.
+A ChromaDB vector store provides semantic search across forum data. The
+diagnostic skill architecture (v3.1) has been deployed with progressive
+disclosure routing, categorical assessment system, anti-hallucination protocols,
+and CO-STAR persona framework. The project is now ready to begin Phase 3:
+implementing the diagnostic engine and agent framework.
 
 ---
 
-## Current Achievements
+## Completed Phases
 
 ### Phase 1: Database Foundation (COMPLETE)
 
 #### 1. Database Schema Design
 - **Status**: Complete
-- **Files**: `databases/schema.sql`
+- **Files**: `database/schema.sql`, `database/schema_nhtsa_complaints.sql`
 - **Deliverables**:
   - 33 tables with full relational integrity
   - 28 optimized indexes for sub-50ms query performance
@@ -33,310 +33,218 @@ implementation.
   - Foreign key constraints enforced
   - Views for common query patterns
 
-**Core Tables Implemented**:
-- `vehicles` - Vehicle configurations (make/model/year/engine)
-- `dtc_codes` - OBD-II diagnostic trouble codes
-- `failure_patterns` - Common failure patterns with confidence ratings
-- `parts` - Parts catalog for repairs
-- `diagnostic_tests` - Step-by-step diagnostic procedures
-- `service_procedures` - Repair procedures (MyFixit integration)
-- `tsbs` - Technical Service Bulletins
-- `recalls` - NHTSA recall tracking
-
-**Relationship Tables** (Many-to-Many):
-- `vehicle_failures` - Link vehicles to failure patterns
-- `dtc_failure_correlations` - Link DTCs to failures
-- `failure_parts` - Link parts to failures
-- `vehicle_procedures` - Link service manuals to vehicles
-- `vehicle_tsbs` - Link TSBs to vehicles
-- `vehicle_recalls` - Link recalls to vehicles
-
 #### 2. Database Initialization System
 - **Status**: Complete
-- **Files**: `databases/init_database_simple.py`
+- **Files**: `database/init_database_simple.py`
 - **Features**:
   - Automated database creation from schema
   - Schema integrity verification
-  - Foreign key constraint checking
   - Statistics reporting
-  - Windows-compatible (no emoji rendering issues)
+  - Windows-compatible
 
 #### 3. Vehicle Data Import System
-- **Status**: Complete (proof-of-concept)
-- **Files**: `databases/import_vehicles.py`
-- **Current Data**: 792 vehicles from 2005 loaded
-- **Features**:
-  - Parse pipe-delimited vehicle data files
-  - Extract engine displacement and cylinder count
-  - Handle multiple file formats
-  - Bulk import from directories
-  - Duplicate detection via UNIQUE constraints
-  - Detailed import statistics
+- **Status**: Complete
+- **Files**: `database/import_vehicles.py`, `database/import_all_vehicles.py`
+- **Data**: 18,607 vehicles (2005-2025) loaded
 
-**Supported Engine Formats**:
-- `3.5/6` (displacement/cylinders)
-- `3.5L V6`
-- `2.0L 4-Cyl`
-- `5.7L HEMI V8`
+### Phase 2: Data Integration (COMPLETE)
+
+#### 1. Vehicle Data (18,607 records)
+- **Status**: Complete
+- **Coverage**: 2005-2025 model years
+- **Data**: Make, model, year, engine, displacement, cylinders
+
+#### 2. OBD-II Diagnostic Codes (270 codes)
+- **Status**: Complete
+- **Files**: `database/import_dtc_codes.py`
+- **Coverage**: All four code families (P/C/B/U)
+- **Features**: Intelligent classification, severity ratings
+
+#### 3. Failure Patterns (65 patterns, 1,994 vehicle links)
+- **Status**: Complete
+- **Files**: `database/import_failure_data.py`
+- **Coverage**: 14 manufacturers, common failures with confidence ratings
+- **Features**: DTC-to-failure correlations, vehicle-specific links
+
+#### 4. NHTSA Complaints (2,144,604 records)
+- **Status**: Complete
+- **Files**: `scripts/import_nhtsa_complaints.py`, `scripts/explore_complaints.py`
+- **Coverage**: 1995-2025, all manufacturers
+- **Features**:
+  - Full-text search (FTS5) on complaint narratives
+  - Safety tracking: fire, crash, injury, death flags
+  - Component-level details
+  - Interactive exploration tool
+
+#### 5. Forum Data (ChromaDB Vector Store)
+- **Status**: Complete
+- **Location**: `data/vector_store/chroma/`
+- **Sources**: Reddit automotive communities, Mechanic Stack Exchange (2015-2025)
+- **Purpose**: Semantic search for similar real-world diagnostic cases
+
+#### 6. Service Manuals (1,135 procedures)
+- **Status**: Available
+- **Location**: `data/service_manuals/`
+- **Coverage**: 107 Ford/GM/RAM specific procedures from iFixit
+
+#### 7. Architecture Documentation
+- **Status**: Complete
+- **Files**:
+  - `docs/SYSTEM_INTEGRATION_ARCHITECTURE.md` (721 lines)
+  - `docs/NHTSA_INTEGRATION_STRATEGY.md` (531 lines)
+  - `docs/NHTSA_QUICK_REFERENCE.md` (298 lines)
+
+### Diagnostic Skill v3.1 (DEPLOYED)
+
+#### Skill Architecture
+- **Status**: Deployed
+- **Location**: `skills/`
+- **Files**:
+  - `skills/SKILL.md` (v3.1, 652 lines) - Main skill definition
+  - `skills/references/anti-hallucination.md` (v2.1, 714 lines) - Source grounding protocols
+  - `skills/references/response-framework.md` (v3.0, 143 lines) - CO-STAR persona & templates
+  - `skills/CHANGELOG_v3.1.md` (310 lines) - Detailed change documentation
+  - `skills/backups/v3.0/` - Previous version backups
+
+#### Key Features (v3.1)
+- **Progressive Disclosure**: 6 request types with selective reference loading (40-60% token savings)
+- **Categorical Assessment**: STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS
+- **Anti-Hallucination**: 3-tier source attribution, specification verification flags
+- **Safety Documentation**: Non-omittable safety status in every response
+- **CO-STAR Persona**: Professional communication framework for ASE-certified technicians
+- **Data Level Assessment**: Confidence ceiling based on available information
+- **Evidence FOR/AGAINST**: Both required for every differential diagnosis
+- **Mandatory Sections**: SOURCES and DISCLAIMER required in all Type 1 diagnostics
+
+#### Score Improvement
+- v3.0 baseline: Grade C (76.5/100)
+- v3.1 expected: Grade B+ (87.5/100)
+- Key gains: Category 5 (Anti-Hallucination) +3, Category 6 (Confidence) +4
 
 ---
 
 ## Current Database Specifications
 
 ### Loaded Data
-- **Database File**: `automotive_diagnostics.db`
-- **Current Size**: 0.25 MB
-- **Vehicles Loaded**: 792 (2005 model year only)
+- **Database File**: `database/automotive_diagnostics.db`
+- **Vehicles**: 18,607 (2005-2025)
+- **DTC Codes**: 270 (all families)
+- **Failure Patterns**: 65 (with 1,994 vehicle links)
+- **NHTSA Complaints**: 2,144,604
 - **Schema Version**: 1.0
 
-### Production Scale Projections
-- **Total Vehicles**: 22,800+ (20 years × ~1,140 vehicles/year)
-- **Projected Database Size**: 500-600 MB
-- **Expected Query Performance**: <50ms with proper indexes
-- **Storage Medium**: Single SQLite file (portable, zero-configuration)
+### Performance (Validated)
+- **Simple lookup**: <5ms (vehicle by make/model/year)
+- **Complex join**: 10-50ms (DTC + failure correlation)
+- **Full-text search**: 50-200ms (symptom matching, NHTSA narratives)
 
 ---
 
-## Architecture Decisions
+## Phase 3: Agent Framework & Diagnostic Engine (CURRENT)
 
-### SQLite vs JSON: The Decision
+### Priority Tasks
 
-**Scale Reality**:
-- 2005 model year alone: 1,142 vehicles
-- 20 years × 1,142 = 22,840 vehicles (estimated)
-- JSON would require scanning hundreds of files per query
-- SQLite provides 60x faster query performance
+1. **Enhanced Confidence Scoring**
+   - Integrate NHTSA complaint frequency into scoring
+   - Formula documented in NHTSA_INTEGRATION_STRATEGY.md
+   - Needs Python implementation
 
-**JSON Approach** (Rejected):
-- Query time: 2-5 seconds per search
-- Must scan ~500 JSON files
-- Load each file into memory
-- Parse JSON for each query
-- Filter results programmatically
+2. **Symptom Matching Engine**
+   - Combine FTS5 (NHTSA narratives) with ChromaDB (forum similarity)
+   - Map customer symptoms to known complaint patterns
 
-**SQLite Approach** (Implemented):
-- Query time: <50ms
-- Indexed lookups
-- Relational joins
-- Full-text search
-- Single file deployment
+3. **Safety Alert System**
+   - Query NHTSA for fire/crash/injury history per vehicle+component
+   - Automatic flagging for safety-critical diagnoses
 
-### Hybrid Strategy
+4. **Trend Analysis**
+   - Compare complaint frequency across model years
+   - Show if issues are increasing or decreasing
 
-**SQLite is used for**:
-- Vehicle configurations
-- Failure patterns
-- DTC codes
-- Structured queries
-- Relational data
+5. **Master Coordinator Agent**
+   - Orchestrate input routing and specialized agent calls
+   - Aggregate and rank diagnostic results
 
-**JSON is retained for**:
-- Service manuals (already optimized)
-- Configuration files
-- Cache files
-- Non-relational data
+6. **Specialized Diagnostic Agents**
+   - Engine Agent (priority: misfire, fuel, timing)
+   - Transmission Agent
+   - Electrical Agent (CAN bus, TIPM)
+   - Chassis Agent
+   - Body/HVAC Agent
+
+### Phase 4: Output & Interface
+- Output formatter (mechanic reports, customer explanations)
+- Web-based diagnostic interface
+- Vehicle selection and symptom input forms
+
+### Phase 5: Testing and Deployment
+- End-to-end testing with real diagnostic scenarios
+- Performance validation under load
+- Shop PC deployment and cloud sync setup
 
 ---
 
-## Performance Metrics
+## Architecture Overview
 
-### Validated Performance
-- **Database Creation**: <1 second
-- **Schema Verification**: <1 second
-- **Vehicle Import (1,125 records)**: <3 seconds
-- **Simple Queries**: <5ms (tested)
-- **Complex Queries**: <50ms (expected with full dataset)
-
-### Expected Query Performance (Full Dataset)
-
-```sql
--- Simple lookup (make/model/year)
-SELECT * FROM vehicles
-WHERE make='FORD' AND model='F-150' AND year=2020;
--- Expected: 1-5ms
-
--- Complex diagnostic query (DTC + failure correlation)
-SELECT f.* FROM failure_patterns f
-JOIN dtc_failure_correlations dfc ON f.failure_id = dfc.failure_id
-WHERE dfc.code = 'P0300' AND f.confidence = 'HIGH';
--- Expected: 10-50ms
-
--- Full-text search (symptoms)
-SELECT * FROM failure_patterns_fts
-WHERE failure_patterns_fts MATCH 'rough idle startup';
--- Expected: 50-200ms
+### Data Layer (Complete)
+```
+SQLite Database          ChromaDB Vector Store     Service Manuals (JSON)
+- 18,607 vehicles       - Reddit forums            - 1,135 iFixit procedures
+- 270 DTC codes         - Stack Exchange            - 107 Ford/GM/RAM specific
+- 65 failure patterns   - Real-world diagnostics
+- 2.1M NHTSA complaints
 ```
 
----
+### Agent Layer (Designed, Implementation Next)
+```
+Master Diagnostic Coordinator
+├── Input Router Agent (symptom parsing, DTC validation, domain classification)
+├── Specialized Agents (Engine, Transmission, Electrical, Chassis, Body)
+├── Support Agents (Safety Verification, Forum Context, Trend Analysis)
+└── Output Formatter (mechanic reports, customer explanations)
+```
 
-## Next Steps
-
-### Phase 2: Data Import (Current Week)
-
-**Priority Tasks**:
-
-1. **Import Remaining Vehicle Data**
-   - Process model years 2006-2025
-   - Expected total: ~22,800 vehicles
-   - Validate data quality
-   - Generate import statistics
-
-2. **Import Common Failures**
-   - Parse `Common_Automotive_failures.md`
-   - Link failures to vehicle configurations
-   - Preserve confidence ratings (HIGH/MEDIUM/LOW)
-   - Create failure-to-DTC correlations
-
-3. **Import OBD-II Codes**
-   - Parse `OBD_II_Diagnostic_Codes.txt`
-   - Create comprehensive DTC database
-   - Link DTCs to failure patterns
-   - Add severity ratings
-
-4. **Import MyFixit Manuals**
-   - Link existing JSON procedures to vehicles
-   - Cross-reference by make/model
-   - Preserve procedure metadata
-
-### Phase 3: Portability Setup (Week 2)
-
-5. **Configure Cloud Synchronization**
-   - Set up OneDrive/Dropbox folder
-   - Document synchronization procedure
-   - Test home-to-shop sync workflow
-   - Create backup strategy
-
-6. **Create Deployment Package**
-   - Single-file distribution (.db)
-   - Installation documentation
-   - Backup and restore scripts
-   - Version management system
-
-### Phase 4: Skills Integration (Weeks 3-4)
-
-7. **Build Router Skill**
-   - Use SQLite for vehicle/DTC classification
-   - Route queries to domain-specific skills
-   - Implement context preservation
-
-8. **Build Engine Diagnostics Skill**
-   - Query database for failure patterns
-   - Generate differential diagnosis
-   - Provide confidence-scored recommendations
-   - Link to repair procedures
-
-9. **Build Output Formatter Skill**
-   - Professional diagnostic reports
-   - Parts lists with cost estimates
-   - Customer-friendly summaries
-   - Technical documentation generation
-
-### Phase 5: Testing and Deployment (Weeks 5-6)
-
-10. **End-to-End Testing**
-    - Real diagnostic scenarios
-    - Performance validation
-    - Query optimization
-    - Shop PC deployment testing
+See [SYSTEM_INTEGRATION_ARCHITECTURE.md](SYSTEM_INTEGRATION_ARCHITECTURE.md)
+for the complete design.
 
 ---
 
 ## Technology Stack
 
-### Core Technologies
-- **Database**: SQLite 3.x
-- **Language**: Python 3.x
-- **AI Framework**: Claude Code (Anthropic)
-- **Data Format**: Pipe-delimited text files, JSON (for manuals)
-
-### Database Features
-- Full-text search (FTS5)
-- Foreign key constraints
-- Optimized indexes
-- View support
-- Embedded (zero-configuration)
-
-### Development Environment
-- **Primary**: Windows 10/11
-- **Target Deployment**: Shop PC (Windows)
-- **Portability**: USB drive, cloud sync, network share
+- **Database**: SQLite 3.x (embedded, zero-config)
+- **Vector Search**: ChromaDB (semantic embeddings)
+- **Language**: Python 3.11+
+- **AI Framework**: Claude Code with SuperClaude agent framework
+- **Platform**: Windows 10/11
+- **Data Formats**: SQLite (structured), JSON (manuals), ChromaDB (embeddings)
 
 ---
 
 ## Success Criteria
 
-### Completed Criteria
+### Completed
 - [x] Database schema supports 22,800+ vehicles
 - [x] 33 tables with full relational integrity
 - [x] 28 optimized indexes implemented
-- [x] Vehicle importer functional (792 vehicles loaded)
+- [x] 18,607 vehicles loaded (2005-2025)
+- [x] 270 DTC codes imported
+- [x] 65 failure patterns with vehicle links
+- [x] 2,144,604 NHTSA complaints integrated
 - [x] Full-text search enabled
-- [x] Foreign key constraints enforced
-- [x] Windows-compatible Python scripts
+- [x] ChromaDB vector store operational
+- [x] Architecture documentation complete
 
-### In Progress
-- [ ] Import remaining 20 years of vehicle data
-- [ ] Import Common Failures database
-- [ ] Import OBD-II codes
-- [ ] Create data relationship links
+### In Progress (Phase 3)
+- [ ] Enhanced confidence scoring with NHTSA data
+- [ ] Symptom matching engine
+- [ ] Safety alert system
+- [ ] Diagnostic agent framework
+- [ ] Master coordinator agent
 
 ### Pending
-- [ ] Cloud synchronization setup
-- [ ] Skills integration
+- [ ] Web-based diagnostic interface
 - [ ] Shop PC deployment
 - [ ] End-to-end testing
-
----
-
-## Risks and Mitigation
-
-### Identified Risks
-
-1. **Data Quality Issues**
-   - **Risk**: Inconsistent vehicle data formats
-   - **Mitigation**: Flexible parsing with validation and error reporting
-   - **Status**: Addressed in vehicle importer
-
-2. **Performance Degradation**
-   - **Risk**: Slow queries with full dataset
-   - **Mitigation**: 28 optimized indexes, query profiling
-   - **Status**: Monitored, optimizations ready
-
-3. **Database Portability**
-   - **Risk**: Large file size (500-600 MB)
-   - **Mitigation**: Single file design, cloud sync, compression
-   - **Status**: Acceptable for use case
-
-4. **Windows Compatibility**
-   - **Risk**: Path length limits, emoji rendering
-   - **Mitigation**: Single .db file, ASCII output format
-   - **Status**: Resolved
-
----
-
-## Lessons Learned
-
-### Technical Insights
-
-1. **JSON Not Scalable for This Use Case**
-   - 1,142 vehicles for ONE year confirmed SQLite necessity
-   - Query performance critical for diagnostic workflows
-
-2. **Windows Emoji Issues**
-   - Terminal emoji rendering unreliable
-   - Solution: `[TAG]` format instead of emoji in CLI output
-
-3. **Duplicate Detection Strategy**
-   - Vehicles have multiple trims with same engine
-   - UNIQUE constraints on (make, model, year, engine) handle this elegantly
-
-4. **Engine Format Variability**
-   - Multiple formats require flexible regex parsing
-   - Created comprehensive parser supporting all common formats
-
-5. **Schema-First Design**
-   - Designing complete schema upfront saved significant time
-   - Foreign key relationships clear from the start
 
 ---
 
@@ -345,64 +253,31 @@ WHERE failure_patterns_fts MATCH 'rough idle startup';
 ### Completed
 - **October 30, 2025**: Initial project setup
 - **November 2, 2025**: Phase 1 complete (database foundation)
+- **November 2-8, 2025**: Phase 2 complete (data integration + architecture docs)
 
-### Planned
-- **Week of November 4**: Phase 2 (data import)
-- **Week of November 11**: Phase 3 (portability setup)
-- **Weeks of November 18-25**: Phase 4 (skills integration)
-- **Weeks of December 2-9**: Phase 5 (testing and deployment)
-
-**Estimated Completion**: Mid-December 2025
-
----
-
-## Questions and Answers
-
-**Q: Is JSON sufficient for 20 years of data?**
-A: No. With 22,800+ vehicles confirmed, SQLite is essential for
-performance and maintainability.
-
-**Q: How do we transport the database to the shop?**
-A: Single .db file (500 MB) via USB drive, cloud sync (OneDrive/Dropbox),
-or network copy.
-
-**Q: Can we query offline?**
-A: Yes. SQLite is embedded with no server required. Works completely offline.
-
-**Q: What about database updates?**
-A: Cloud sync handles automatic updates. Manual option: copy .db file.
-
-**Q: Performance on shop PC?**
-A: SQLite works on any Windows PC. Queries remain <50ms even on older hardware.
-
-**Q: What if the database becomes corrupted?**
-A: Regular backups via cloud sync. SQLite has built-in integrity checking
-and recovery tools.
+### Current
+- **February 2026**: Phase 3 (agent framework and diagnostic engine)
 
 ---
 
 ## Resources
 
 ### Documentation
-- [Database Architecture](DATABASE_ARCHITECTURE.md) - Schema design and implementation
+- [Database Architecture](DATABASE_ARCHITECTURE.md) - Schema design
+- [System Integration Architecture](SYSTEM_INTEGRATION_ARCHITECTURE.md) - Agent hierarchy
+- [NHTSA Integration Strategy](NHTSA_INTEGRATION_STRATEGY.md) - 7 integration patterns
+- [NHTSA Quick Reference](NHTSA_QUICK_REFERENCE.md) - Query commands
 - [Setup Guide](SETUP_GUIDE.md) - Installation and configuration
 - Main [README.md](../README.md) - Project overview
 
-### Database Files
-- `databases/schema.sql` - Complete database schema
-- `databases/init_database_simple.py` - Database initialization
-- `databases/import_vehicles.py` - Vehicle data importer
-- `databases/automotive_diagnostics.db` - SQLite database (excluded from git)
+### Key Database Files
+- `database/schema.sql` - Complete database schema
+- `database/automotive_diagnostics.db` - SQLite database
+- `database/import_*.py` - Data import scripts
+- `scripts/explore_complaints.py` - Interactive NHTSA explorer
 
 ---
 
-## Contact and Support
-
-**Project Developer**: MrPoteete
-**Purpose**: Automotive repair shop diagnostic system
-**Repository**: automotive-diagnostic-skills (local development)
-
----
-
-**Status Summary**: Phase 1 complete. Database foundation ready.
-Proceeding to Phase 2 (data import).
+**Status Summary**: Phases 1 and 2 complete. Data foundation solid with 2.1M+
+complaints, 18K+ vehicles, 270 DTCs, 65 failure patterns. Ready for Phase 3:
+building the diagnostic engine and agent framework.

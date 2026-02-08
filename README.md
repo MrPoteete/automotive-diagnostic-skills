@@ -22,16 +22,29 @@ deliver fast, accurate diagnostic recommendations.
 - **Service Procedures**: Integration with MyFixit repair manuals
 - **Technical Service Bulletins**: Manufacturer TSB tracking
 - **Safety-Critical Tracking**: Fire, crash, injury, and death incidents
+- **Diagnostic Skill v3.1**: Progressive disclosure architecture with categorical assessment, anti-hallucination protocols, and source attribution
 
 ### Current Status
 
 **Phase 1: Complete** - Database foundation implemented
 - 33 tables with full relational integrity
 - 28 optimized indexes for fast queries
-- 792 vehicles loaded (2005 proof-of-concept)
 - Full-text search capabilities (FTS5)
 
-**Phase 2: In Progress** - Data import for all 20 years
+**Phase 2: Complete** - Data integration
+- 18,607 vehicles loaded (2005-2025)
+- 270 OBD-II diagnostic trouble codes imported
+- 65 failure patterns with 1,994 vehicle links
+- 2,144,604 NHTSA complaints integrated with FTS5 search
+- ChromaDB vector store with forum data (Reddit, Stack Exchange)
+
+**Diagnostic Skill v3.1: Deployed** - Professional diagnostic assistant
+- Categorical assessment system (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)
+- Anti-hallucination protocols with 3-tier source attribution
+- Progressive disclosure routing (6 request types)
+- CO-STAR persona framework for ASE-certified technicians
+
+**Phase 3: Next** - Agent framework and diagnostic engine
 
 See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed roadmap.
 
@@ -47,18 +60,39 @@ See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed roadmap.
 
 ```
 automotive-diagnostic-skills/
-├── databases/             # Database schema and scripts
+├── .claude/                # SuperClaude agent framework (15 personas, 18 commands)
+├── skills/                 # Diagnostic skill v3.1 (Claude Desktop skill architecture)
+│   ├── SKILL.md                      # Main skill definition (v3.1)
+│   ├── CHANGELOG_v3.1.md             # Detailed change documentation
+│   ├── references/                   # Loaded by progressive disclosure routing
+│   │   ├── anti-hallucination.md     # Source grounding & confidence protocols (v2.1)
+│   │   └── response-framework.md    # CO-STAR persona & output templates
+│   └── backups/v3.0/                # Previous version backups
+├── database/               # SQLite database and import scripts
 │   ├── schema.sql                    # Complete database schema (33 tables)
+│   ├── schema_nhtsa_complaints.sql   # NHTSA-specific tables
 │   ├── init_database_simple.py       # Database initialization
 │   ├── import_vehicles.py            # Vehicle data importer
-│   └── automotive_diagnostics.db     # SQLite database (not in git)
-├── docs/                  # Documentation
+│   ├── import_dtc_codes.py           # DTC code importer
+│   ├── import_failure_data.py        # Failure pattern importer
+│   └── automotive_diagnostics.db     # SQLite database
+├── data/
+│   ├── raw_imports/                  # Original source files (never modify)
+│   ├── service_manuals/              # iFixit repair procedures (JSON)
+│   ├── vector_store/chroma/          # ChromaDB semantic search database
+│   └── processed/                    # AI-ready processed documents
+├── scripts/                # Utility and exploration scripts
+│   ├── import_nhtsa_complaints.py    # NHTSA complaint importer
+│   └── explore_complaints.py         # Interactive data explorer
+├── src/                    # Application source code (in development)
+├── docs/                   # Comprehensive documentation
 │   ├── PROJECT_STATUS.md             # Current status and roadmap
 │   ├── DATABASE_ARCHITECTURE.md      # Schema design and details
-│   └── SETUP_GUIDE.md                # Installation and setup
-├── skills/                # Claude diagnostic skills (future)
-├── tools/                 # Helper utilities (future)
-└── README.md              # This file
+│   ├── SYSTEM_INTEGRATION_ARCHITECTURE.md  # Agent hierarchy design
+│   ├── NHTSA_INTEGRATION_STRATEGY.md # 7 integration patterns
+│   ├── NHTSA_QUICK_REFERENCE.md      # Copy-paste query commands
+│   └── SETUP_GUIDE.md               # Installation and setup
+└── README.md               # This file
 ```
 
 ## Quick Start
@@ -78,18 +112,26 @@ automotive-diagnostic-skills/
    cd automotive-diagnostic-skills
    ```
 
-2. Create the database:
+2. Create and activate virtual environment:
    ```bash
-   cd databases
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+3. Create the database:
+   ```bash
+   cd database
    python init_database_simple.py --force
    ```
 
-3. Import vehicle data:
+4. Import data (vehicles, DTCs, failure patterns):
    ```bash
-   python import_vehicles.py --file "path\to\vehicles.txt" --year 2005
+   python import_vehicles.py
+   python import_dtc_codes.py
+   python import_failure_data.py
    ```
 
-4. Verify installation:
+5. Verify installation:
    ```bash
    python init_database_simple.py --stats
    ```
@@ -210,28 +252,33 @@ conn.close()
 - [x] Database schema design (33 tables, 28 indexes)
 - [x] Database initialization scripts
 - [x] Vehicle data importer
-- [x] Proof-of-concept (792 vehicles loaded)
+- [x] Full-text search (FTS5) enabled
 
-### Phase 2: Data Import (Current)
-- [ ] Import all vehicle data (2005-2025)
-- [ ] Import common failures database
-- [ ] Import OBD-II diagnostic codes
-- [ ] Link data relationships
+### Phase 2: Data Integration (Complete)
+- [x] Import all vehicle data - 18,607 vehicles (2005-2025)
+- [x] Import OBD-II diagnostic codes (270 codes)
+- [x] Import common failures database (65 patterns, 1,994 vehicle links)
+- [x] Import NHTSA complaints (2,144,604 records)
+- [x] ChromaDB vector store with forum data
+- [x] Architecture documentation (agent hierarchy, NHTSA integration strategy)
 
-### Phase 3: Portability Setup
-- [ ] Configure cloud synchronization
-- [ ] Create deployment package
-- [ ] Test shop PC deployment
+### Phase 3: Agent Framework & Diagnostic Engine (Current)
+- [ ] Implement enhanced confidence scoring (NHTSA-boosted)
+- [ ] Build symptom matching engine (FTS5 + ChromaDB)
+- [ ] Create safety alert system (fire/crash/injury flagging)
+- [ ] Build master coordinator agent
+- [ ] Build specialized diagnostic agents (Engine, Transmission, Electrical)
+- [ ] Implement trend analysis queries
 
-### Phase 4: Skills Integration
-- [ ] Build router skill
-- [ ] Build engine diagnostics skill
-- [ ] Build output formatter skill
+### Phase 4: Output & Interface
+- [ ] Build output formatter (mechanic reports, customer explanations)
+- [ ] Web-based diagnostic interface
+- [ ] Vehicle selection and symptom input
 
 ### Phase 5: Testing and Deployment
-- [ ] End-to-end testing
+- [ ] End-to-end testing with real diagnostic scenarios
 - [ ] Performance validation
-- [ ] Shop PC deployment
+- [ ] Shop PC deployment and cloud sync
 
 ## Documentation
 
@@ -239,8 +286,16 @@ conn.close()
   next steps
 - [Database Architecture](docs/DATABASE_ARCHITECTURE.md) - Complete schema
   design and implementation details
+- [System Integration Architecture](docs/SYSTEM_INTEGRATION_ARCHITECTURE.md) -
+  Agent hierarchy and data flow design
+- [NHTSA Integration Strategy](docs/NHTSA_INTEGRATION_STRATEGY.md) - 7
+  integration patterns with code examples
+- [NHTSA Quick Reference](docs/NHTSA_QUICK_REFERENCE.md) - Copy-paste
+  commands for querying complaints
 - [Setup Guide](docs/SETUP_GUIDE.md) - Installation, configuration, and
   troubleshooting
+- [Skill v3.1 Changelog](skills/CHANGELOG_v3.1.md) - Diagnostic skill
+  changes and improvements
 
 ## Architecture Decision: SQLite vs JSON
 
