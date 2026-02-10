@@ -12,15 +12,18 @@
 ## 📍 Where We Are Now
 
 ### ✅ RECENTLY COMPLETED:
-1.  **Phase 2: Database Integration** (Complete) - 2.1M+ NHTSA complaints, 22k+ vehicles indexed.
-2.  **Dual-Agent Workflow**: Established standardized `tasks.py` and documentation for seamless switching between Gemini and Claude.
-3.  **Project Context**: Documented skill architecture (`SKILL.md`) and core files.
+1.  **Phase 3.1: Remote RAG Infrastructure** (Complete)
+    *   **API Server**: Built `server/home_server.py` with FastAPI & valid API Key.
+    *   **Data Indexing**: Created `database/automotive_complaints.db` with FTS5 for 2.1M+ records.
+    *   **Connectivity**: Validated remote access via Tailscale (Omnidesk ↔ Work Laptop).
+2.  **Phase 2: Database Integration** (Complete) - 2.1M+ NHTSA complaints.
+3.  **Dual-Agent Workflow**: Established `tasks.py` and documentation.
 
 ### 🎯 CURRENT OBJECTIVE:
-**Build the Agent Framework (Phase 3)**
-*   Implement the `Master Coordinator Agent`.
-*   Build the `Symptom Matching Engine` using FTS5 (SQLite) and ChromaDB.
-*   Enhance confidence scoring with NHTSA frequency data.
+**Build the Client-Side Agent (Phase 3.2)**
+*   Implement `Client Agent` on Work Laptop to query the Home API.
+*   Finalize "Headless" auto-start for the Home Server.
+*   Integrate `symptom_matcher.py` with the remote API.
 
 ### 📋 NEXT STEPS (For Gemini or Claude):
 1.  **Create `src/agents/coordinator.py`**: The entry point for the diagnostic skill.
