@@ -40,9 +40,10 @@ OBD_DOMAIN_MAP = {
     "B00": "electrical",  # Body Systems
     "B01": "electrical",  # Body Systems
     "B02": "electrical",  # Body Systems
-    "C00": "brake",       # Chassis / ABS
-    "C01": "brake",       # Chassis / ABS
-    "C02": "brake",       # Chassis / ABS
+    "C00": "chassis",     # Chassis (Brakes/Suspension)
+    "C01": "chassis",     # Chassis (Brakes/Suspension)
+    "C02": "chassis",     # Chassis (Brakes/Suspension)
+    "C12": "chassis",     # Example: ABS/Dynamic Stability
     "U00": "electrical",  # Network / CAN Bus
     "U01": "electrical",  # Network / CAN Bus
     "U02": "electrical",  # Network / CAN Bus
@@ -128,12 +129,19 @@ def get_severity(obd_code: str, symptoms: str = "") -> str:
     # Transmission codes are HIGH severity
     if obd_upper.startswith("P07") or obd_upper.startswith("P08"):
         return "HIGH"
+
+    # Chassis/Brake codes are HIGH severity
+    if obd_upper.startswith("C"):
+        return "HIGH"
     
     # Check symptoms for severity escalation
     symptoms_lower = symptoms.lower()
     
     if "stall" in symptoms_lower or "no start" in symptoms_lower or "hard start" in symptoms_lower:
         return "HIGH"
+
+    if "brake" in symptoms_lower or "steering" in symptoms_lower or "wobble" in symptoms_lower:
+        return "CRITICAL" # Safety issue
     
     if "rough" in symptoms_lower or "misfire" in symptoms_lower or "harsh" in symptoms_lower or "electrical" in symptoms_lower:
         return "MEDIUM"
