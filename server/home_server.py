@@ -5,8 +5,29 @@ import sqlite3
 import uvicorn
 import os
 from typing import List, Optional
+import logging
+from logging.handlers import RotatingFileHandler
+import sys
+
+# --- LOGGING CONFIGURATION ---
+# Rotate log file at 5MB, keep 3 backups.
+LOG_FILE = "server.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("server")
 
 app = FastAPI(title="Automotive Diagnostic RAG Server")
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Server starting up...")
+    logger.info(f"Database Path: {DB_PATH}")
 
 # 🔒 SECURITY
 API_KEY = "mechanic-secret-key-123" 
@@ -45,8 +66,11 @@ async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
         
         # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
+        # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
         if not clean_query:
-             clean_query = query # Let it fail or match nothing, but usually won't happen for valid inputs
+             clean_query = query 
+
+        logger.info(f"Search: '{query}' -> '{clean_query}'")
 
         search_sql = """
             SELECT make, model, year, component, summary 
@@ -59,6 +83,8 @@ async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
         
+        logger.info(f"Found {len(results)} matches.")
+
         return {
             "query": query, 
             "sanitized_query": clean_query,
@@ -67,8 +93,7 @@ async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(
         }
         
     except Exception as e:
-        import traceback
-        traceback.print_exc() # Print full stack trace to server logs
+        logger.error(f"Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
 if __name__ == "__main__":

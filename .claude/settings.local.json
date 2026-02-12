@@ -10,7 +10,9 @@
       "Bash(powershell.exe:*)",
       "Bash(python -c \"import zipfile; z=zipfile.ZipFile\\(''automotive-diagnostics-v3.1.skill''\\); print\\(z.namelist\\(\\)\\); z.extractall\\(''extracted_skill''\\)\")",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$\\(cat <<''EOF''\nDeploy diagnostic skill v3.1 and update project documentation\n\nAdd complete skill architecture to skills/ directory:\n- SKILL.md v3.1: Progressive disclosure routing, categorical assessment,\n  mandatory SOURCES/DISCLAIMER sections, data level assessment\n- anti-hallucination.md v2.1: 3-tier source attribution, specification\n  verification flags, evidence FOR/AGAINST requirement\n- response-framework.md: CO-STAR persona and output templates\n- CHANGELOG_v3.1.md: Detailed change documentation\n- v3.0 backups preserved in skills/backups/v3.0/\n\nUpdate project documentation to reflect skill deployment and\ncurrent project state \\(Phase 2 complete, Phase 3 ready\\).\n\nExpected skill score: Grade B+ \\(87.5/100\\), up from C \\(76.5/100\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nDeploy diagnostic skill v3.1 and update project documentation\n\nAdd complete skill architecture to skills/ directory:\n- SKILL.md v3.1: Progressive disclosure routing, categorical assessment,\n  mandatory SOURCES/DISCLAIMER sections, data level assessment\n- anti-hallucination.md v2.1: 3-tier source attribution, specification\n  verification flags, evidence FOR/AGAINST requirement\n- response-framework.md: CO-STAR persona and output templates\n- CHANGELOG_v3.1.md: Detailed change documentation\n- v3.0 backups preserved in skills/backups/v3.0/\n\nUpdate project documentation to reflect skill deployment and\ncurrent project state \\(Phase 2 complete, Phase 3 ready\\).\n\nExpected skill score: Grade B+ \\(87.5/100\\), up from C \\(76.5/100\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []
