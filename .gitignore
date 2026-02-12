@@ -100,7 +100,8 @@ docs/.doctrees/
 .cache/
 *.cache
 
-# Environment variables
+# Environment variables (secrets)
+# Note: .env.example is safe to commit (template only)
 .env
 .env.local
 .env.*.local

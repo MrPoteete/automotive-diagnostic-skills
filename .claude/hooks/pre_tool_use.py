@@ -101,7 +101,8 @@ def check_env_file_access(tool_name, tool_input):
     if tool_name in ("Write", "Edit"):
         file_path = tool_input.get("file_path", "")
         basename = Path(file_path).name if file_path else ""
-        if basename == ".env" or basename.startswith(".env."):
+        # Block .env and .env.* but allow .env.example (safe template)
+        if basename == ".env" or (basename.startswith(".env.") and not basename.endswith(".example")):
             return True
     return False
 
