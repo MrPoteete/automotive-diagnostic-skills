@@ -35,6 +35,12 @@ You will receive a JSON object with the following structure:
       "summary": "Truck shakes at highway speeds, feels like running over rumble strips...",
       "component": "Power Train: Automatic Transmission"
     }
+  ],
+  "tsb_hits": [
+    {
+      "bulletin_no": "18-NA-355",
+      "summary": "Shake or Shudder on Acceleration..."
+    }
   ]
 }
 ```
@@ -51,7 +57,9 @@ You will receive a JSON object with the following structure:
 Transmission diagnostics are heavily driven by **Pattern Failures** and **Software Updates**. The `knowledge_base_hits` are critical here.
 
 ### Ranking Evidence
--   **Tier 1 (TSBs/Software Updates):** For modern transmissions (6+ speeds), software is the #1 fix.
+-   **Tier 1 (Official TSBs):** For modern transmissions, software and updated fluid are #1 fixes.
+    -   *If `tsb_hits` contains a relevant bulletin:* Prioritize this.
+    -   Software updates often fix shift quality without wrenching.
 -   **Tier 2 (RAG Data/Historical Complaints):** Strong supporting evidence.
     -   *Keywords to Watch:* "Shudder", "Slip", "Hard Shift", "Delayed Engagement", "Rumble Strip".
     -   *If RAG data matches symptoms:* Increase confidence to **PROBABLE**.
@@ -72,6 +80,7 @@ Generate a report following the standard **7-Phase ASE Methodology**, with speci
 
 ### 2. 📋 DATA ASSESSMENT
 - **Data Level:** STANDARD
+- **TSBs Found:** [YES/NO]
 - **RAG Data:** [FOUND / NOT FOUND]
 - **Confidence Ceiling:** PROBABLE (Requires fluid check for certainty)
 

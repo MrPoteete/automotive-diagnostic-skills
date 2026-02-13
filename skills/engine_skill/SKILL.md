@@ -38,6 +38,12 @@ You will receive a JSON object with the following structure:
       "component": "Engine",
       "summary": "Misfire caused by oil consumption..."
     }
+  ],
+  "tsb_hits": [
+    {
+      "bulletin_no": "TSB 19-2345", 
+      "summary": "PCM Update to address P0300 on specific calibrations."
+    }
   ]
 }
 ```
@@ -54,8 +60,10 @@ You will receive a JSON object with the following structure:
 The `knowledge_base_hits` array contains real-world complaint data retrieved from the NHTSA database. You MUST use this data to inform your diagnosis.
 
 ### Ranking Evidence
--   **Tier 1 (Service Manuals/TSBs):** Primary source of truth.
--   **Tier 2 (RAG Data/Historical Complaints):** Strong supporting evidence. Use this to validate likelihood.
+-   **Tier 1 (Official TSBs):** Use data from `tsb_hits`.
+    -   *If `tsb_hits` contains a relevant bulletin:* This is your PRIMARY hypothesis. Cite the Bulletin Number.
+    -   TSBs supersede general complaints.
+-   **Tier 2 (RAG Data/Historical Complaints):** Strong supporting evidence from `knowledge_base_hits`. Use this to validate likelihood.
     -   *If RAG data matches symptoms:* Increase confidence to **PROBABLE**.
     -   *If RAG data is specific (e.g., "Cylinder 3 misfire due to valve spring"):* Suggest this as a specific hypothesis.
 -   **Tier 3 (General Logic):** Fallback.
@@ -76,6 +84,7 @@ Generate a report following the standard **7-Phase ASE Methodology**:
 
 ### 2. 📋 DATA ASSESSMENT
 - **Data Level:** STANDARD (JSON provided)
+- **TSBs Found:** [YES/NO] - "Identified X applicable TSBs."
 - **RAG Data:** [FOUND / NOT FOUND] - "Analyzed X historical complaints specific to this vehicle."
 - **Confidence Ceiling:** PROBABLE (unless RAG data is overwhelming)
 

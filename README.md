@@ -20,7 +20,7 @@ deliver fast, accurate diagnostic recommendations.
   correlation
 - **Failure Pattern Analysis**: Common failures with confidence ratings
 - **Service Procedures**: Integration with MyFixit repair manuals
-- **Technical Service Bulletins**: Manufacturer TSB tracking
+- **Technical Service Bulletins**: **211,000+ Manufacturer Communications** (2005-2025)
 - **Safety-Critical Tracking**: Fire, crash, injury, and death incidents
 - **Diagnostic Skill v3.1**: Progressive disclosure architecture with categorical assessment, anti-hallucination protocols, and source attribution
 
@@ -36,11 +36,12 @@ deliver fast, accurate diagnostic recommendations.
 - 270 OBD-II diagnostic trouble codes imported
 - 65 failure patterns with 1,994 vehicle links
 - 2,144,604 NHTSA complaints integrated with FTS5 search
+- **211,640 TSBs and Manufacturer Communications integrated**
 - ChromaDB vector store with forum data (Reddit, Stack Exchange)
 
 **Diagnostic Skill v3.1: Deployed** - Professional diagnostic assistant
 - Categorical assessment system (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)
-- Anti-hallucination protocols with 3-tier source attribution
+- Anti-hallucination protocols with 3-tier source attribution (TSBs > Complaints > Logic)
 - Progressive disclosure routing (6 request types)
 - CO-STAR persona framework for ASE-certified technicians
 
@@ -71,6 +72,7 @@ automotive-diagnostic-skills/
 ├── database/               # SQLite database and import scripts
 │   ├── schema.sql                    # Complete database schema (33 tables)
 │   ├── schema_nhtsa_complaints.sql   # NHTSA-specific tables
+│   ├── schema_nhtsa_tsbs.sql         # TSB-specific tables
 │   ├── init_database_simple.py       # Database initialization
 │   ├── import_vehicles.py            # Vehicle data importer
 │   ├── import_dtc_codes.py           # DTC code importer
@@ -83,6 +85,7 @@ automotive-diagnostic-skills/
 │   └── processed/                    # AI-ready processed documents
 ├── scripts/                # Utility and exploration scripts
 │   ├── import_nhtsa_complaints.py    # NHTSA complaint importer
+│   ├── import_tsbs.py                # TSB data importer
 │   └── explore_complaints.py         # Interactive data explorer
 ├── src/                    # Application source code (in development)
 ├── docs/                   # Comprehensive documentation
@@ -169,6 +172,28 @@ cursor = conn.execute("""
 print("\nTop 10 Issues for 2018 Ford F-150:\n")
 for row in cursor:
     print(f"  {row[1]:3d} complaints - {row[0]}")
+
+conn.close()
+```
+
+### Search for Technical Service Bulletins (TSBs)
+
+**Find TSBs for a specific issue:**
+```python
+# Save as search_tsbs.py
+import sqlite3
+
+conn = sqlite3.connect('database/automotive_diagnostics.db')
+cursor = conn.execute("""
+    SELECT year, make, model, component, summary
+    FROM nhtsa_tsbs
+    WHERE make = 'CHEVROLET' AND model LIKE 'SILVERADO%' AND summary LIKE '%SHUDDER%'
+    LIMIT 5
+""")
+
+print("\nTop TSBs for Silverado Shudder:\n")
+for row in cursor:
+    print(f"  {row[0]} {row[1]} {row[2]} - {row[4][:100]}...")
 
 conn.close()
 ```

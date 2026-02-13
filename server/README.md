@@ -17,7 +17,9 @@ This directory contains the core server infrastructure for the AI mechanic syste
 
 ### 2. Core Applications
 -   **`home_server.py`**: The "brain". A FastAPI server that connects to the database (`automotive_complaints.db`) and provides search APIs.
--   **`rag_dashboard.py`**: The "face". A Streamlit web app that lets you search for complaints.
+    -   `GET /search`: Search user complaints.
+    -   `GET /search_tsbs`: Search manufacturer TSBs.
+-   **`rag_dashboard.py`**: The "face". A Streamlit web app that lets you search for complaints and TSBs.
 -   **`data_miner.py`**: The "worker". Downloads data from NHTSA.
     -   Usage: `python data_miner.py --fleet` (Mines 20 years of data for 60+ models).
 

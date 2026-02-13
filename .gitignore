@@ -106,6 +106,9 @@ docs/.doctrees/
 .env.local
 .env.*.local
 
+# MCP Server configuration (contains API keys)
+.mcp.json
+
 # Compressed files
 *.zip
 *.tar.gz
