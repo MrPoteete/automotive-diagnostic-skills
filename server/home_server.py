@@ -1,10 +1,9 @@
 
-from fastapi import FastAPI, HTTPException, Security, Depends
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import APIKeyHeader
 import sqlite3
 import uvicorn
 import os
-from typing import List, Optional
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
@@ -96,6 +95,70 @@ async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(
         logger.error(f"Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
+@app.get("/search_tsbs")
+async def search_tsbs(query: str, limit: int = 20, api_key: str = Depends(get_api_key)):
+    """
+    Search specifically for Technical Service Bulletins (TSBs) and Manufacturer Communications.
+    """
+    if not os.path.exists(DB_PATH):
+        raise HTTPException(status_code=500, detail="Database not indexed yet.")
+        
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # FTS5 requires careful handling of special characters.
+        import re
+        clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
+        clean_query = re.sub(r'\s+', ' ', clean_query).strip()
+        
+        if not clean_query:
+             clean_query = query 
+        
+        logger.info(f"TSB Search: '{query}' -> '{clean_query}'")
+
+        # Check if TSB table exists (graceful degradation)
+        cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='tsbs_fts'")
+        if cursor.fetchone()[0] == 0:
+             conn.close()
+             return {"results": [], "message": "TSB data not available yet."}
+
+        search_sql = """
+            SELECT nhtsa_id, make, model, year, component, summary 
+            FROM tsbs_fts 
+            WHERE tsbs_fts MATCH ? 
+            ORDER BY rank
+            LIMIT ?
+        """
+        cursor.execute(search_sql, (clean_query, limit))
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        logger.info(f"Found {len(results)} TSB matches.")
+
+        return {
+            "query": query, 
+            "sanitized_query": clean_query,
+            "results": results,
+            "source": "NHTSA TSB Index"
+        }
+        
+    except Exception as e:
+        logger.error(f"TSB Search Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+
 if __name__ == "__main__":
     # Host on 0.0.0.0 for Tailscale remote access
+    import socket
+
+    def is_port_in_use(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            return s.connect_ex(('localhost', port)) == 0
+
+    if is_port_in_use(8000):
+        logger.warning("Port 8000 is already in use. Assuming server is already running via Auto-Start.")
+        sys.exit(0)
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

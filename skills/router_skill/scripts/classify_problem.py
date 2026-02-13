@@ -15,7 +15,7 @@ Date: 2025-10-30
 import json
 import sys
 import requests
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 # RAG Server Configuration
 RAG_SERVER_URL = "http://localhost:8000/search"
@@ -278,9 +278,33 @@ def route_diagnostic(obd_code: str, make: str = "", model: str = "", year: int =
             if resp.status_code == 200:
                 rag_data = resp.json().get("results", [])
                 
-    except Exception as e:
+    except Exception:
         # specific error handling or logging could go here
-        # For now, we just proceed without RAG data if offline
+        pass
+
+    # --- TSB INTEGRATION ---
+    tsb_hits = []
+    try:
+        # Construct TSB query: Year Make Model + Code + Domain (Component)
+        # TSBs are often indexed by component, so "engine" or "transmission" helps
+        tsb_parts = []
+        if year: tsb_parts.append(str(year))
+        if make: tsb_parts.append(make)
+        if model: tsb_parts.append(model)
+        if obd_code: tsb_parts.append(obd_code)
+        if domain and domain != "unknown": tsb_parts.append(domain)
+        
+        tsb_query = " ".join(tsb_parts)
+        
+        resp = requests.get(
+            "http://localhost:8000/search_tsbs", 
+            headers={"X-API-KEY": RAG_API_KEY},
+            params={"query": tsb_query, "limit": 3},
+            timeout=2.0
+        )
+        if resp.status_code == 200:
+            tsb_hits = resp.json().get("results", [])
+    except Exception:
         pass
 
     return {
@@ -288,6 +312,7 @@ def route_diagnostic(obd_code: str, make: str = "", model: str = "", year: int =
         "routing_decision": routing_decision,
         "vehicle_profile": vehicle_context,
         "knowledge_base_hits": rag_data,
+        "tsb_hits": tsb_hits,
         "recommendation": f"Route to {domain} skill for detailed analysis" if domain != "unknown" else "Classify error - escalate",
     }
 

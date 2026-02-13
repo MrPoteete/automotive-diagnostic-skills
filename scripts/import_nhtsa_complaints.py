@@ -19,10 +19,9 @@ Features:
 
 import sys
 import sqlite3
-import re
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List
 
 
 # Field positions in the tab-delimited file
@@ -163,7 +162,7 @@ class NHTSAComplaintParser:
 
             return record
 
-        except (ValueError, IndexError) as e:
+        except (ValueError, IndexError):
             # Skip malformed lines
             return None
 
@@ -224,7 +223,7 @@ class NHTSAComplaintParser:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         print(f"\n{'='*80}")
-        print(f"IMPORTING NHTSA COMPLAINTS")
+        print("IMPORTING NHTSA COMPLAINTS")
         print(f"{'='*80}")
         print(f"Source: {file_path.name}")
         print(f"Database: {self.db_path}")
@@ -288,7 +287,7 @@ class NHTSAComplaintParser:
         # Final statistics
         elapsed = (datetime.now() - start_time).total_seconds()
         print(f"\n{'='*80}")
-        print(f"IMPORT COMPLETE")
+        print("IMPORT COMPLETE")
         print(f"{'='*80}")
         print(f"Total lines processed: {self.stats['total_lines']:,}")
         print(f"Records imported:      {self.stats['imported']:,}")

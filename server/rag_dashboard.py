@@ -1,7 +1,6 @@
 
 import streamlit as st
 import requests
-import json
 import time
 
 # --- CONFIGURATION ---
@@ -29,6 +28,7 @@ st.markdown("""
     }
     .stTextInput > div > div > input {
         color: #000000;
+        caret-color: #000000;
         background-color: #ffffff;
         font-size: 1.2em;
     }
@@ -88,57 +88,93 @@ if st.button("Search Database", type="primary") or query:
         st.warning("Please enter a search term.")
     else:
         with st.spinner(f"Searching for '{query}'..."):
-            try:
-                # Call the API
-                headers = {"X-API-KEY": API_KEY}
-                params = {"query": query, "limit": limit}
-                start_time = time.time()
-                response = requests.get(f"{API_URL}/search", headers=headers, params=params)
-                end_time = time.time()
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    results = data.get("results", [])
+            headers = {"X-API-KEY": API_KEY}
+            params = {"query": query, "limit": limit}
+            
+            tab_complaints, tab_tsbs = st.tabs(["📝 Owner Complaints", "🔧 Technical Service Bulletins (TSBs)"])
+            
+            # --- COMPLAINTS TAB ---
+            with tab_complaints:
+                try:
+                    start_time = time.time()
+                    response = requests.get(f"{API_URL}/search", headers=headers, params=params)
+                    end_time = time.time()
                     
-                    # Metrics
-                    col1, col2 = st.columns(2)
-                    col1.metric("Results Found", len(results))
-                    col2.metric("Search Time", f"{(end_time - start_time):.3f}s")
-                    
-                    if "sanitized_query" in data and data["sanitized_query"] != query:
-                         st.caption(f"Sanitized Query: `{data['sanitized_query']}`")
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = data.get("results", [])
+                        
+                        col1, col2 = st.columns(2)
+                        col1.metric("Complaints Found", len(results))
+                        col2.metric("Time", f"{(end_time - start_time):.3f}s")
+                        
+                        if not results:
+                            st.info("No specific complaints found.")
+                        
+                        for result in results:
+                            make = result.get('make', 'UNKNOWN')
+                            model = result.get('model', 'UNKNOWN')
+                            year = result.get('year', '????')
+                            comp = result.get('component', 'GENERAL')
+                            summary = result.get('summary', 'No details provided.')
+                            
+                            st.markdown(f"""
+                            <div class="complaint-card">
+                                <div class="complaint-header">
+                                    🚗 {year} {make} {model} | {comp}
+                                </div>
+                                <div class="complaint-summary">
+                                    "{summary}"
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.error(f"API Error: {response.status_code}")
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to Server.")
 
+            # --- TSB TAB ---
+            with tab_tsbs:
+                try:
+                    start_time = time.time()
+                    response = requests.get(f"{API_URL}/search_tsbs", headers=headers, params=params)
+                    end_time = time.time()
                     
-                    st.markdown("### 📋 Findings")
-                    
-                    if not results:
-                        st.info("No specific complaints found. Try broadening your search terms.")
-                    
-                    for i, result in enumerate(results):
-                        # Construct a nice card
-                        make = result.get('make', 'UNKNOWN')
-                        model = result.get('model', 'UNKNOWN')
-                        year = result.get('year', '????')
-                        comp = result.get('component', 'GENERAL')
-                        summary = result.get('summary', 'No details provided.')
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = data.get("results", [])
                         
-                        st.markdown(f"""
-                        <div class="complaint-card">
-                            <div class="complaint-header">
-                                🚗 {year} {make} {model} | {comp}
+                        col1, col2 = st.columns(2)
+                        col1.metric("TSBs Found", len(results))
+                        col2.metric("Time", f"{(end_time - start_time):.3f}s")
+                        
+                        if "message" in data:
+                            st.warning(data["message"])
+                        elif not results:
+                            st.info("No TSBs found matching your query.")
+                            
+                        for result in results:
+                            make = result.get('make', 'UNKNOWN')
+                            model = result.get('model', 'UNKNOWN')
+                            year = result.get('year', '????')
+                            comp = result.get('component', 'GENERAL')
+                            summary = result.get('summary', 'No details provided.')
+                            tsb_id = result.get('nhtsa_id', 'N/A')
+                            
+                            st.markdown(f"""
+                            <div class="complaint-card" style="border-left: 5px solid #4b7bff;">
+                                <div class="complaint-header" style="color: #4b7bff;">
+                                    🔧 {year} {make} {model} | TSB #{tsb_id}
+                                </div>
+                                <div style="font-size: 0.9em; color: #88aec6; margin-bottom: 5px;">
+                                    Component: {comp}
+                                </div>
+                                <div class="complaint-summary">
+                                    "{summary}"
+                                </div>
                             </div>
-                            <div class="complaint-summary">
-                                "{summary}"
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with st.expander("View Raw JSON Response"):
-                        st.json(data)
-                        
-                else:
-                    st.error(f"API Error: {response.status_code}")
-                    st.write(response.text)
-                    
-            except requests.exceptions.ConnectionError:
-                st.error("Could not connect to the RAG Server. Is it running?")
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.error(f"API Error: {response.status_code}")
+                except requests.exceptions.ConnectionError:
+                    st.error("Could not connect to Server.")

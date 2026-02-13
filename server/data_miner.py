@@ -1,7 +1,6 @@
 import requests
 import sqlite3
 import argparse
-import sys
 import os
 import time
 
@@ -134,7 +133,7 @@ def process_targets(conn, targets, start_year, end_year):
     total_ops = len(targets) * (end_year - start_year + 1)
     current_op = 0
     
-    print(f"\n--- STARTING FLEET MINING ---")
+    print("\n--- STARTING FLEET MINING ---")
     print(f"Targeting {len(targets)} Models from {start_year} to {end_year}")
     print(f"Total Operations: {total_ops}\n")
     
