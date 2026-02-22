@@ -79,15 +79,12 @@ logs/
 temp/
 tmp/
 
-# Data files (raw import data)
-data/
-*.txt
+# Data files (raw import data — root-level only)
+/data/
 *.csv
 *.tsv
 
-# Test files
-test_*.py
-*_test.py
+# Test artifacts (keep test source files)
 .pytest_cache/
 .coverage
 htmlcov/

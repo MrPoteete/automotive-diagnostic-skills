@@ -27,25 +27,22 @@ deliver fast, accurate diagnostic recommendations.
 ### Current Status
 
 **Phase 1: Complete** - Database foundation implemented
-- 33 tables with full relational integrity
-- 28 optimized indexes for fast queries
-- Full-text search capabilities (FTS5)
+- 33 tables with full relational integrity, 28 optimized indexes, FTS5 full-text search
 
 **Phase 2: Complete** - Data integration
-- 18,607 vehicles loaded (2005-2025)
-- 270 OBD-II diagnostic trouble codes imported
-- 65 failure patterns with 1,994 vehicle links
-- 2,144,604 NHTSA complaints integrated with FTS5 search
-- **211,640 TSBs and Manufacturer Communications integrated**
-- ChromaDB vector store with forum data (Reddit, Stack Exchange)
+- 562K NHTSA complaints indexed (FTS5), 211,640 TSBs, 792 vehicles in diagnostics DB
+- ChromaDB vector store initialized with forum data (Reddit, Stack Exchange)
 
-**Diagnostic Skill v3.1: Deployed** - Professional diagnostic assistant
-- Categorical assessment system (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)
-- Anti-hallucination protocols with 3-tier source attribution (TSBs > Complaints > Logic)
-- Progressive disclosure routing (6 request types)
-- CO-STAR persona framework for ASE-certified technicians
+**Phase 3: Complete** - Diagnostic Engine business logic (2026-02-22)
+- `src/data/db_service.py` — DiagnosticDB wrapper (FTS5 + SQL)
+- `src/diagnostic/confidence_scorer.py` — Confidence scoring (0.5 base + bonuses, capped 1.0)
+- `src/diagnostic/symptom_matcher.py` — Synonym expansion → FTS5 complaint search → ranked components
+- `src/diagnostic/engine_agent.py` — `diagnose()` orchestrator (full pipeline)
+- `src/safety/alert_system.py` — Two-layer safety detection (keyword + narrative scan)
+- `src/analysis/trend_analyzer.py` — Year-over-year trend (INCREASING/DECREASING/STABLE)
+- **269 tests passing** (249 unit + 20 integration against real DB)
 
-**Phase 3: Next** - Agent framework and diagnostic engine
+**Phase 4: Pending** - ChromaDB integration (forum data semantic boost)
 
 See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed roadmap.
 
@@ -83,12 +80,26 @@ automotive-diagnostic-skills/
 │   ├── service_manuals/              # iFixit repair procedures (JSON)
 │   ├── vector_store/chroma/          # ChromaDB semantic search database
 │   └── processed/                    # AI-ready processed documents
+├── server/                 # RAG API Server & Dashboard
+│   ├── home_server.py                # FastAPI server implementation
+│   ├── rag_dashboard.py              # Streamlit testing dashboard
+│   ├── data_miner.py                 # NHTSA data fetcher
+│   └── start_full_system.bat         # One-click launcher
 ├── scripts/                # Utility and exploration scripts
 │   ├── import_nhtsa_complaints.py    # NHTSA complaint importer
 │   ├── import_tsbs.py                # TSB data importer
 │   └── explore_complaints.py         # Interactive data explorer
-├── src/                    # Application source code (in development)
+├── src/                    # Diagnostic engine (Phase 3 complete)
+│   ├── data/db_service.py            # FTS5/SQL database wrapper
+│   ├── diagnostic/
+│   │   ├── confidence_scorer.py      # Confidence scoring (0.5 base + bonuses)
+│   │   ├── symptom_matcher.py        # Synonym expansion + FTS5 search
+│   │   └── engine_agent.py           # diagnose() orchestrator
+│   ├── safety/alert_system.py        # Two-layer safety detection
+│   └── analysis/trend_analyzer.py   # Year-over-year trend analysis
+├── tests/                  # 269 passing tests (unit + integration)
 ├── docs/                   # Comprehensive documentation
+│   ├── archive/                      # Deprecated documentation
 │   ├── PROJECT_STATUS.md             # Current status and roadmap
 │   ├── DATABASE_ARCHITECTURE.md      # Schema design and details
 │   ├── SYSTEM_INTEGRATION_ARCHITECTURE.md  # Agent hierarchy design
@@ -102,41 +113,28 @@ automotive-diagnostic-skills/
 
 ### Prerequisites
 
-- Python 3.8 or later (includes SQLite)
-- Windows 10 or later
+- Python 3.11+ (WSL Ubuntu 24.04 recommended)
+- `uv` package manager
 - 2 GB free disk space
 
 ### Installation
 
-1. Clone or download this repository:
+1. Clone repository:
    ```bash
-   cd C:\Users\YourUsername\Documents
    git clone [repository-url] automotive-diagnostic-skills
    cd automotive-diagnostic-skills
    ```
 
-2. Create and activate virtual environment:
+2. Create virtual environment and install deps:
    ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install fastapi uvicorn sqlite3
    ```
 
-3. Create the database:
+3. Run tests to verify:
    ```bash
-   cd database
-   python init_database_simple.py --force
-   ```
-
-4. Import data (vehicles, DTCs, failure patterns):
-   ```bash
-   python import_vehicles.py
-   python import_dtc_codes.py
-   python import_failure_data.py
-   ```
-
-5. Verify installation:
-   ```bash
-   python init_database_simple.py --stats
+   .venv/bin/pytest tests/unit/ -q
    ```
 
 For detailed installation instructions, see [SETUP_GUIDE.md](docs/SETUP_GUIDE.md).
@@ -287,18 +285,24 @@ conn.close()
 - [x] ChromaDB vector store with forum data
 - [x] Architecture documentation (agent hierarchy, NHTSA integration strategy)
 
-### Phase 3: Agent Framework & Diagnostic Engine (Current)
-- [ ] Implement enhanced confidence scoring (NHTSA-boosted)
-- [ ] Build symptom matching engine (FTS5 + ChromaDB)
-- [ ] Create safety alert system (fire/crash/injury flagging)
-- [ ] Build master coordinator agent
-- [ ] Build specialized diagnostic agents (Engine, Transmission, Electrical)
-- [ ] Implement trend analysis queries
+### Phase 3: Diagnostic Engine Business Logic (Complete 2026-02-22)
+- [x] `src/data/db_service.py` — FTS5/SQL database wrapper
+- [x] `src/diagnostic/confidence_scorer.py` — Confidence scoring with DTC/frequency/safety bonuses
+- [x] `src/diagnostic/symptom_matcher.py` — Synonym expansion + FTS5 complaint search
+- [x] `src/diagnostic/engine_agent.py` — Full diagnosis orchestration pipeline
+- [x] `src/safety/alert_system.py` — Two-layer safety detection (keyword + narrative scan)
+- [x] `src/analysis/trend_analyzer.py` — Year-over-year complaint trend analysis
+- [x] 269 tests passing (249 unit + 20 integration)
+- [x] `mypy.ini` configured, ruff + mypy clean
 
-### Phase 4: Output & Interface
-- [ ] Build output formatter (mechanic reports, customer explanations)
-- [ ] Web-based diagnostic interface
-- [ ] Vehicle selection and symptom input
+### Phase 4: ChromaDB Integration (Next)
+- [ ] Connect forum embeddings to diagnostic pipeline (semantic boost)
+- [ ] Add ChromaDB confidence tier to symptom matcher
+- [ ] Integrate forum results into `engine_agent.py`
+
+### Phase 5: Output & Interface
+- [ ] Mechanic-facing report formatter
+- [ ] Web-based diagnostic interface (Next.js frontend)
 
 ### Phase 5: Testing and Deployment
 - [ ] End-to-end testing with real diagnostic scenarios

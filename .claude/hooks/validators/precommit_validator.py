@@ -90,9 +90,14 @@ def run_pytest() -> str | None:
     if not has_tests:
         return None
 
+    # Prefer venv pytest over system python3 (system python may lack pytest)
+    project_root = Path(__file__).parent.parent.parent.parent
+    venv_pytest = project_root / ".venv" / "bin" / "pytest"
+    pytest_cmd = [str(venv_pytest), "--tb=short", "-q"] if venv_pytest.exists() else ["python3", "-m", "pytest", "--tb=short", "-q"]
+
     try:
         result = subprocess.run(
-            ["python3", "-m", "pytest", "--tb=short", "-q"],
+            pytest_cmd,
             capture_output=True,
             text=True,
             timeout=300,
