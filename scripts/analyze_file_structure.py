@@ -141,7 +141,7 @@ def main():
 
     # File size
     size_info = analyze_file_size(file_path)
-    print(f"📊 FILE SIZE:")
+    print("📊 FILE SIZE:")
     print(f"   {size_info['gigabytes']} GB ({size_info['megabytes']} MB)")
     print(f"   {size_info['bytes']:,} bytes\n")
 

@@ -250,9 +250,13 @@ WHERE v.make = 'Ford' AND dfc.code = 'P0300';
    - Create DTC-to-failure correlations
    - Link to failure patterns
 
-4. **Import MyFixit Manuals**
+4. **Import MyFixit Manuals** (In Progress)
    - Link existing JSON procedures to vehicles
-   - Cross-reference by make/model
+
+5. **Import Technical Service Bulletins (TSBs)** ✅
+   - Source: NHTSA Flat Files
+   - Status: 211,640 records imported (2005-2025)
+   - Search: Full-Text Search (FTS5) enabled via `tsbs_fts` virtual table
 
 ### Phase 3: Portability Setup (Week 2)
 

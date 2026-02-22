@@ -9,7 +9,7 @@ decide how to incorporate forum data into the diagnostic system.
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict
 from collections import Counter, defaultdict
 from datetime import datetime
 
@@ -71,7 +71,7 @@ class ForumDataAnalyzer:
             tag_counter.update(tags)
 
         # Print top 20 tags
-        print(f"\nTop 20 Most Common Tags:")
+        print("\nTop 20 Most Common Tags:")
         print("-" * 50)
         for tag, count in tag_counter.most_common(20):
             percentage = (count / len(self.questions)) * 100
@@ -110,7 +110,7 @@ class ForumDataAnalyzer:
 
         # Print top 30 most discussed codes
         if dtc_counter:
-            print(f"\nTop 30 Most Discussed Codes:")
+            print("\nTop 30 Most Discussed Codes:")
             print("-" * 50)
             for code, count in dtc_counter.most_common(30):
                 print(f"  {code}  mentioned {count} times")
@@ -163,7 +163,7 @@ class ForumDataAnalyzer:
 
         # Score distribution
         scores = [q.get('score', 0) for q in self.questions]
-        print(f"\nQuestion Score Statistics:")
+        print("\nQuestion Score Statistics:")
         print(f"  Average score: {sum(scores)/len(scores):.2f}")
         print(f"  Median score: {sorted(scores)[len(scores)//2]}")
         print(f"  Max score: {max(scores)}")
@@ -213,7 +213,7 @@ class ForumDataAnalyzer:
                 # Strip HTML tags for preview
                 body_text = re.sub(r'<[^>]+>', '', body)
                 body_text = body_text[:300] + '...' if len(body_text) > 300 else body_text
-                print(f"\nQuestion Preview:")
+                print("\nQuestion Preview:")
                 print(body_text)
 
             # Show top answer if exists

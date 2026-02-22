@@ -3,7 +3,6 @@
 Debug why documents aren't being created.
 """
 
-import json
 import sys
 from pathlib import Path
 
@@ -42,11 +41,11 @@ def debug_processing():
         # Get best answer
         answer = processor.get_best_answer(question)
         if not answer:
-            print(f"   ❌ FAIL: get_best_answer() returned None")
+            print("   ❌ FAIL: get_best_answer() returned None")
             print(f"      Answers: {question.get('answers', [])}")
             continue
 
-        print(f"   ✅ Best answer found")
+        print("   ✅ Best answer found")
         print(f"   Answer Score: {answer.get('score', 0)}")
         print(f"   Answer ID: {answer.get('answer_id')}")
 
@@ -63,7 +62,7 @@ def debug_processing():
             print(f"   ❌ FAIL: Answer too short ({len(answer_text)} < {config.MIN_ANSWER_LENGTH})")
             continue
 
-        print(f"   ✅ Would create document successfully!")
+        print("   ✅ Would create document successfully!")
 
     print("\n" + "="*70)
 
@@ -102,13 +101,13 @@ def debug_processing():
     print("\n💡 RECOMMENDATIONS:")
     if low_answer_score > success:
         print(f"   Most failures due to answer score threshold ({config.MIN_ANSWER_SCORE})")
-        print(f"   Consider lowering MIN_ANSWER_SCORE in src/rag/config.py")
-        print(f"   Suggested value: 1 or 0 (accept all scored answers)")
+        print("   Consider lowering MIN_ANSWER_SCORE in src/rag/config.py")
+        print("   Suggested value: 1 or 0 (accept all scored answers)")
 
     if short_answer > success:
         print(f"   Many answers too short (< {config.MIN_ANSWER_LENGTH} chars)")
-        print(f"   Consider lowering MIN_ANSWER_LENGTH in src/rag/config.py")
-        print(f"   Suggested value: 50")
+        print("   Consider lowering MIN_ANSWER_LENGTH in src/rag/config.py")
+        print("   Suggested value: 50")
 
 if __name__ == '__main__':
     debug_processing()

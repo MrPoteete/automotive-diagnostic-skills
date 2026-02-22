@@ -5,7 +5,6 @@ Test different approaches to find what works.
 """
 
 import requests
-import json
 import time
 
 BASE_URL = "https://api.stackexchange.com/2.3"
@@ -26,18 +25,18 @@ def test_api(description, params):
             items = data.get('items', [])
             quota = data.get('quota_remaining', '?')
 
-            print(f"✅ SUCCESS!")
+            print("✅ SUCCESS!")
             print(f"   Questions returned: {len(items)}")
             print(f"   Has more: {data.get('has_more', False)}")
             print(f"   Quota: {quota}/300")
 
             if items:
-                print(f"\n   Sample question:")
+                print("\n   Sample question:")
                 print(f"   Title: {items[0].get('title', 'N/A')}")
                 print(f"   Tags: {items[0].get('tags', [])}")
                 return True
             else:
-                print(f"   ⚠️ No questions in result")
+                print("   ⚠️ No questions in result")
                 return False
         else:
             print(f"❌ FAILED: HTTP {response.status_code}")
@@ -85,7 +84,7 @@ time.sleep(0.2)
 
 # Test 4: Check if tags exist
 print(f"\n{'='*70}")
-print(f"TEST: Get available tags from mechanics.stackexchange.com")
+print("TEST: Get available tags from mechanics.stackexchange.com")
 print(f"{'='*70}")
 
 try:
@@ -97,7 +96,7 @@ try:
     if response.status_code == 200:
         data = response.json()
         tags = data.get('items', [])
-        print(f"✅ Top 20 most popular tags on mechanics.stackexchange.com:")
+        print("✅ Top 20 most popular tags on mechanics.stackexchange.com:")
         for tag in tags:
             print(f"   - {tag.get('name')} (count: {tag.get('count', 0)})")
     else:

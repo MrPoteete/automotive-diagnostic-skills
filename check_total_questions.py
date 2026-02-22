@@ -37,50 +37,50 @@ if response.status_code == 200:
     has_more = data.get('has_more', False)
     items = data.get('items', [])
 
-    print(f"✅ RESULTS:")
+    print("✅ RESULTS:")
     print(f"   Total questions (from API): {total:,}")
     print(f"   Has more pages: {has_more}")
     print(f"   Items in first page: {len(items)}")
 
     if total == 0:
-        print(f"\n⚠️  API returned total=0 (this is an API quirk)")
+        print("\n⚠️  API returned total=0 (this is an API quirk)")
         print(f"   Since has_more={has_more}, there are likely MANY questions")
-        print(f"   The backfill script will get all of them regardless.")
+        print("   The backfill script will get all of them regardless.")
         estimated_total = "Unknown (thousands+)"
     else:
-        print(f"   Your current scrape: 100 questions")
+        print("   Your current scrape: 100 questions")
         print(f"   Percentage captured: {(100/total*100):.2f}%")
         estimated_total = f"{total:,}"
 
     print(f"\n   API quota remaining: {quota_remaining}/300")
 
     if total > 0:
-        print(f"\n📊 BREAKDOWN:")
+        print("\n📊 BREAKDOWN:")
         print(f"   Questions per year (avg): {total/10:,.0f}")
         print(f"   Questions per month (avg): {total/120:,.0f}")
 
-    print(f"\n💡 RECOMMENDATIONS:")
+    print("\n💡 RECOMMENDATIONS:")
     if total == 0 or has_more:
-        print(f"   ⚠️  Can't determine exact total from API")
-        print(f"   ✅ Best approach: Run backfill script")
-        print(f"      python backfill_historical.py")
-        print(f"\n   This will:")
-        print(f"   - Get ALL questions year by year")
-        print(f"   - Automatically handle pagination")
-        print(f"   - Stop when quota runs low")
-        print(f"   - Tell you how to resume tomorrow")
+        print("   ⚠️  Can't determine exact total from API")
+        print("   ✅ Best approach: Run backfill script")
+        print("      python backfill_historical.py")
+        print("\n   This will:")
+        print("   - Get ALL questions year by year")
+        print("   - Automatically handle pagination")
+        print("   - Stop when quota runs low")
+        print("   - Tell you how to resume tomorrow")
     elif total <= 5000:
-        print(f"   ✅ Run: python src/scrapers/stackexchange_scraper.py")
-        print(f"      (max_questions=5000 will get everything)")
+        print("   ✅ Run: python src/scrapers/stackexchange_scraper.py")
+        print("      (max_questions=5000 will get everything)")
     else:
         print(f"   ⚠️  Site has {total:,} questions - need multiple scrapes")
         print(f"   Option 1: Increase max_questions to {min(total, 10000)}")
-        print(f"   Option 2: Run backfill script (recommended)")
+        print("   Option 2: Run backfill script (recommended)")
         api_calls_needed = (total / 100) * 3  # Rough estimate
         print(f"\n   Estimated API calls needed: ~{api_calls_needed:.0f}")
-        print(f"   Anonymous quota: 300/day")
+        print("   Anonymous quota: 300/day")
         print(f"   Days needed (anonymous): ~{api_calls_needed/300:.0f}")
-        print(f"   OR get API key for 10,000/day quota")
+        print("   OR get API key for 10,000/day quota")
 else:
     print(f"❌ Error: {response.status_code}")
     print(response.text)

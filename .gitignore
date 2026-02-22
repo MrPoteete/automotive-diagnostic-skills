@@ -79,15 +79,12 @@ logs/
 temp/
 tmp/
 
-# Data files (raw import data)
-data/
-*.txt
+# Data files (raw import data — root-level only)
+/data/
 *.csv
 *.tsv
 
-# Test files
-test_*.py
-*_test.py
+# Test artifacts (keep test source files)
 .pytest_cache/
 .coverage
 htmlcov/
@@ -100,10 +97,14 @@ docs/.doctrees/
 .cache/
 *.cache
 
-# Environment variables
+# Environment variables (secrets)
+# Note: .env.example is safe to commit (template only)
 .env
 .env.local
 .env.*.local
+
+# MCP Server configuration (contains API keys)
+.mcp.json
 
 # Compressed files
 *.zip
@@ -114,3 +115,7 @@ docs/.doctrees/
 notes.txt
 TODO.txt
 scratch.md
+.venv/
+
+# Frontend source lib/ — exempt from Python lib/ ignore pattern
+!src/frontend/lib/

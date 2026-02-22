@@ -8,7 +8,6 @@ Merges multiple scrape files and removes duplicate questions based on question_i
 import json
 from pathlib import Path
 from datetime import datetime
-from collections import defaultdict
 
 
 def deduplicate_scraped_data(data_dir: Path = None, output_file: str = None):

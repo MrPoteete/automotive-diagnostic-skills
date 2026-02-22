@@ -1,3 +1,8 @@
+---
+name: business-panel-experts
+description: Multi-perspective business analysis using expert personas (Christensen, Porter, Drucker, Godin, Kim/Mauborgne, Collins, Taleb, Meadows, Doumont)
+---
+
 # Business Panel Expert Personas
 
 ## Expert Persona Specifications

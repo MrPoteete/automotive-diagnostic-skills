@@ -28,7 +28,7 @@ def backfill_by_year(start_year: int = 2015, end_year: int = 2025):
     print("HISTORICAL BACKFILL - YEAR BY YEAR")
     print("="*70)
     print(f"Date range: {start_year} to {end_year}")
-    print(f"Strategy: Scrape one year at a time to manage quota")
+    print("Strategy: Scrape one year at a time to manage quota")
     print("="*70 + "\n")
 
     total_questions = 0
@@ -69,7 +69,7 @@ def backfill_by_year(start_year: int = 2015, end_year: int = 2025):
         if questions:
             # Save with year-specific filename
             filename = f"stackexchange_mechanics_{year}.json"
-            output_path = scraper.save_data(questions, filename)
+            scraper.save_data(questions, filename)
 
             print(f"✅ {year}: Scraped {len(questions)} questions")
             print(f"   Saved to: {filename}")
@@ -126,7 +126,7 @@ def backfill_by_month(year: int, month: int):
 
     if questions:
         filename = f"stackexchange_mechanics_{year}_{month:02d}.json"
-        output_path = scraper.save_data(questions, filename)
+        scraper.save_data(questions, filename)
         print(f"✅ Scraped {len(questions)} questions for {year}-{month:02d}")
         print(f"   Saved to: {filename}")
     else:

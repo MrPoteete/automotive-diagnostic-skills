@@ -57,7 +57,7 @@ def scrape_incremental(max_questions: int = 5000):
     print("INCREMENTAL STACK EXCHANGE SCRAPER")
     print("="*70)
     print(f"Last scrape: {last_scrape.strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Fetching questions created AFTER this date...")
+    print("Fetching questions created AFTER this date...")
     print("="*70 + "\n")
 
     scraper = StackExchangeScraper()

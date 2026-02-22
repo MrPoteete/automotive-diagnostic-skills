@@ -1,0 +1,126 @@
+{
+    "targets": {
+        "FORD": [
+            "F-150",
+            "F-250",
+            "MUSTANG",
+            "EXPLORER",
+            "ESCAPE",
+            "FOCUS",
+            "FUSION",
+            "EDGE",
+            "EXPEDITION"
+        ],
+        "CHEVROLET": [
+            "SILVERADO 1500",
+            "SILVERADO 2500",
+            "EQUINOX",
+            "MALIBU",
+            "TAHOE",
+            "TRAVERSE",
+            "CRUZE",
+            "IMPALA",
+            "SUBURBAN"
+        ],
+        "GMC": [
+            "SIERRA 1500",
+            "ACADIA",
+            "TERRAIN",
+            "YUKON"
+        ],
+        "RAM": [
+            "1500",
+            "2500",
+            "3500"
+        ],
+        "DODGE": [
+            "CHARGER",
+            "CHALLENGER",
+            "GRAND CARAVAN",
+            "DURANGO",
+            "JOURNEY"
+        ],
+        "JEEP": [
+            "WRANGLER",
+            "GRAND CHEROKEE",
+            "CHEROKEE",
+            "COMPASS",
+            "RENEGADE"
+        ],
+        "TOYOTA": [
+            "CAMRY",
+            "COROLLA",
+            "RAV4",
+            "TACOMA",
+            "HIGHLANDER",
+            "TUNDRA",
+            "4RUNNER",
+            "PRIUS",
+            "SIENNA"
+        ],
+        "HONDA": [
+            "CIVIC",
+            "ACCORD",
+            "CR-V",
+            "PILOT",
+            "ODYSSEY",
+            "HR-V",
+            "RIDGELINE"
+        ],
+        "NISSAN": [
+            "ALTIMA",
+            "ROGUE",
+            "SENTRA",
+            "TITAN",
+            "PATHFINDER",
+            "VERSA"
+        ],
+        "HYUNDAI": [
+            "SONATA",
+            "ELANTRA",
+            "SANTA FE",
+            "TUCSON",
+            "KONA"
+        ],
+        "KIA": [
+            "OPTIMA",
+            "SORENTO",
+            "SOUL",
+            "SPORTAGE",
+            "FORTE"
+        ],
+        "SUBARU": [
+            "OUTBACK",
+            "FORESTER",
+            "IMPREZA",
+            "CROSSTREK"
+        ],
+        "BMW": [
+            "3 SERIES",
+            "5 SERIES",
+            "X3",
+            "X5"
+        ],
+        "MERCEDES-BENZ": [
+            "C-CLASS",
+            "E-CLASS",
+            "GLE",
+            "GLC"
+        ],
+        "VOLKSWAGEN": [
+            "JETTA",
+            "PASSAT",
+            "TIGUAN",
+            "GOLF"
+        ],
+        "AUDI": [
+            "A4",
+            "Q5",
+            "A6"
+        ]
+    },
+    "years": {
+        "start": 2005,
+        "end": 2026
+    }
+}

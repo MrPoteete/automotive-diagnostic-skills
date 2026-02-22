@@ -16,7 +16,7 @@ Usage:
 import json
 import re
 from pathlib import Path
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -85,7 +85,7 @@ class ForumDataProcessor:
 
         if not json_files:
             print(f"⚠️  No forum data files found in {self.forum_data_dir}")
-            print(f"   Make sure you've run the scraper first!")
+            print("   Make sure you've run the scraper first!")
             return []
 
         print(f"📁 Found {len(json_files)} forum data files")
@@ -376,17 +376,17 @@ class ForumDataProcessor:
         self.documents = documents
 
         # Print stats
-        print(f"\n📊 EXTRACTION RESULTS:")
+        print("\n📊 EXTRACTION RESULTS:")
         print(f"   Documents created: {len(documents)}")
         print(f"   Unique DTC codes: {len(self.stats['dtc_codes_found'])}")
 
         if self.stats['makes_found']:
-            print(f"\n   Vehicle makes found:")
+            print("\n   Vehicle makes found:")
             for make, count in self.stats['makes_found'].most_common(10):
                 print(f"      {make}: {count} discussions")
 
         if self.stats['dtc_codes_found']:
-            print(f"\n   Top 10 DTC codes:")
+            print("\n   Top 10 DTC codes:")
             code_counts = Counter()
             for doc in documents:
                 code_counts.update(doc.dtc_codes)
@@ -441,8 +441,8 @@ def main():
         print("\n" + "="*70)
         print("✅ PROCESSING COMPLETE")
         print("="*70)
-        print(f"\nNext step: Generate embeddings")
-        print(f"   python src/rag/generate_embeddings.py")
+        print("\nNext step: Generate embeddings")
+        print("   python src/rag/generate_embeddings.py")
     else:
         print("\n❌ No documents created!")
         print("   Check that you have scraped forum data in:")
