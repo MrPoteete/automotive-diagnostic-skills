@@ -18,6 +18,48 @@ const MAKE_MAP: Record<string, string> = {
     subaru: 'SUBARU', volkswagen: 'VOLKSWAGEN', vw: 'VOLKSWAGEN',
 };
 
+// Known model names (lowercase) — used to distinguish model from symptoms
+const MODEL_WHITELIST = new Set<string>([
+    // Ford
+    'f-150', 'f-250', 'f-350', 'f-450', 'explorer', 'mustang', 'focus', 'fusion',
+    'escape', 'edge', 'expedition', 'ranger', 'bronco', 'maverick', 'transit',
+    'taurus', 'crown', 'victoria', 'flex', 'galaxy',
+    // GM / Chevrolet
+    'silverado', 'tahoe', 'suburban', 'equinox', 'blazer', 'colorado', 'traverse',
+    'malibu', 'cruze', 'impala', 'camaro', 'corvette', 'trax', 'trailblazer',
+    // GMC
+    'sierra', 'yukon', 'terrain', 'canyon', 'acadia', 'envoy', 'jimmy',
+    // RAM / Dodge
+    '1500', '2500', '3500', 'promaster', 'charger', 'challenger', 'durango',
+    'journey', 'dakota', 'viper', 'grand',
+    // Jeep
+    'wrangler', 'cherokee', 'compass', 'renegade', 'gladiator',
+    // Chrysler
+    '300', 'pacifica', 'voyager', 'town',
+    // Buick
+    'enclave', 'encore', 'lacrosse', 'regal', 'verano',
+    // Cadillac
+    'escalade', 'ct5', 'ct6', 'xt5', 'xt6', 'ats', 'cts', 'srx',
+    // Toyota
+    'camry', 'corolla', 'tacoma', 'tundra', 'highlander', 'prius', 'rav4',
+    'sequoia', '4runner', 'sienna', 'venza', 'avalon',
+    // Honda
+    'civic', 'accord', 'pilot', 'cr-v', 'odyssey', 'ridgeline', 'hr-v', 'passport',
+    // Nissan
+    'altima', 'frontier', 'titan', 'murano', 'pathfinder', 'rogue', 'sentra',
+    'maxima', 'armada', 'versa',
+    // BMW
+    'm3', 'm5', '328i', '330i', '335i', '528i', '530i', 'x1', 'x3', 'x5', 'x7',
+    // Hyundai
+    'elantra', 'sonata', 'tucson', 'santa', 'kona', 'palisade', 'ioniq',
+    // Kia
+    'optima', 'sorento', 'sportage', 'telluride', 'soul', 'stinger', 'seltos',
+    // Subaru
+    'outback', 'forester', 'impreza', 'legacy', 'crosstrek', 'ascent', 'wrx', 'brz',
+    // VW
+    'jetta', 'passat', 'tiguan', 'atlas', 'golf', 'beetle', 'gti',
+]);
+
 const DTC_REGEX = /\b([PCBU][0-3][0-9A-Fa-f]{3})\b/gi;
 const YEAR_REGEX = /\b(19[9][0-9]|20[0-2][0-9]|2030)\b/;
 
@@ -45,10 +87,15 @@ function parseVehicleInput(text: string): {
     }
     if (makeIdx === -1) return { vehicle: null, symptoms: text, dtcCodes };
 
-    // Model = next 1–2 words after make; symptoms = remainder
+    // Model = first word after make IF it's in the whitelist; symptoms = remainder
     const afterMake = words.slice(makeIdx + 1).filter(w => !YEAR_REGEX.test(w));
-    const model = afterMake.slice(0, 2).join(' ').toUpperCase() || 'UNKNOWN';
-    const symptoms = afterMake.slice(2).join(' ') || nodtc;
+    const candidate = afterMake[0]?.toLowerCase() ?? '';
+    if (!MODEL_WHITELIST.has(candidate)) {
+        // Word after make is not a known model — can't reliably parse vehicle
+        return { vehicle: null, symptoms: text, dtcCodes };
+    }
+    const model = candidate.toUpperCase();
+    const symptoms = afterMake.slice(1).join(' ') || nodtc;
 
     return { vehicle: { make, model, year }, symptoms: symptoms || nodtc, dtcCodes };
 }
