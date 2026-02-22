@@ -35,7 +35,11 @@
       "Bash(tail:*)",
       "Bash(.venv/bin/python:*)",
       "Bash(.venv/bin/pip show:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git config --list | grep -E \"credential|url|user\" 2>/dev/null)",
+      "Bash(printf:*)"
     ],
     "deny": [],
     "ask": []
