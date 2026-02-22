@@ -17,7 +17,8 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
 
 | Hook | Matcher | Purpose | Blocks? |
 |------|---------|---------|---------|
-| `pre_tool_use.py` | All tools | General validation | No |
+| `pre_tool_use.py` | All tools | Safety gate (rm, raw_imports, .env) | Yes (if dangerous) |
+| `delegation_check.py` | Write/Edit | Enforce agent/Gemini delegation consideration | Yes (if not acknowledged) |
 | `precommit_validator.py` | Bash only | Validates git commits | Yes (if errors) |
 
 ### PostToolUse Hooks
@@ -94,6 +95,38 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
 
 ---
 
+## Delegation Check Hook
+
+**Purpose**: Ensure agent/Gemini delegation is considered before direct implementation
+
+**Triggers on**: Write/Edit to code files (.py, .js, .ts, etc.)
+
+**Detection patterns**:
+- **Agent patterns**: Security keywords → security-engineer, testing keywords → quality-engineer, etc.
+- **Gemini patterns**: "boilerplate", "simple function", "documentation" → Gemini delegation
+
+**Bypass methods**:
+1. Include acknowledgment in code/description: `"Checked AGENTS.md - implementing directly because..."`
+2. Use delegation keywords: `"Task tool"`, `"delegate"`, `"mcp__gemini"`
+3. Implement from within a subagent (auto-allowed)
+
+**Example - Will block**:
+```python
+# Writing code with security keywords without acknowledgment
+def validate_user_input(data):
+    # SQL query here...
+```
+
+**Example - Will allow**:
+```python
+# Checked AGENTS.md - implementing directly because this is a simple validation
+# that doesn't need security-engineer review (no auth/sensitive data)
+def validate_user_input(data):
+    # Input validation here...
+```
+
+---
+
 ## Deterministic Quality Gates
 
 **Hooks vs. Instructions**:
@@ -150,6 +183,43 @@ def prompt_rule_update(correction: str):
     print(f"Detected correction: {correction}")
     print("Update CLAUDE.md to prevent this mistake? (y/n)")
 ```
+
+---
+
+## Common Pitfalls
+
+### Exit Code Confusion
+
+**Wrong**:
+```python
+if should_block:
+    sys.exit(1)  # ❌ Wrong - exit code doesn't control blocking
+else:
+    sys.exit(0)
+```
+
+**Correct**:
+```python
+if should_block:
+    print(json.dumps({"decision": "block", "reason": "..."}))
+    sys.exit(0)  # ✅ Always exit(0), JSON controls blocking
+else:
+    sys.exit(0)
+```
+
+### Context Limitations
+
+**Hooks receive**:
+- `tool_name` - The tool being called (Write, Edit, Bash, etc.)
+- `tool_input` - Tool parameters (file_path, content, command, etc.)
+- `session_id` - Current session identifier
+
+**Hooks DO NOT receive**:
+- Conversation history
+- Recent user messages
+- Previous tool results
+
+**Solution**: Analyze `tool_input["content"]`, `tool_input["description"]`, or file content directly.
 
 ---
 

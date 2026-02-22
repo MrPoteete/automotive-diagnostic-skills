@@ -10,6 +10,15 @@
         ]
       },
       {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/delegation_check.py"
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {

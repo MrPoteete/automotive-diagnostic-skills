@@ -39,13 +39,15 @@ deliver fast, accurate diagnostic recommendations.
 - **211,640 TSBs and Manufacturer Communications integrated**
 - ChromaDB vector store with forum data (Reddit, Stack Exchange)
 
-**Diagnostic Skill v3.1: Deployed** - Professional diagnostic assistant
-- Categorical assessment system (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)
-- Anti-hallucination protocols with 3-tier source attribution (TSBs > Complaints > Logic)
-- Progressive disclosure routing (6 request types)
-- CO-STAR persona framework for ASE-certified technicians
-
-**Phase 3: Next** - Agent framework and diagnostic engine
+**Phase 3: Agent Framework & Diagnostic Engine (In Progress)**
+- **Phase 3.1: Remote RAG Infrastructure (Complete)**
+  - API Server: `server/home_server.py` with FastAPI & API Key
+  - Data Indexing: `database/automotive_complaints.db` with FTS5
+  - Connectivity: Remote access via Tailscale validated
+  - Dashboard: RAG testing UI (`server/rag_dashboard.py`)
+- **Phase 3.2: Client-Side Agent (Current Focus)**
+  - Implementing Client Agent on Work Laptop
+  - Connecting `symptom_matcher.py` to remote API
 
 See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed roadmap.
 
@@ -83,12 +85,18 @@ automotive-diagnostic-skills/
 │   ├── service_manuals/              # iFixit repair procedures (JSON)
 │   ├── vector_store/chroma/          # ChromaDB semantic search database
 │   └── processed/                    # AI-ready processed documents
+├── server/                 # RAG API Server & Dashboard
+│   ├── home_server.py                # FastAPI server implementation
+│   ├── rag_dashboard.py              # Streamlit testing dashboard
+│   ├── data_miner.py                 # NHTSA data fetcher
+│   └── start_full_system.bat         # One-click launcher
 ├── scripts/                # Utility and exploration scripts
 │   ├── import_nhtsa_complaints.py    # NHTSA complaint importer
 │   ├── import_tsbs.py                # TSB data importer
 │   └── explore_complaints.py         # Interactive data explorer
 ├── src/                    # Application source code (in development)
 ├── docs/                   # Comprehensive documentation
+│   ├── archive/                      # Deprecated documentation
 │   ├── PROJECT_STATUS.md             # Current status and roadmap
 │   ├── DATABASE_ARCHITECTURE.md      # Schema design and details
 │   ├── SYSTEM_INTEGRATION_ARCHITECTURE.md  # Agent hierarchy design
@@ -288,12 +296,19 @@ conn.close()
 - [x] Architecture documentation (agent hierarchy, NHTSA integration strategy)
 
 ### Phase 3: Agent Framework & Diagnostic Engine (Current)
-- [ ] Implement enhanced confidence scoring (NHTSA-boosted)
-- [ ] Build symptom matching engine (FTS5 + ChromaDB)
-- [ ] Create safety alert system (fire/crash/injury flagging)
-- [ ] Build master coordinator agent
-- [ ] Build specialized diagnostic agents (Engine, Transmission, Electrical)
-- [ ] Implement trend analysis queries
+- [x] **Phase 3.1: Remote RAG Infrastructure**
+    - [x] API Server (FastAPI) implementation
+    - [x] RAG Dashboard (Streamlit) for testing
+    - [x] Data Indexing (FTS5 + ChromaDB)
+    - [x] Remote Access via Tailscale
+- [ ] **Phase 3.2: Client-Side Components**
+    - [ ] `symptom_matcher.py` connecting to remote API
+    - [ ] Coordinator Agent logic
+    - [ ] Diagnostic Skill v3.1 integration
+- [ ] **Phase 3.3: Advanced Features**
+    - [ ] Enhanced confidence scoring
+    - [ ] Safety alert system
+    - [ ] Trend analysis queries
 
 ### Phase 4: Output & Interface
 - [ ] Build output formatter (mechanic reports, customer explanations)

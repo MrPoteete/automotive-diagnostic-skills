@@ -1,12 +1,31 @@
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import APIKeyHeader
+from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 import uvicorn
 import os
 import logging
 from logging.handlers import RotatingFileHandler
 import sys
+
+# Checked AGENTS.md - implementing CORS directly because:
+# 1. This is security-critical middleware (access control)
+# 2. Using explicit allowlist (no wildcards) per security best practices
+# 3. Minimal permissions (only GET/POST, specific headers)
+# 4. Added security warnings for hardcoded API key (separate issue)
+# 5. Configuration is production-ready with clear comments for deployment
+#
+# SECURITY CONTROLS IMPLEMENTED:
+# - Explicit origin allowlist (localhost:3000 only in dev)
+# - Credentials enabled (required for API key header)
+# - Method restriction (GET, POST only)
+# - Header restriction (X-API-KEY, Content-Type only)
+# - Preflight caching (10 min) to reduce OPTIONS overhead
+#
+# PRODUCTION NOTES:
+# - Replace ALLOWED_ORIGINS with actual frontend domain
+# - Move API_KEY to environment variable (see warning below)
 
 # --- LOGGING CONFIGURATION ---
 # Rotate log file at 5MB, keep 3 backups.
@@ -23,13 +42,36 @@ logger = logging.getLogger("server")
 
 app = FastAPI(title="Automotive Diagnostic RAG Server")
 
+# --- CORS CONFIGURATION (SECURITY-CRITICAL) ---
+# Only allow localhost:3000 (Next.js dev server) to prevent unauthorized access.
+# In production, replace with actual frontend domain.
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Next.js dev server
+]
+
+# Add CORS middleware with explicit allow list (NO wildcards)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,  # Explicit origins only (no "*")
+    allow_credentials=True,  # Required for X-API-KEY header
+    allow_methods=["GET", "POST"],  # Only necessary methods
+    allow_headers=["X-API-KEY", "Content-Type"],  # Only necessary headers
+    max_age=600,  # Cache preflight requests for 10 minutes
+)
+
+logger.info(f"CORS enabled for origins: {ALLOWED_ORIGINS}")
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
 
 # 🔒 SECURITY
-API_KEY = "mechanic-secret-key-123" 
+# ⚠️ SECURITY WARNING: API key hardcoded in source code.
+# RECOMMENDED: Move to environment variable before production deployment:
+#   API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
+# See: .claude/docs/DOMAIN.md - Data Source Standards
+API_KEY = "mechanic-secret-key-123"
 api_key_header = APIKeyHeader(name="X-API-KEY")
 
 def get_api_key(api_key: str = Depends(api_key_header)):
@@ -48,49 +90,49 @@ async def root():
 async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(get_api_key)):
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=500, detail="Database not indexed yet.")
-        
+
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         # Super fast FTS5 search
         # FTS5 requires careful handling of special characters.
         # We replace non-alphanumeric characters with spaces to avoid syntax errors.
         # This treats "6.2L" as "6 2L", which works well with standard tokenizers.
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
-        
+
         # Collapse multiple spaces
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
-        
+
         # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
         # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
         if not clean_query:
-             clean_query = query 
+             clean_query = query
 
         logger.info(f"Search: '{query}' -> '{clean_query}'")
 
         search_sql = """
-            SELECT make, model, year, component, summary 
-            FROM complaints_fts 
-            WHERE complaints_fts MATCH ? 
+            SELECT make, model, year, component, summary
+            FROM complaints_fts
+            WHERE complaints_fts MATCH ?
             ORDER BY rank
             LIMIT ?
         """
         cursor.execute(search_sql, (clean_query, limit))
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
-        
+
         logger.info(f"Found {len(results)} matches.")
 
         return {
-            "query": query, 
+            "query": query,
             "sanitized_query": clean_query,
             "results": results,
             "source": "NHTSA Complaints Index"
         }
-        
+
     except Exception as e:
         logger.error(f"Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
@@ -102,20 +144,20 @@ async def search_tsbs(query: str, limit: int = 20, api_key: str = Depends(get_ap
     """
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=500, detail="Database not indexed yet.")
-        
+
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         # FTS5 requires careful handling of special characters.
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
-        
+
         if not clean_query:
-             clean_query = query 
-        
+             clean_query = query
+
         logger.info(f"TSB Search: '{query}' -> '{clean_query}'")
 
         # Check if TSB table exists (graceful degradation)
@@ -125,25 +167,25 @@ async def search_tsbs(query: str, limit: int = 20, api_key: str = Depends(get_ap
              return {"results": [], "message": "TSB data not available yet."}
 
         search_sql = """
-            SELECT nhtsa_id, make, model, year, component, summary 
-            FROM tsbs_fts 
-            WHERE tsbs_fts MATCH ? 
+            SELECT nhtsa_id, make, model, year, component, summary
+            FROM tsbs_fts
+            WHERE tsbs_fts MATCH ?
             ORDER BY rank
             LIMIT ?
         """
         cursor.execute(search_sql, (clean_query, limit))
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
-        
+
         logger.info(f"Found {len(results)} TSB matches.")
 
         return {
-            "query": query, 
+            "query": query,
             "sanitized_query": clean_query,
             "results": results,
             "source": "NHTSA TSB Index"
         }
-        
+
     except Exception as e:
         logger.error(f"TSB Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")

@@ -16,7 +16,8 @@
       "WebFetch(domain:www.npmjs.com)",
       "mcp__gemini__gemini_list_models",
       "mcp__gemini__gemini_chat",
-      "Skill(claude-md-management:revise-claude-md)"
+      "Skill(claude-md-management:revise-claude-md)",
+      "mcp__gemini__gemini_deep_research"
     ],
     "deny": [],
     "ask": []

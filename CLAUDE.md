@@ -14,6 +14,7 @@
 
 **YOU MUST consult reference docs for detailed rules:**
 
+- **Visual Architecture**: See @.claude/docs/DIAGRAMS.md (8 mermaid diagrams for quick system understanding)
 - **Architecture & Data Flow**: See @.claude/docs/ARCHITECT.md
 - **Automotive Domain Rules**: See @.claude/docs/DOMAIN.md
   - OBD-II validation, safety-critical systems, confidence scoring
