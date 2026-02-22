@@ -16,9 +16,31 @@
       "WebFetch(domain:www.npmjs.com)",
       "mcp__gemini__gemini_list_models",
       "mcp__gemini__gemini_chat",
-      "Skill(claude-md-management:revise-claude-md)"
+      "Skill(claude-md-management:revise-claude-md)",
+      "mcp__gemini__gemini_deep_research",
+      "Bash(which uv:*)",
+      "Bash(echo Exit: $?:*)",
+      "Bash(echo {\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo test\"}}:*)",
+      "Bash(echo exit=$?:*)",
+      "Bash(tee:*)",
+      "Bash(python3:*)",
+      "Bash(uv run:*)",
+      "Bash(ls:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/pytest:*)",
+      "Bash(claude mcp:*)",
+      "Bash(head:*)",
+      "Bash(echo:*)",
+      "WebFetch(domain:docs.cloud.google.com)",
+      "Bash(tail:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(.venv/bin/pip show:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enabledMcpjsonServers": [
+    "gemini"
+  ]
 }

@@ -1,5 +1,17 @@
 # Automotive Diagnostic System
 
+## Session Startup (Read This First)
+
+**New session? Orient yourself in 3 steps:**
+
+1. **Current phase & next step** → Read `memory/MEMORY.md` (auto-loaded, check `## Phase Status` and `## Next Step`)
+2. **Verify baseline** → Run `.venv/bin/pytest --tb=no -q` before making any changes
+3. **Understand the system** → Consult `@.claude/docs/DIAGRAMS.md` for a visual overview
+
+> `memory/MEMORY.md` is the single source of truth for runtime-verified facts (DB schema, test counts, known bugs). Prefer it over docs that may be outdated.
+
+---
+
 ## Core Context
 
 - **Type**: Automotive Diagnostic AI using RAG (Retrieval-Augmented Generation)
@@ -14,6 +26,7 @@
 
 **YOU MUST consult reference docs for detailed rules:**
 
+- **Visual Architecture**: See @.claude/docs/DIAGRAMS.md (8 mermaid diagrams for quick system understanding)
 - **Architecture & Data Flow**: See @.claude/docs/ARCHITECT.md
 - **Automotive Domain Rules**: See @.claude/docs/DOMAIN.md
   - OBD-II validation, safety-critical systems, confidence scoring

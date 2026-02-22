@@ -1,5 +1,5 @@
 """
-Engine Diagnostic Agent — Phase 3 proof-of-concept orchestrator.
+Engine Diagnostic Agent — orchestrator for differential diagnosis.
 
 Checked AGENTS.md - implementing directly because:
 1. This is the safety-critical orchestration path (per GEMINI_WORKFLOW.md)
@@ -8,6 +8,7 @@ Checked AGENTS.md - implementing directly because:
 
 Orchestrates: db_service → symptom_matcher → confidence_scorer
               → alert_system → trend_analyzer → TSB lookup
+              → chroma_service (Phase 4: forum data boost)
 
 Returns a complete ranked differential diagnosis dict.
 """
@@ -114,7 +115,21 @@ def _run_diagnosis(
 
     warnings: list[str] = []
 
-    # Step 1: Symptom matching → candidate components
+    # Step 1a: Forum semantic search (Phase 4 — optional, degrades gracefully)
+    forum_candidates: list[dict] = []
+    try:
+        from src.data.chroma_service import ChromaService  # type: ignore[attr-defined]
+        chroma = ChromaService()
+        if chroma.document_count > 0:
+            forum_candidates = chroma.search_for_components(
+                query=f"{make} {model} {symptoms}",
+                n_results=20,
+            )
+            logger.info("Forum search returned %d candidate components", len(forum_candidates))
+    except Exception as exc:
+        logger.debug("Forum search unavailable (ChromaDB not ready?): %s", exc)
+
+    # Step 1b: Symptom matching → candidate components
     logger.info("Matching symptoms for %s %s %d: %r", make, model, year, symptoms)
     candidates = match_symptoms(
         make=make,
@@ -124,6 +139,13 @@ def _run_diagnosis(
         db=db,
         limit=30,
     )
+
+    # Merge forum candidates into NHTSA results (forum adds context, doesn't replace)
+    if forum_candidates:
+        existing_components = {c["component"] for c in candidates}
+        for fc in forum_candidates:
+            if fc["component"] not in existing_components:
+                candidates.append(fc)
 
     if not candidates:
         logger.info("No symptom matches found, trying DTC-based component lookup")
@@ -230,6 +252,7 @@ def _run_diagnosis(
         "data_sources": {
             "complaints_db": "automotive_complaints.db (562K NHTSA complaints)",
             "tsbs_db": "automotive_complaints.db (211K NHTSA TSBs)",
+            "forum_db": f"ChromaDB mechanics_forum ({len(forum_candidates)} forum candidates)",
             "complaint_coverage": "Partial dataset — full import pending",
         },
     }
