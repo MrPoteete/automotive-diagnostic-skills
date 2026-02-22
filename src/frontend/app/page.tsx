@@ -7,7 +7,51 @@ import { ShardCard } from './components/ShardCard';
 import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
 import { CyberInput } from './components/CyberInput';
-import { api } from '../lib/api';
+import { api, type VehicleInfo } from '../lib/api';
+
+// Known vehicle makes (normalized to NHTSA uppercase format)
+const MAKE_MAP: Record<string, string> = {
+    ford: 'FORD', chevrolet: 'CHEVROLET', chevy: 'CHEVROLET', gmc: 'GMC',
+    ram: 'RAM', dodge: 'DODGE', chrysler: 'CHRYSLER', jeep: 'JEEP',
+    buick: 'BUICK', cadillac: 'CADILLAC', toyota: 'TOYOTA', honda: 'HONDA',
+    nissan: 'NISSAN', bmw: 'BMW', hyundai: 'HYUNDAI', kia: 'KIA',
+    subaru: 'SUBARU', volkswagen: 'VOLKSWAGEN', vw: 'VOLKSWAGEN',
+};
+
+const DTC_REGEX = /\b([PCBU][0-3][0-9A-Fa-f]{3})\b/gi;
+const YEAR_REGEX = /\b(19[9][0-9]|20[0-2][0-9]|2030)\b/;
+
+function parseVehicleInput(text: string): {
+    vehicle: VehicleInfo | null;
+    symptoms: string;
+    dtcCodes: string[];
+} {
+    // Extract DTC codes
+    const dtcCodes = [...text.matchAll(DTC_REGEX)].map(m => m[1].toUpperCase());
+    const nodtc = text.replace(DTC_REGEX, ' ').replace(/\s+/g, ' ').trim();
+
+    // Extract year
+    const yearMatch = nodtc.match(YEAR_REGEX);
+    if (!yearMatch) return { vehicle: null, symptoms: text, dtcCodes };
+    const year = parseInt(yearMatch[1]);
+
+    // Find make
+    const words = nodtc.split(/\s+/);
+    let makeIdx = -1;
+    let make = '';
+    for (let i = 0; i < words.length; i++) {
+        const mapped = MAKE_MAP[words[i].toLowerCase()];
+        if (mapped) { makeIdx = i; make = mapped; break; }
+    }
+    if (makeIdx === -1) return { vehicle: null, symptoms: text, dtcCodes };
+
+    // Model = next 1–2 words after make; symptoms = remainder
+    const afterMake = words.slice(makeIdx + 1).filter(w => !YEAR_REGEX.test(w));
+    const model = afterMake.slice(0, 2).join(' ').toUpperCase() || 'UNKNOWN';
+    const symptoms = afterMake.slice(2).join(' ') || nodtc;
+
+    return { vehicle: { make, model, year }, symptoms: symptoms || nodtc, dtcCodes };
+}
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState('diagnose');
@@ -45,24 +89,32 @@ export default function Home() {
 
         const userQuery = inputText.trim();
 
-        // User Message
         setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
         setInputText('');
         setIsProcessing(true);
 
         try {
-            // Determine if this is a TSB search or general complaint search
-            const isTSBQuery = userQuery.toLowerCase().includes('tsb') ||
-                              userQuery.toLowerCase().includes('bulletin');
+            const { vehicle, symptoms, dtcCodes } = parseVehicleInput(userQuery);
 
             let response: string;
 
-            if (isTSBQuery) {
-                // Search TSBs
+            if (vehicle) {
+                // Full differential diagnosis via POST /diagnose
+                const diagData = await api.diagnose({
+                    vehicle,
+                    symptoms,
+                    dtc_codes: dtcCodes,
+                });
+                response = api.formatDiagnosis(diagData);
+            } else if (
+                userQuery.toLowerCase().includes('tsb') ||
+                userQuery.toLowerCase().includes('bulletin')
+            ) {
+                // TSB keyword search (no vehicle parsed)
                 const tsbData = await api.searchTSBs(userQuery, 10);
                 response = api.formatResults(tsbData);
             } else {
-                // Search NHTSA complaints
+                // General NHTSA complaint search fallback
                 const complaintData = await api.searchComplaints(userQuery, 10);
                 response = api.formatResults(complaintData);
             }

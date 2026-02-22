@@ -116,3 +116,6 @@ notes.txt
 TODO.txt
 scratch.md
 .venv/
+
+# Frontend source lib/ — exempt from Python lib/ ignore pattern
+!src/frontend/lib/
