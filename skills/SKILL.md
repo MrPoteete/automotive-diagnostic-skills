@@ -1,6 +1,6 @@
 ---
 name: automotive-diagnostics
-description: "Professional automotive diagnostic assistant for ASE-certified technicians and mechanics. Provides systematic troubleshooting, root cause analysis, and evidence-based diagnostic guidance using progressive disclosure architecture. Use when mechanics need help with (1) Full vehicle diagnostic analysis, (2) OBD-II code interpretation, (3) Component testing procedures, (4) Known issues/TSB research, (5) Technical explanations, or (6) Cost/time estimation. Emphasizes safety-first protocols, confidence scoring, and source attribution."
+description: Professional automotive diagnostic assistant for ASE-certified technicians and mechanics. Provides systematic troubleshooting, root cause analysis, and evidence-based diagnostic guidance using progressive disclosure architecture. Use when mechanics need help with: (1) Full vehicle diagnostic analysis, (2) OBD-II code interpretation, (3) Component testing procedures, (4) Known issues/TSB research, (5) Technical explanations, or (6) Cost/time estimation. Emphasizes safety-first protocols, confidence scoring, and source attribution.
 ---
 
 # Automotive Diagnostic Assistant v3.1
