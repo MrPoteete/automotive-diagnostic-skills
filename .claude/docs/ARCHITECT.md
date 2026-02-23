@@ -32,8 +32,12 @@ Diagnostic Response {candidates, warnings, data_sources}
 | Layer | Component | Files | Responsibility |
 |-------|-----------|-------|----------------|
 | **Server Layer** | RAG Dashboard | `server/rag_dashboard.py` | Web UI for diagnostic queries |
-| | Home Server | `server/home_server.py` | FastAPI backend |
+| | Home Server | `server/home_server.py` | FastAPI: `GET /`, `GET /search`, `GET /search_tsbs`, `GET /vehicles`, `POST /diagnose` |
 | | Learning Loop | `server/demo_learning_loop.py` | Feedback integration |
+| **Frontend API Routes** | Diagnose Proxy | `src/frontend/app/api/diagnose/route.ts` | Server-side POST proxy → `/diagnose` (adds API key) |
+| | Search Proxy | `src/frontend/app/api/search/route.ts` | Server-side GET proxy → `/search` |
+| | TSB Proxy | `src/frontend/app/api/search_tsbs/route.ts` | Server-side GET proxy → `/search_tsbs` |
+| | Vehicles Proxy | `src/frontend/app/api/vehicles/route.ts` | Server-side GET proxy → `/vehicles` (Phase 5g) |
 | **Skills Layer** | Router | `skills/router_skill/` | Classifies DTC codes by system |
 | | Engine | `skills/engine_skill/` | Powertrain diagnostics (P-codes) |
 | | Transmission | `skills/transmission_skill/` | Transmission diagnostics |

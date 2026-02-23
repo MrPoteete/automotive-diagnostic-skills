@@ -242,6 +242,39 @@ async def diagnose_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Checked AGENTS.md - implementing GET /vehicles directly; simple read-only query, no safety logic, no auth changes.
+# Boilerplate structure reviewed by Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
+@app.get("/vehicles")
+async def get_vehicles(api_key: str = Depends(get_api_key)) -> dict[str, object]:
+    """Return distinct makes and models from the complaints database."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT make, model FROM complaints_fts ORDER BY make, model")
+        rows = cursor.fetchall()
+        conn.close()
+
+        models_by_make: dict[str, list[str]] = {}
+        for row in rows:
+            make: str = row["make"]
+            model: str = row["model"]
+            if make not in models_by_make:
+                models_by_make[make] = []
+            models_by_make[make].append(model)
+
+        # Exclude makes with fewer than 2 distinct models (data noise)
+        filtered = {m: mods for m, mods in models_by_make.items() if len(mods) >= 2}
+        sorted_makes = sorted(filtered.keys())
+        total = sum(len(v) for v in filtered.values())
+        logger.info("Vehicles request: %d makes, %d total models", len(sorted_makes), total)
+
+        return {"makes": sorted_makes, "models_by_make": filtered}
+    except Exception as e:
+        logger.error("Vehicles error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     # Host on 0.0.0.0 for Tailscale remote access
     import socket

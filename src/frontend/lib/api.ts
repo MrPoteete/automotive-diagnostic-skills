@@ -274,6 +274,23 @@ class DiagnosticAPI {
     formatError(error: Error): string {
         return `⚠️ SYSTEM ERROR ⚠️\n\n${error.message}\n\nTroubleshooting:\n- Verify backend server is running (port 8000)\n- Check API key configuration\n- Confirm network connectivity`;
     }
+
+    /**
+     * Fetch distinct makes and models from the complaints database.
+     * Returns null on error so callers can fall back to static data silently.
+     */
+    async fetchVehicles(): Promise<VehicleData | null> {
+        try {
+            return await this.fetch<VehicleData>(`${this.apiBaseURL}/vehicles`);
+        } catch {
+            return null;
+        }
+    }
+}
+
+export interface VehicleData {
+    makes: string[];
+    models_by_make: Record<string, string[]>;
 }
 
 // Export singleton instance

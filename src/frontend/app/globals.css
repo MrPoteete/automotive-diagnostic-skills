@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Cyberpunk-styled select elements — color-scheme: dark prevents white option
+   backgrounds on macOS/Safari where CSS background-color on <option> is ignored */
+.cyber-select {
+    color-scheme: dark;
+}
+
+.cyber-select option {
+    background-color: #0a0a14;
+    color: #e0e0e0;
+}
+
 :root {
   --font-rajdhani: 'Rajdhani', sans-serif;
   --font-orbitron: 'Orbitron', sans-serif;
