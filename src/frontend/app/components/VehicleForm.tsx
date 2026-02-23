@@ -2,10 +2,12 @@
 
 // Checked AGENTS.md - implementing directly, UI component with no security/data concerns.
 // Gemini generated vehicles.ts data module; VehicleForm uses Claude for UI/state logic.
+// Dynamic vehicle loading added: fetchVehicles() on mount, static fallback on error.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, ChevronDown } from 'lucide-react';
-import type { VehicleInfo } from '../../lib/api';
+import { api } from '../../lib/api';
+import type { VehicleInfo, VehicleData } from '../../lib/api';
 import { MAKES, getModelsForMake } from '../../lib/vehicles';
 
 interface VehicleFormProps {
@@ -69,8 +71,17 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
     const [model, setModel] = useState('');
     const [symptoms, setSymptoms] = useState('');
     const [dtcInput, setDtcInput] = useState('');
+    const [vehicleData, setVehicleData] = useState<VehicleData | null>(null);
 
-    const modelOptions = make ? getModelsForMake(make) : [];
+    // Load dynamic vehicle data from DB on mount; fall back to static data if unavailable
+    useEffect(() => {
+        api.fetchVehicles().then((data) => { if (data) setVehicleData(data); });
+    }, []);
+
+    const activeMakes: string[] = vehicleData?.makes ?? MAKES;
+    const getModels = (m: string): string[] => vehicleData?.models_by_make[m] ?? getModelsForMake(m);
+
+    const modelOptions = make ? getModels(make) : [];
     const canSubmit = Boolean(year && make && model && symptoms.trim() && !isProcessing);
 
     const handleMakeChange = (newMake: string) => {
@@ -104,7 +115,7 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
                     label="MAKE"
                     value={make}
                     onChange={handleMakeChange}
-                    options={MAKES}
+                    options={activeMakes}
                     placeholder="-- SELECT --"
                 />
                 <CyberSelect

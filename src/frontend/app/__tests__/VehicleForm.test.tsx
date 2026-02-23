@@ -1,8 +1,13 @@
 // Checked AGENTS.md - implementing directly, pure test file
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VehicleForm, { parseDtcInput } from '../components/VehicleForm';
+import { api } from '../../lib/api';
+
+vi.mock('../../lib/api', () => ({
+    api: { fetchVehicles: vi.fn().mockResolvedValue(null) },
+}));
 
 vi.mock('../../lib/vehicles', () => ({
     MAKES: ['CHEVROLET', 'FORD', 'GMC'],
@@ -146,5 +151,56 @@ describe('VehicleForm', () => {
 
         expect(screen.getByPlaceholderText(/engine shaking at idle/i)).toHaveValue('');
         expect(screen.getByPlaceholderText(/P0300, P0301/i)).toHaveValue('');
+    });
+});
+
+// ────────────────────────────────────────────────
+// VehicleForm — dynamic vehicle loading
+// ────────────────────────────────────────────────
+describe('VehicleForm — dynamic vehicle loading', () => {
+    const mockOnDiagnose = vi.fn();
+
+    beforeEach(() => {
+        mockOnDiagnose.mockClear();
+        vi.mocked(api.fetchVehicles).mockResolvedValue(null);
+    });
+
+    function makeOptions(select: HTMLElement): string[] {
+        return Array.from((select as HTMLSelectElement).options).map((o) => o.value).filter(Boolean);
+    }
+
+    it('falls back to static MAKES when fetchVehicles returns null', async () => {
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+        await waitFor(() => expect(vi.mocked(api.fetchVehicles)).toHaveBeenCalled());
+        const opts = makeOptions(screen.getByRole('combobox', { name: 'MAKE' }));
+        expect(opts).toContain('FORD');
+        expect(opts).toContain('CHEVROLET');
+    });
+
+    it('replaces static makes with API makes when fetchVehicles succeeds', async () => {
+        vi.mocked(api.fetchVehicles).mockResolvedValueOnce({
+            makes: ['HONDA', 'HYUNDAI'],
+            models_by_make: { HONDA: ['CIVIC', 'ACCORD'], HYUNDAI: ['ELANTRA', 'SONATA'] },
+        });
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+        const makeSelect = screen.getByRole('combobox', { name: 'MAKE' });
+        await waitFor(() => expect(makeOptions(makeSelect)).toContain('HONDA'));
+        expect(makeOptions(makeSelect)).toContain('HYUNDAI');
+        expect(makeOptions(makeSelect)).not.toContain('FORD');
+    });
+
+    it('shows API models for selected make after dynamic load', async () => {
+        vi.mocked(api.fetchVehicles).mockResolvedValueOnce({
+            makes: ['HONDA'],
+            models_by_make: { HONDA: ['ACCORD', 'CIVIC', 'PILOT'] },
+        });
+        const user = userEvent.setup();
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+        await waitFor(() => expect(makeOptions(screen.getByRole('combobox', { name: 'MAKE' }))).toContain('HONDA'));
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'HONDA');
+        const modelOpts = makeOptions(screen.getByRole('combobox', { name: 'MODEL' }));
+        expect(modelOpts).toContain('ACCORD');
+        expect(modelOpts).toContain('CIVIC');
+        expect(modelOpts).toContain('PILOT');
     });
 });

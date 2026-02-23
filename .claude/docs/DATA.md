@@ -53,10 +53,12 @@ data/
 ## Data Source Hierarchy
 
 ### Tier 1: Official Data (HIGH confidence)
-- **NHTSA Complaints** (`nhtsa_complaints` table) - 2.1M records
-- **NHTSA TSBs** (`nhtsa_tsbs` table) - 211K records
-- **EPA Vehicles** (`vehicles` table) - 18K records
+- **NHTSA Complaints** (`complaints_fts` table in `automotive_complaints.db`) - 562K records (partial — see note below)
+- **NHTSA TSBs** (`nhtsa_tsbs` / `tsbs_fts` table) - 211K records
+- **EPA Vehicles** (`vehicles` table in `automotive_diagnostics.db`) - 792 records (EPA format)
 - **OBD-II Codes** (`dtc_codes` table) - 270 codes
+
+> ⚠️ **FLAT_CMPL.txt is EMPTY (0 bytes)**: `data/raw_imports/FLAT_CMPL.txt` must be re-downloaded before running the full import (2.1M records). Source: https://static.nhtsa.gov/odi/ffdd/cmpl/FLAT_CMPL.zip (1.5GB). The `scripts/import_nhtsa_complaints.py` script targets `database/automotive_diagnostics.db`, NOT `automotive_complaints.db` — verify which DB before running.
 
 **Confidence**: 0.9 (HIGH)
 **Source**: Government databases, manufacturer bulletins
