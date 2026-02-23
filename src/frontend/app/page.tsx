@@ -1,5 +1,8 @@
 "use client";
 
+// Checked AGENTS.md - implementing directly, UI orchestration layer.
+// VehicleForm and vehicles.ts data module handle structured vehicle input.
+
 import React, { useState, useEffect } from 'react';
 import { Terminal, ShieldAlert, Zap, Search, Activity, Cpu } from 'lucide-react';
 import { CyberButton } from './components/CyberButton';
@@ -7,98 +10,8 @@ import { ShardCard } from './components/ShardCard';
 import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
 import { CyberInput } from './components/CyberInput';
+import VehicleForm from './components/VehicleForm';
 import { api, type VehicleInfo } from '../lib/api';
-
-// Known vehicle makes (normalized to NHTSA uppercase format)
-const MAKE_MAP: Record<string, string> = {
-    ford: 'FORD', chevrolet: 'CHEVROLET', chevy: 'CHEVROLET', gmc: 'GMC',
-    ram: 'RAM', dodge: 'DODGE', chrysler: 'CHRYSLER', jeep: 'JEEP',
-    buick: 'BUICK', cadillac: 'CADILLAC', toyota: 'TOYOTA', honda: 'HONDA',
-    nissan: 'NISSAN', bmw: 'BMW', hyundai: 'HYUNDAI', kia: 'KIA',
-    subaru: 'SUBARU', volkswagen: 'VOLKSWAGEN', vw: 'VOLKSWAGEN',
-};
-
-// Known model names (lowercase) — used to distinguish model from symptoms
-const MODEL_WHITELIST = new Set<string>([
-    // Ford
-    'f-150', 'f-250', 'f-350', 'f-450', 'explorer', 'mustang', 'focus', 'fusion',
-    'escape', 'edge', 'expedition', 'ranger', 'bronco', 'maverick', 'transit',
-    'taurus', 'crown', 'victoria', 'flex', 'galaxy',
-    // GM / Chevrolet
-    'silverado', 'tahoe', 'suburban', 'equinox', 'blazer', 'colorado', 'traverse',
-    'malibu', 'cruze', 'impala', 'camaro', 'corvette', 'trax', 'trailblazer',
-    // GMC
-    'sierra', 'yukon', 'terrain', 'canyon', 'acadia', 'envoy', 'jimmy',
-    // RAM / Dodge
-    '1500', '2500', '3500', 'promaster', 'charger', 'challenger', 'durango',
-    'journey', 'dakota', 'viper', 'grand',
-    // Jeep
-    'wrangler', 'cherokee', 'compass', 'renegade', 'gladiator',
-    // Chrysler
-    '300', 'pacifica', 'voyager', 'town',
-    // Buick
-    'enclave', 'encore', 'lacrosse', 'regal', 'verano',
-    // Cadillac
-    'escalade', 'ct5', 'ct6', 'xt5', 'xt6', 'ats', 'cts', 'srx',
-    // Toyota
-    'camry', 'corolla', 'tacoma', 'tundra', 'highlander', 'prius', 'rav4',
-    'sequoia', '4runner', 'sienna', 'venza', 'avalon',
-    // Honda
-    'civic', 'accord', 'pilot', 'cr-v', 'odyssey', 'ridgeline', 'hr-v', 'passport',
-    // Nissan
-    'altima', 'frontier', 'titan', 'murano', 'pathfinder', 'rogue', 'sentra',
-    'maxima', 'armada', 'versa',
-    // BMW
-    'm3', 'm5', '328i', '330i', '335i', '528i', '530i', 'x1', 'x3', 'x5', 'x7',
-    // Hyundai
-    'elantra', 'sonata', 'tucson', 'santa', 'kona', 'palisade', 'ioniq',
-    // Kia
-    'optima', 'sorento', 'sportage', 'telluride', 'soul', 'stinger', 'seltos',
-    // Subaru
-    'outback', 'forester', 'impreza', 'legacy', 'crosstrek', 'ascent', 'wrx', 'brz',
-    // VW
-    'jetta', 'passat', 'tiguan', 'atlas', 'golf', 'beetle', 'gti',
-]);
-
-const DTC_REGEX = /\b([PCBU][0-3][0-9A-Fa-f]{3})\b/gi;
-const YEAR_REGEX = /\b(19[9][0-9]|20[0-2][0-9]|2030)\b/;
-
-function parseVehicleInput(text: string): {
-    vehicle: VehicleInfo | null;
-    symptoms: string;
-    dtcCodes: string[];
-} {
-    // Extract DTC codes
-    const dtcCodes = [...text.matchAll(DTC_REGEX)].map(m => m[1].toUpperCase());
-    const nodtc = text.replace(DTC_REGEX, ' ').replace(/\s+/g, ' ').trim();
-
-    // Extract year
-    const yearMatch = nodtc.match(YEAR_REGEX);
-    if (!yearMatch) return { vehicle: null, symptoms: text, dtcCodes };
-    const year = parseInt(yearMatch[1]);
-
-    // Find make
-    const words = nodtc.split(/\s+/);
-    let makeIdx = -1;
-    let make = '';
-    for (let i = 0; i < words.length; i++) {
-        const mapped = MAKE_MAP[words[i].toLowerCase()];
-        if (mapped) { makeIdx = i; make = mapped; break; }
-    }
-    if (makeIdx === -1) return { vehicle: null, symptoms: text, dtcCodes };
-
-    // Model = first word after make IF it's in the whitelist; symptoms = remainder
-    const afterMake = words.slice(makeIdx + 1).filter(w => !YEAR_REGEX.test(w));
-    const candidate = afterMake[0]?.toLowerCase() ?? '';
-    if (!MODEL_WHITELIST.has(candidate)) {
-        // Word after make is not a known model — can't reliably parse vehicle
-        return { vehicle: null, symptoms: text, dtcCodes };
-    }
-    const model = candidate.toUpperCase();
-    const symptoms = afterMake.slice(1).join(' ') || nodtc;
-
-    return { vehicle: { make, model, year }, symptoms: symptoms || nodtc, dtcCodes };
-}
 
 export default function Home() {
     const [activeTab, setActiveTab] = useState('diagnose');
@@ -131,37 +44,46 @@ export default function Home() {
         checkHealth();
     }, []);
 
-    const handleSend = async () => {
+    /** Structured diagnostic from VehicleForm — bypasses text parsing entirely. */
+    const handleDiagnose = async (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => {
+        const dtcLabel = dtcCodes.length ? ` [${dtcCodes.join(', ')}]` : '';
+        const userQuery = `${vehicle.year} ${vehicle.make} ${vehicle.model} — ${symptoms}${dtcLabel}`;
+
+        setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
+        setIsProcessing(true);
+
+        try {
+            const diagData = await api.diagnose({ vehicle, symptoms, dtc_codes: dtcCodes });
+            setMessages(prev => [...prev, { role: 'system', content: api.formatDiagnosis(diagData) }]);
+        } catch (error) {
+            setMessages(prev => [
+                ...prev,
+                { role: 'system', content: api.formatError(error as Error) }
+            ]);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    /** Free-text search for TSB / complaint queries (non-diagnose tabs). */
+    const handleSearch = async () => {
         if (!inputText.trim()) return;
 
         const userQuery = inputText.trim();
-
         setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
         setInputText('');
         setIsProcessing(true);
 
         try {
-            const { vehicle, symptoms, dtcCodes } = parseVehicleInput(userQuery);
-
             let response: string;
 
-            if (vehicle) {
-                // Full differential diagnosis via POST /diagnose
-                const diagData = await api.diagnose({
-                    vehicle,
-                    symptoms,
-                    dtc_codes: dtcCodes,
-                });
-                response = api.formatDiagnosis(diagData);
-            } else if (
+            if (
                 userQuery.toLowerCase().includes('tsb') ||
                 userQuery.toLowerCase().includes('bulletin')
             ) {
-                // TSB keyword search (no vehicle parsed)
                 const tsbData = await api.searchTSBs(userQuery, 10);
                 response = api.formatResults(tsbData);
             } else {
-                // General NHTSA complaint search fallback
                 const complaintData = await api.searchComplaints(userQuery, 10);
                 response = api.formatResults(complaintData);
             }
@@ -212,11 +134,12 @@ export default function Home() {
                 <aside className="w-16 md:w-64 flex flex-col border-r border-cyber-gray/30 bg-cyber-dark/30 clip-corner-bl backdrop-blur-sm">
                     <nav className="flex flex-col gap-2 p-2">
                         {['Diagnose', 'Database', 'TSB Search', 'Settings'].map((item, idx) => {
-                            const isActive = activeTab === item.toLowerCase().replace(' ', '');
+                            const tabKey = item.toLowerCase().replace(' ', '');
+                            const isActive = activeTab === tabKey;
                             return (
                                 <button
                                     key={item}
-                                    onClick={() => setActiveTab(item.toLowerCase().replace(' ', ''))}
+                                    onClick={() => setActiveTab(tabKey)}
                                     className={`
                       group relative flex items-center justify-start gap-3 p-3 text-left transition-all
                       border border-transparent hover:border-cyber-blue/50 hover:bg-cyber-blue/10
@@ -256,13 +179,17 @@ export default function Home() {
                             <div className="absolute top-0 right-0 p-2 text-cyber-gray font-mono text-xs">ID: 9942-ALPHA</div>
                             <h2 className="text-2xl font-display text-cyber-white mb-2">NEURAL LINK ESTABLISHED</h2>
                             <p className="text-cyber-gray font-mono max-w-2xl mb-6">
-                                Ready for input. connection to vehicle database authorized.
-                                Please describe the symptoms or enter DTC codes to begin analysis.
+                                {activeTab === 'diagnose'
+                                    ? 'Select year, make, and model below, then describe symptoms to begin differential diagnosis.'
+                                    : 'Ready for input. Describe symptoms or search TSBs using the command input below.'}
                             </p>
 
                             <div className="flex gap-4">
-                                <CyberButton variant="primary" onClick={() => setInputText("2018 Ford F-150 transmission shudder")}>INITIATE SCAN</CyberButton>
-                                <CyberButton variant="secondary" onClick={() => setInputText("TSB Chevrolet Silverado")}>SEARCH TSBs</CyberButton>
+                                <CyberButton variant="primary" onClick={() => setActiveTab('diagnose')}>INITIATE SCAN</CyberButton>
+                                <CyberButton variant="secondary" onClick={() => {
+                                    setActiveTab('tsbsearch');
+                                    setInputText('TSB ');
+                                }}>SEARCH TSBs</CyberButton>
                             </div>
                         </ShardCard>
 
@@ -293,15 +220,23 @@ export default function Home() {
 
                     </div>
 
-                    {/* INPUT AREA */}
+                    {/* INPUT AREA — VehicleForm for Diagnose tab, CyberInput for all others */}
                     <div className="p-4 bg-cyber-dark/80 backdrop-blur border-t border-cyber-gray/30 shrink-0">
-                        <CyberInput
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            onSubmit={handleSend}
-                            isProcessing={isProcessing}
-                            placeholder="ENTER COMMAND OR SYMPTOMS..."
-                        />
+                        {activeTab === 'diagnose' ? (
+                            <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
+                        ) : (
+                            <CyberInput
+                                value={inputText}
+                                onChange={(e) => setInputText(e.target.value)}
+                                onSubmit={handleSearch}
+                                isProcessing={isProcessing}
+                                placeholder={
+                                    activeTab === 'tsbsearch'
+                                        ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
+                                        : 'ENTER COMMAND OR SYMPTOMS...'
+                                }
+                            />
+                        )}
                     </div>
 
                 </section>
