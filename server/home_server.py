@@ -251,7 +251,13 @@ async def get_vehicles(api_key: str = Depends(get_api_key)) -> dict[str, object]
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT make, model FROM complaints_fts ORDER BY make, model")
+        # Filter to 2005+ vehicles — older records are data noise for modern diagnostic queries.
+        # year column is TEXT in this DB, so CAST(year AS INTEGER) is required.
+        cursor.execute(
+            "SELECT DISTINCT make, model FROM complaints_fts"
+            " WHERE CAST(year AS INTEGER) >= 2005"
+            " ORDER BY make, model"
+        )
         rows = cursor.fetchall()
         conn.close()
 

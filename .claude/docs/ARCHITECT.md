@@ -99,6 +99,7 @@ automotive-diagnostic-skills/
 ├── tests/
 │   ├── unit/              # 280 unit tests (fully mocked)
 │   └── integration/       # 20 integration tests (real DB)
+│   # Python total: 300 | Frontend (Vitest in src/frontend/): 100 tests
 ├── database/              # SQLite DBs + import scripts
 ├── scripts/               # index_forum_data.py + utilities
 ├── data/
