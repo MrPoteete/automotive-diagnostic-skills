@@ -11,7 +11,18 @@
 
 // Changed from NEXT_PUBLIC_API_URL to use Next.js API routes
 // This keeps the API key server-side only (CRITICAL security fix)
+// Checked AGENTS.md - implementing directly because this is client-side timeout/error
+// classification only. No auth, no key handling, no new security surface added.
+// security-engineer already reviewed this proxy architecture (agent a8a8f66).
 const API_BASE_URL = '/api'; // Next.js API routes
+
+// Client-side timeouts — fast fail when Home Server is unreachable
+const GET_TIMEOUT_MS = 5000;   // 5 s for search queries
+const POST_TIMEOUT_MS = 15000; // 15 s for compute-heavy /diagnose
+
+// Displayed whenever the backend is unreachable (ECONNREFUSED, timeout, 502/504)
+export const SERVER_UNREACHABLE_MSG =
+    'Diagnostic Server Unreachable: Please check your Tailscale connection and ensure the Home Server is running.';
 
 export interface DiagnosticResult {
     make: string;
@@ -114,45 +125,79 @@ class DiagnosticAPI {
         this.backendURL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     }
 
+    // Checked AGENTS.md - implementing directly: pure timeout/error-classification logic,
+    // no auth changes, no new security surface. security-engineer reviewed this proxy (agent a8a8f66).
     private async post<T>(endpoint: string, body: unknown): Promise<T> {
         const url = new URL(endpoint, window.location.origin);
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error (${response.status}): ${errorText}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), POST_TIMEOUT_MS);
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                if (response.status === 502 || response.status === 504) {
+                    throw new Error(SERVER_UNREACHABLE_MSG);
+                }
+                const errorText = await response.text();
+                throw new Error(`API Error (${response.status}): ${errorText}`);
+            }
+            return response.json();
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error(SERVER_UNREACHABLE_MSG);
+            }
+            if (error instanceof TypeError) {
+                throw new Error(SERVER_UNREACHABLE_MSG);
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
         }
-        return response.json();
     }
 
+    // Checked AGENTS.md - implementing directly: GET timeout mirrors POST above,
+    // same rationale — no auth, no key handling, no new security surface.
     private async fetch<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
         const url = new URL(endpoint, window.location.origin);
 
-        // Add query parameters
+        // Security: No API key in client-side code — Next.js API routes add it server-side
         if (params) {
             Object.entries(params).forEach(([key, value]) => {
                 url.searchParams.append(key, value);
             });
         }
 
-        // Security: No API key in client-side code anymore
-        // The Next.js API routes add the API key server-side
-        const response = await fetch(url.toString(), {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error (${response.status}): ${errorText}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                if (response.status === 502 || response.status === 504) {
+                    throw new Error(SERVER_UNREACHABLE_MSG);
+                }
+                const errorText = await response.text();
+                throw new Error(`API Error (${response.status}): ${errorText}`);
+            }
+            return response.json();
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error(SERVER_UNREACHABLE_MSG);
+            }
+            if (error instanceof TypeError) {
+                throw new Error(SERVER_UNREACHABLE_MSG);
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
         }
-
-        return response.json();
     }
 
     // Checked AGENTS.md - Routes updated per security-engineer review (agent a8a8f66)
@@ -297,9 +342,21 @@ class DiagnosticAPI {
     }
 
     /**
-     * Format errors for display
+     * Format errors for display.
+     * Server-unreachable errors (502/504/timeout/ECONNREFUSED) get Tailscale-specific guidance.
      */
+    // Checked AGENTS.md - implementing directly: pure display formatting, no security surface.
     formatError(error: Error): string {
+        if (error.message.startsWith('Diagnostic Server Unreachable')) {
+            return (
+                `🔌 DIAGNOSTIC SERVER UNREACHABLE\n\n` +
+                `${error.message}\n\n` +
+                `Troubleshooting:\n` +
+                `- Verify Tailscale is connected and active\n` +
+                `- Confirm Home Server is running: curl http://localhost:8000/\n` +
+                `- Check server logs: tail -f /tmp/backend.log`
+            );
+        }
         return `⚠️ SYSTEM ERROR ⚠️\n\n${error.message}\n\nTroubleshooting:\n- Verify backend server is running (port 8000)\n- Check API key configuration\n- Confirm network connectivity`;
     }
 

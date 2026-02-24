@@ -1,8 +1,8 @@
 # Current Project Status - Dual-Agent Collaboration
 
-**Date**: 2026-02-08
-**Phase**: Phase 3: Agent Framework & Diagnostic Engine (In Progress)
-**Last Agent**: Gemini (Antigravity)
+**Date**: 2026-02-24
+**Phase**: Phase 4: Modular Skill Implementation & Agent Hardening (In Progress)
+**Last Agent**: Cortana / Claude Code Army
 
 ## 🔄 Dual-Agent Workflow Established
 *   **Source of Truth**: `PROJECT_STATUS.md` (This file).
@@ -11,24 +11,22 @@
 
 ## 📍 Where We Are Now
 
-### ✅ RECENTLY COMPLETED:
-1.  **Phase 3.1: Remote RAG Infrastructure** (Complete)
-    *   **API Server**: Built `server/home_server.py` with FastAPI & valid API Key.
-    *   **Data Indexing**: Created `database/automotive_complaints.db` with FTS5 for 2.1M+ records.
-    *   **Connectivity**: Validated remote access via Tailscale (Omnidesk ↔ Work Laptop).
-2.  **Phase 2: Database Integration** (Complete) - 2.1M+ NHTSA complaints.
-3.  **Dual-Agent Workflow**: Established `tasks.py` and documentation.
+### ✅ RECENTLY COMPLETED (2026-02-24):
+1.  **API Client Graceful Fallback**: Implemented strict timeouts (5s GET, 15s POST) and structured error handling (`SERVER_UNREACHABLE_MSG`) in `src/frontend/lib/api.ts` to fail gracefully when the Home Server/Tailscale is unreachable.
+2.  **Engine Agent Hardening**: Bulletproofed `src/diagnostic/engine_agent.py` and `src/diagnostic/confidence_scorer.py` by adding strict input coercion helpers (`_coerce_vehicle`, `_coerce_symptoms`, `_coerce_dtc_codes`) and comprehensive DB/validation guards.
+3.  **Improved RAG Chunking Strategy**: Validated and implemented a superior ChromaDB chunking strategy via `test_rag_chunking.py`. The production pipeline (`scripts/index_forum_data.py`) now embeds the question body symptom language alongside the accepted answer, significantly improving semantic relevance scores.
+4.  **ChromaDB Index Rebuilt**: Wiped and rebuilt the production ChromaDB collection with the new chunking strategy.
 
 ### 🎯 CURRENT OBJECTIVE:
-**Build the Client-Side Agent (Phase 3.2)**
-*   Implement `Client Agent` on Work Laptop to query the Home API.
-*   Finalize "Headless" auto-start for the Home Server.
-*   Integrate `symptom_matcher.py` with the remote API.
+**Solidify Client-Side Resiliency & Expand Diagnostic Domain**
+*   Ensure the web UI cleanly displays the new `SERVER_UNREACHABLE_MSG` and offers a retry/troubleshooting workflow.
+*   Integrate the newly improved ChromaDB semantic search directly into the `symptom_matcher.py` pipeline to feed the `engine_agent.py`.
 
-### 📋 NEXT STEPS (For Gemini or Claude):
-1.  **Create `src/agents/coordinator.py`**: The entry point for the diagnostic skill.
-2.  **Implement `src/engine/symptom_matcher.py`**: Logic to query FTS5 and ChromaDB.
-3.  **Connect to `SKILL.md`**: Ensure the Python code implements the logic defined in the skill file (CO-STAR, Categorical Assessment).
+### 📋 NEXT STEPS:
+(See `NEXT_SESSION_PRIORITIES.md` for detailed tasks)
+1.  **UI Error State Integration**: Hook up the Next.js UI to properly render the new `SERVER_UNREACHABLE_MSG` when Tailscale/Home Server drops.
+2.  **Semantic Search Integration**: Wire up `chroma_service.py` to the `symptom_matcher.py` so the `engine_agent` leverages the newly rebuilt forum embeddings.
+3.  **Create Transmission/Electrical Agents**: Once the `engine_agent` is perfectly utilizing both SQLite and ChromaDB, clone its architecture to handle Transmission and Electrical domains.
 
 ## Key Files:
 - `DUAL_AGENT_WORKFLOW.md` - **READ THIS FIRST** if you are a new agent.
@@ -37,9 +35,9 @@
 - `database/automotive_diagnostics.db` - The core data.
 
 ## Tech Stack:
-- **Backend**: Python 3.11+, SQLite (FTS5).
-- **Frontend**: CLI (Current), Future Web UI.
+- **Backend**: Python 3.11+, SQLite (FTS5), ChromaDB.
+- **Frontend**: Next.js (React), CLI.
 - **AI**: Claude/Gemini via Skill Interface.
 
 ---
-**Recovery Phrase**: "dual-agent automotive diagnostic framework phase 3"
+**Recovery Phrase**: "dual-agent automotive diagnostic framework phase 4"
