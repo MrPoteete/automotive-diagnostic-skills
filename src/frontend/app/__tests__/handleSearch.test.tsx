@@ -37,9 +37,11 @@ import { api } from '../../lib/api';
 
 const COMPLAINT_RESPONSE: SearchResponse = {
     query: 'q', sanitized_query: 'q', results: [], source: 'NHTSA',
+    total_count: 0, page: 1, total_pages: 1,
 };
 const TSB_RESPONSE: TSBSearchResponse = {
     query: 'q', sanitized_query: 'q', results: [], source: 'TSB',
+    total_count: 0, page: 1, total_pages: 1,
 };
 
 /** Click a sidebar nav tab and wait for the CyberInput to appear. */
@@ -99,7 +101,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'tsb brake recall{Enter}');
 
             await waitFor(() =>
-                expect(api.searchTSBs).toHaveBeenCalledWith('tsb brake recall', 10)
+                expect(api.searchTSBs).toHaveBeenCalledWith('tsb brake recall', 10, 1)
             );
             expect(api.searchComplaints).not.toHaveBeenCalled();
         });
@@ -112,7 +114,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'service bulletin airbag{Enter}');
 
             await waitFor(() =>
-                expect(api.searchTSBs).toHaveBeenCalledWith('service bulletin airbag', 10)
+                expect(api.searchTSBs).toHaveBeenCalledWith('service bulletin airbag', 10, 1)
             );
             expect(api.searchComplaints).not.toHaveBeenCalled();
         });
@@ -125,7 +127,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'engine knocking at idle{Enter}');
 
             await waitFor(() =>
-                expect(api.searchComplaints).toHaveBeenCalledWith('engine knocking at idle', 10)
+                expect(api.searchComplaints).toHaveBeenCalledWith('engine knocking at idle', 10, 1)
             );
             expect(api.searchTSBs).not.toHaveBeenCalled();
         });
@@ -138,7 +140,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'TSB Ford F-150 transmission{Enter}');
 
             await waitFor(() =>
-                expect(api.searchTSBs).toHaveBeenCalledWith('TSB Ford F-150 transmission', 10)
+                expect(api.searchTSBs).toHaveBeenCalledWith('TSB Ford F-150 transmission', 10, 1)
             );
             expect(api.searchComplaints).not.toHaveBeenCalled();
         });
@@ -151,7 +153,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'Recall Bulletin 2022{Enter}');
 
             await waitFor(() =>
-                expect(api.searchTSBs).toHaveBeenCalledWith('Recall Bulletin 2022', 10)
+                expect(api.searchTSBs).toHaveBeenCalledWith('Recall Bulletin 2022', 10, 1)
             );
             expect(api.searchComplaints).not.toHaveBeenCalled();
         });
@@ -165,6 +167,7 @@ describe('handleSearch — routing and behavior', () => {
                 sanitized_query: 'tsb engine',
                 results: [{ nhtsa_id: '1', make: 'FORD', model: 'F-150', year: 2020, component: 'Engine', summary: 'Oil leak' }],
                 source: 'TSB',
+                total_count: 1, page: 1, total_pages: 1,
             };
             vi.mocked(api.searchTSBs).mockResolvedValue(mockTSBResponse);
             vi.mocked(api.formatResults).mockReturnValue('TSB FOUND: FORD F-150');
@@ -209,6 +212,7 @@ describe('handleSearch — routing and behavior', () => {
                 sanitized_query: 'brake noise',
                 results: [{ make: 'FORD', model: 'F-150', year: 2019, component: 'Brakes', summary: 'Squealing brakes' }],
                 source: 'NHTSA',
+                total_count: 1, page: 1, total_pages: 1,
             };
             vi.mocked(api.searchComplaints).mockResolvedValue(complaintResponse);
             vi.mocked(api.formatResults).mockReturnValue('COMPLAINT: Brake squealing');
@@ -287,6 +291,71 @@ describe('handleSearch — routing and behavior', () => {
     });
 
     // ────────────────────────────────────────────────────────────
+    describe('pagination controls', () => {
+        it('does not show pagination controls when total_pages is 1', async () => {
+            render(<Home />);
+            await switchTab(user, 'Database');
+
+            const input = screen.getByPlaceholderText(/ENTER COMMAND OR SYMPTOMS/i);
+            await user.type(input, 'brake noise{Enter}');
+
+            await waitFor(() => expect(api.searchComplaints).toHaveBeenCalled());
+            expect(screen.queryByRole('button', { name: /NEXT/i })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /PREV/i })).not.toBeInTheDocument();
+        });
+
+        it('shows PREV/NEXT controls when total_pages > 1', async () => {
+            vi.mocked(api.searchComplaints).mockResolvedValueOnce({
+                ...COMPLAINT_RESPONSE, total_count: 50, page: 1, total_pages: 5,
+            });
+
+            render(<Home />);
+            await switchTab(user, 'Database');
+
+            const input = screen.getByPlaceholderText(/ENTER COMMAND OR SYMPTOMS/i);
+            await user.type(input, 'engine knock{Enter}');
+
+            await waitFor(() => expect(screen.getByText(/PAGE/i)).toBeInTheDocument());
+            expect(screen.getByRole('button', { name: /NEXT/i })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /PREV/i })).toBeInTheDocument();
+        });
+
+        it('NEXT button calls searchComplaints with page 2', async () => {
+            vi.mocked(api.searchComplaints)
+                .mockResolvedValueOnce({ ...COMPLAINT_RESPONSE, total_count: 50, page: 1, total_pages: 5 })
+                .mockResolvedValueOnce({ ...COMPLAINT_RESPONSE, total_count: 50, page: 2, total_pages: 5 });
+
+            render(<Home />);
+            await switchTab(user, 'Database');
+
+            const input = screen.getByPlaceholderText(/ENTER COMMAND OR SYMPTOMS/i);
+            await user.type(input, 'engine knock{Enter}');
+
+            await waitFor(() => expect(screen.getByRole('button', { name: /NEXT/i })).toBeInTheDocument());
+            await user.click(screen.getByRole('button', { name: /NEXT/i }));
+
+            await waitFor(() =>
+                expect(api.searchComplaints).toHaveBeenCalledWith('engine knock', 10, 2)
+            );
+        });
+
+        it('PREV button is disabled on page 1', async () => {
+            vi.mocked(api.searchComplaints).mockResolvedValueOnce({
+                ...COMPLAINT_RESPONSE, total_count: 50, page: 1, total_pages: 5,
+            });
+
+            render(<Home />);
+            await switchTab(user, 'Database');
+
+            const input = screen.getByPlaceholderText(/ENTER COMMAND OR SYMPTOMS/i);
+            await user.type(input, 'engine knock{Enter}');
+
+            await waitFor(() => expect(screen.getByRole('button', { name: /PREV/i })).toBeInTheDocument());
+            expect(screen.getByRole('button', { name: /PREV/i })).toBeDisabled();
+        });
+    });
+
+    // ────────────────────────────────────────────────────────────
     describe('TSB Search tab', () => {
         it('shows TSB-specific placeholder on tsbsearch tab', async () => {
             render(<Home />);
@@ -303,7 +372,7 @@ describe('handleSearch — routing and behavior', () => {
             await user.type(input, 'tsb power steering{Enter}');
 
             await waitFor(() =>
-                expect(api.searchTSBs).toHaveBeenCalledWith('tsb power steering', 10)
+                expect(api.searchTSBs).toHaveBeenCalledWith('tsb power steering', 10, 1)
             );
         });
     });

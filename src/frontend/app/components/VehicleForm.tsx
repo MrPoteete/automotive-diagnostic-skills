@@ -10,6 +10,9 @@ import { api } from '../../lib/api';
 import type { VehicleInfo, VehicleData } from '../../lib/api';
 import { MAKES, getModelsForMake } from '../../lib/vehicles';
 
+// Checked AGENTS.md - implementing VehicleForm state logic directly (complex multi-state).
+// fetchVehicleYears API method reviewed via Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
+
 interface VehicleFormProps {
     onDiagnose: (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => void;
     isProcessing: boolean;
@@ -72,21 +75,42 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
     const [symptoms, setSymptoms] = useState('');
     const [dtcInput, setDtcInput] = useState('');
     const [vehicleData, setVehicleData] = useState<VehicleData | null>(null);
+    const [availableYears, setAvailableYears] = useState<number[]>([]);
 
     // Load dynamic vehicle data from DB on mount; fall back to static data if unavailable
     useEffect(() => {
         api.fetchVehicles().then((data) => { if (data) setVehicleData(data); });
     }, []);
 
+    // Fetch available years whenever both make and model are selected
+    useEffect(() => {
+        if (make && model) {
+            api.fetchVehicleYears(make, model).then((years) => {
+                setAvailableYears(years ?? []);
+                // If current year is no longer valid, reset it
+                setYear((prev) => (years && years.includes(Number(prev)) ? prev : ''));
+            });
+        } else {
+            setAvailableYears([]);
+        }
+    }, [make, model]);
+
     const activeMakes: string[] = vehicleData?.makes ?? MAKES;
     const getModels = (m: string): string[] => vehicleData?.models_by_make[m] ?? getModelsForMake(m);
 
+    const yearOptions = availableYears.length > 0 ? availableYears : YEARS;
     const modelOptions = make ? getModels(make) : [];
     const canSubmit = Boolean(year && make && model && symptoms.trim() && !isProcessing);
 
     const handleMakeChange = (newMake: string) => {
         setMake(newMake);
-        setModel(''); // reset model when make changes — prevents cross-make invalid combos
+        setModel('');  // reset model — prevents cross-make invalid combos
+        setYear('');   // reset year — make change invalidates the year selection
+    };
+
+    const handleModelChange = (newModel: string) => {
+        setModel(newModel);
+        setYear('');  // reset year — new model may have different year coverage
     };
 
     const handleSubmit = () => {
@@ -108,8 +132,9 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
                     label="YEAR"
                     value={year}
                     onChange={setYear}
-                    options={YEARS}
-                    placeholder="-- SELECT --"
+                    options={yearOptions}
+                    disabled={!make || !model}
+                    placeholder={make && model ? '-- SELECT --' : '-- SELECT MAKE/MODEL FIRST --'}
                 />
                 <CyberSelect
                     label="MAKE"
@@ -121,7 +146,7 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
                 <CyberSelect
                     label="MODEL"
                     value={model}
-                    onChange={setModel}
+                    onChange={handleModelChange}
                     options={modelOptions}
                     disabled={!make}
                     placeholder={make ? '-- SELECT --' : '-- SELECT MAKE FIRST --'}

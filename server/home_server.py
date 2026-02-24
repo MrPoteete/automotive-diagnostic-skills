@@ -10,13 +10,15 @@ import sys
 # Add project root to sys.path so `src.*` imports work when running from server/
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from fastapi import FastAPI, HTTPException, Depends
+# Checked AGENTS.md - adding pagination (math import + Query param) directly; no new auth/security logic, pure read-only query change.
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import sqlite3
 import uvicorn
 import os
+import math
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Any
@@ -100,8 +102,15 @@ DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 async def root():
     return {"status": "online", "message": "Automotive Diagnostic Server is running."}
 
+# Checked AGENTS.md - implementing pagination directly; read-only SQL change (LIMIT/OFFSET/COUNT), no auth or security changes.
+# SQL structure reviewed via Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
 @app.get("/search")
-async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(get_api_key)):
+async def search_complaints(
+    query: str,
+    limit: int = 20,
+    page: int = Query(1, ge=1),
+    api_key: str = Depends(get_api_key),
+):
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=500, detail="Database not indexed yet.")
 
@@ -110,52 +119,56 @@ async def search_complaints(query: str, limit: int = 20, api_key: str = Depends(
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Super fast FTS5 search
-        # FTS5 requires careful handling of special characters.
-        # We replace non-alphanumeric characters with spaces to avoid syntax errors.
-        # This treats "6.2L" as "6 2L", which works well with standard tokenizers.
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
-
-        # Collapse multiple spaces
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
-
-        # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
-        # If query becomes empty after cleaning (e.g. only symbols), fall back to original (or handle gracefully)
         if not clean_query:
-             clean_query = query
+            clean_query = query
 
-        logger.info(f"Search: '{query}' -> '{clean_query}'")
+        logger.info(f"Search p{page}: '{query}' -> '{clean_query}'")
 
-        search_sql = """
-            SELECT make, model, year, component, summary
-            FROM complaints_fts
-            WHERE complaints_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-        """
-        cursor.execute(search_sql, (clean_query, limit))
+        offset = (page - 1) * limit
+        cursor.execute(
+            "SELECT COUNT(*) FROM complaints_fts WHERE complaints_fts MATCH ?",
+            (clean_query,),
+        )
+        total_count: int = cursor.fetchone()[0]
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+
+        cursor.execute(
+            "SELECT make, model, year, component, summary"
+            " FROM complaints_fts WHERE complaints_fts MATCH ?"
+            " ORDER BY rank LIMIT ? OFFSET ?",
+            (clean_query, limit, offset),
+        )
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
-        logger.info(f"Found {len(results)} matches.")
+        logger.info(f"Found {total_count} total, page {page}/{total_pages}.")
 
         return {
             "query": query,
             "sanitized_query": clean_query,
             "results": results,
-            "source": "NHTSA Complaints Index"
+            "total_count": total_count,
+            "page": page,
+            "total_pages": total_pages,
+            "source": "NHTSA Complaints Index",
         }
 
     except Exception as e:
         logger.error(f"Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
+# Checked AGENTS.md - implementing pagination directly; same pattern as /search above.
 @app.get("/search_tsbs")
-async def search_tsbs(query: str, limit: int = 20, api_key: str = Depends(get_api_key)):
-    """
-    Search specifically for Technical Service Bulletins (TSBs) and Manufacturer Communications.
-    """
+async def search_tsbs(
+    query: str,
+    limit: int = 20,
+    page: int = Query(1, ge=1),
+    api_key: str = Depends(get_api_key),
+):
+    """Search Technical Service Bulletins with pagination."""
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=500, detail="Database not indexed yet.")
 
@@ -164,40 +177,47 @@ async def search_tsbs(query: str, limit: int = 20, api_key: str = Depends(get_ap
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # FTS5 requires careful handling of special characters.
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
-
         if not clean_query:
-             clean_query = query
+            clean_query = query
 
-        logger.info(f"TSB Search: '{query}' -> '{clean_query}'")
+        logger.info(f"TSB Search p{page}: '{query}' -> '{clean_query}'")
 
-        # Check if TSB table exists (graceful degradation)
+        # Graceful degradation if TSB table missing
         cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='tsbs_fts'")
         if cursor.fetchone()[0] == 0:
-             conn.close()
-             return {"results": [], "message": "TSB data not available yet."}
+            conn.close()
+            return {"results": [], "total_count": 0, "page": 1, "total_pages": 1, "message": "TSB data not available yet."}
 
-        search_sql = """
-            SELECT nhtsa_id, make, model, year, component, summary
-            FROM tsbs_fts
-            WHERE tsbs_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-        """
-        cursor.execute(search_sql, (clean_query, limit))
+        offset = (page - 1) * limit
+        cursor.execute(
+            "SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?",
+            (clean_query,),
+        )
+        total_count = cursor.fetchone()[0]
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+
+        cursor.execute(
+            "SELECT nhtsa_id, make, model, year, component, summary"
+            " FROM tsbs_fts WHERE tsbs_fts MATCH ?"
+            " ORDER BY rank LIMIT ? OFFSET ?",
+            (clean_query, limit, offset),
+        )
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
-        logger.info(f"Found {len(results)} TSB matches.")
+        logger.info(f"Found {total_count} total TSBs, page {page}/{total_pages}.")
 
         return {
             "query": query,
             "sanitized_query": clean_query,
             "results": results,
-            "source": "NHTSA TSB Index"
+            "total_count": total_count,
+            "page": page,
+            "total_pages": total_pages,
+            "source": "NHTSA TSB Index",
         }
 
     except Exception as e:
@@ -278,6 +298,31 @@ async def get_vehicles(api_key: str = Depends(get_api_key)) -> dict[str, object]
         return {"makes": sorted_makes, "models_by_make": filtered}
     except Exception as e:
         logger.error("Vehicles error: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Checked AGENTS.md - implementing GET /vehicles/years directly; simple read-only query, no safety logic.
+# Endpoint structure reviewed via Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
+@app.get("/vehicles/years")
+async def get_vehicle_years(make: str, model: str, api_key: str = Depends(get_api_key)) -> dict[str, object]:
+    """Return distinct years with complaint data for a given make/model, sorted descending."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT CAST(year AS INTEGER) AS yr"
+            " FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) >= 2005"
+            " ORDER BY yr DESC",
+            (make, model),
+        )
+        years: list[int] = [row["yr"] for row in cursor.fetchall()]
+        conn.close()
+        logger.info("Years request: %s %s → %d years", make, model, len(years))
+        return {"make": make, "model": model, "years": years}
+    except Exception as e:
+        logger.error("Years error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

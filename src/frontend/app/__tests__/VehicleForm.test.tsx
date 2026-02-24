@@ -6,7 +6,10 @@ import VehicleForm, { parseDtcInput } from '../components/VehicleForm';
 import { api } from '../../lib/api';
 
 vi.mock('../../lib/api', () => ({
-    api: { fetchVehicles: vi.fn().mockResolvedValue(null) },
+    api: {
+        fetchVehicles: vi.fn().mockResolvedValue(null),
+        fetchVehicleYears: vi.fn().mockResolvedValue(null), // null → fall back to static YEARS
+    },
 }));
 
 vi.mock('../../lib/vehicles', () => ({
@@ -99,9 +102,11 @@ describe('VehicleForm', () => {
         const user = userEvent.setup();
         render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
 
-        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2023');
+        // Select make → model first; year is disabled until both are chosen
         await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2023');
         await user.type(screen.getByPlaceholderText(/engine shaking at idle/i), 'Engine light on');
 
         expect(screen.getByRole('button', { name: /INITIATE DIAGNOSTIC SCAN/i })).toBeEnabled();
@@ -111,9 +116,10 @@ describe('VehicleForm', () => {
         const user = userEvent.setup();
         render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={true} />);
 
-        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2023');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2023');
         await user.type(screen.getByPlaceholderText(/engine shaking at idle/i), 'Engine light on');
 
         expect(screen.getByRole('button', { name: /ANALYZING/i })).toBeDisabled();
@@ -123,9 +129,10 @@ describe('VehicleForm', () => {
         const user = userEvent.setup();
         render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
 
-        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2020');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2020');
         await user.type(screen.getByPlaceholderText(/engine shaking at idle/i), 'Transmission slip');
         await user.type(screen.getByPlaceholderText(/P0300, P0301/i), 'P0700');
         await user.click(screen.getByRole('button', { name: /INITIATE DIAGNOSTIC SCAN/i }));
@@ -142,15 +149,91 @@ describe('VehicleForm', () => {
         const user = userEvent.setup();
         render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
 
-        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2020');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
         await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2020');
         await user.type(screen.getByPlaceholderText(/engine shaking at idle/i), 'Stalling');
         await user.type(screen.getByPlaceholderText(/P0300, P0301/i), 'P0300');
         await user.click(screen.getByRole('button', { name: /INITIATE DIAGNOSTIC SCAN/i }));
 
         expect(screen.getByPlaceholderText(/engine shaking at idle/i)).toHaveValue('');
         expect(screen.getByPlaceholderText(/P0300, P0301/i)).toHaveValue('');
+    });
+});
+
+// ────────────────────────────────────────────────
+// VehicleForm — dynamic year loading
+// ────────────────────────────────────────────────
+describe('VehicleForm — dynamic year loading', () => {
+    const mockOnDiagnose = vi.fn();
+
+    beforeEach(() => {
+        mockOnDiagnose.mockClear();
+        vi.mocked(api.fetchVehicles).mockResolvedValue(null);
+        vi.mocked(api.fetchVehicleYears).mockResolvedValue(null);
+    });
+
+    function yearOptions(select: HTMLElement): string[] {
+        return Array.from((select as HTMLSelectElement).options).map((o) => o.value).filter(Boolean);
+    }
+
+    it('YEAR select is disabled until make AND model are both chosen', async () => {
+        const user = userEvent.setup();
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+
+        expect(screen.getByRole('combobox', { name: 'YEAR' })).toBeDisabled();
+
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
+        expect(screen.getByRole('combobox', { name: 'YEAR' })).toBeDisabled();
+
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+    });
+
+    it('shows static YEARS when fetchVehicleYears returns null', async () => {
+        const user = userEvent.setup();
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(vi.mocked(api.fetchVehicleYears)).toHaveBeenCalledWith('FORD', 'F-150'));
+
+        const opts = yearOptions(screen.getByRole('combobox', { name: 'YEAR' }));
+        expect(opts).toContain('2025');
+        expect(opts).toContain('1990');
+    });
+
+    it('replaces static years with API years when fetchVehicleYears returns data', async () => {
+        vi.mocked(api.fetchVehicleYears).mockResolvedValueOnce([2008, 2007, 2006, 2005]);
+        const user = userEvent.setup();
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(yearOptions(screen.getByRole('combobox', { name: 'YEAR' }))).toContain('2005'));
+
+        const opts = yearOptions(screen.getByRole('combobox', { name: 'YEAR' }));
+        expect(opts).toEqual(['2008', '2007', '2006', '2005']);
+        // Years outside the API list should NOT appear
+        expect(opts).not.toContain('2025');
+    });
+
+    it('resets year when make changes', async () => {
+        vi.mocked(api.fetchVehicleYears).mockResolvedValueOnce([2009, 2008, 2007]);
+        const user = userEvent.setup();
+        render(<VehicleForm onDiagnose={mockOnDiagnose} isProcessing={false} />);
+
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'FORD');
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MODEL' }), 'F-150');
+        await waitFor(() => expect(screen.getByRole('combobox', { name: 'YEAR' })).not.toBeDisabled());
+        await user.selectOptions(screen.getByRole('combobox', { name: 'YEAR' }), '2009');
+        expect(screen.getByRole('combobox', { name: 'YEAR' })).toHaveValue('2009');
+
+        // Changing make should reset year and disable it again (model also resets)
+        await user.selectOptions(screen.getByRole('combobox', { name: 'MAKE' }), 'CHEVROLET');
+        expect(screen.getByRole('combobox', { name: 'YEAR' })).toHaveValue('');
+        expect(screen.getByRole('combobox', { name: 'YEAR' })).toBeDisabled();
     });
 });
 
@@ -163,6 +246,7 @@ describe('VehicleForm — dynamic vehicle loading', () => {
     beforeEach(() => {
         mockOnDiagnose.mockClear();
         vi.mocked(api.fetchVehicles).mockResolvedValue(null);
+        vi.mocked(api.fetchVehicleYears).mockResolvedValue(null);
     });
 
     function makeOptions(select: HTMLElement): string[] {

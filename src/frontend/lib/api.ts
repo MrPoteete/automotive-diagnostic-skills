@@ -25,6 +25,9 @@ export interface SearchResponse {
     query: string;
     sanitized_query: string;
     results: DiagnosticResult[];
+    total_count: number;
+    page: number;
+    total_pages: number;
     source: string;
 }
 
@@ -41,6 +44,9 @@ export interface TSBSearchResponse {
     query: string;
     sanitized_query: string;
     results: TSBResult[];
+    total_count: number;
+    page: number;
+    total_pages: number;
     source: string;
 }
 
@@ -166,10 +172,11 @@ class DiagnosticAPI {
      * Security: Routes through Next.js API proxy (/api/search)
      * API key is added server-side, never exposed to browser
      */
-    async searchComplaints(query: string, limit: number = 20): Promise<SearchResponse> {
+    async searchComplaints(query: string, limit: number = 20, page: number = 1): Promise<SearchResponse> {
         return this.fetch<SearchResponse>(`${this.apiBaseURL}/search`, {
             query,
             limit: limit.toString(),
+            page: page.toString(),
         });
     }
 
@@ -181,10 +188,11 @@ class DiagnosticAPI {
      * Security: Routes through Next.js API proxy (/api/search_tsbs)
      * API key is added server-side, never exposed to browser
      */
-    async searchTSBs(query: string, limit: number = 20): Promise<TSBSearchResponse> {
+    async searchTSBs(query: string, limit: number = 20, page: number = 1): Promise<TSBSearchResponse> {
         return this.fetch<TSBSearchResponse>(`${this.apiBaseURL}/search_tsbs`, {
             query,
             limit: limit.toString(),
+            page: page.toString(),
         });
     }
 
@@ -244,12 +252,16 @@ class DiagnosticAPI {
      */
     formatResults(response: SearchResponse | TSBSearchResponse): string {
         const { query, results, source } = response;
+        const totalCount = response.total_count ?? results.length;
+        const page = response.page ?? 1;
+        const totalPages = response.total_pages ?? 1;
 
         if (results.length === 0) {
             return `[SEARCH COMPLETE]\nQuery: "${query}"\nSource: ${source}\n\nNo matches found in database.\n\nSuggestion: Try broader search terms or check vehicle details.`;
         }
 
-        let output = `[SEARCH COMPLETE]\nQuery: "${query}"\nSource: ${source}\nMatches Found: ${results.length}\n\n`;
+        const pageInfo = totalPages > 1 ? `  |  Page ${page} of ${totalPages} (${totalCount} total)` : `  |  ${totalCount} total`;
+        let output = `[SEARCH COMPLETE]\nQuery: "${query}"\nSource: ${source}\nShowing: ${results.length} results${pageInfo}\n\n`;
 
         results.forEach((result, idx) => {
             output += `━━━ RESULT ${idx + 1} ━━━\n`;
@@ -286,11 +298,30 @@ class DiagnosticAPI {
             return null;
         }
     }
+
+    /**
+     * Fetch distinct years that have complaint data for a given make + model.
+     * Returns null on error so callers can fall back to the static year list silently.
+     */
+    async fetchVehicleYears(make: string, model: string): Promise<number[] | null> {
+        try {
+            const data = await this.fetch<VehicleYears>(`${this.apiBaseURL}/vehicles/years`, { make, model });
+            return data.years;
+        } catch {
+            return null;
+        }
+    }
 }
 
 export interface VehicleData {
     makes: string[];
     models_by_make: Record<string, string[]>;
+}
+
+export interface VehicleYears {
+    make: string;
+    model: string;
+    years: number[];
 }
 
 // Export singleton instance

@@ -67,6 +67,7 @@ export function createProxyHandler(options: ProxyOptions) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('query');
     const limitParam = searchParams.get('limit');
+    const pageParam = searchParams.get('page');
 
     // 3. Input Validation
     if (!query || query.trim() === '') {
@@ -105,10 +106,20 @@ export function createProxyHandler(options: ProxyOptions) {
       limit = parsedLimit;
     }
 
+    // Validate and parse page param
+    let page = 1;
+    if (pageParam !== null) {
+      const parsedPage = parseInt(pageParam, 10);
+      if (!isNaN(parsedPage) && parsedPage >= 1) {
+        page = parsedPage;
+      }
+    }
+
     // 4. Construct the full backend URL with validated query parameters
     const targetUrl = new URL(`${backendBaseUrl}${backendPath}`);
     targetUrl.searchParams.append('query', query);
     targetUrl.searchParams.append('limit', limit.toString());
+    targetUrl.searchParams.append('page', page.toString());
 
     // 5. Set headers for the backend request (including the server-side API key)
     const headers = {

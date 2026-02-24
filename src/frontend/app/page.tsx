@@ -21,6 +21,9 @@ export default function Home() {
         { role: 'system', content: 'NEURAL LINK ESTABLISHED. CHECKING BACKEND CONNECTION...' }
     ]);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [searchPage, setSearchPage] = useState(1);
+    const [searchTotalPages, setSearchTotalPages] = useState(1);
+    const [lastSearchQuery, setLastSearchQuery] = useState('');
 
     // Check backend health on mount
     useEffect(() => {
@@ -66,25 +69,30 @@ export default function Home() {
     };
 
     /** Free-text search for TSB / complaint queries (non-diagnose tabs). */
-    const handleSearch = async () => {
-        if (!inputText.trim()) return;
+    const handleSearch = async (page: number = 1) => {
+        const queryText = page === 1 ? inputText.trim() : lastSearchQuery;
+        if (!queryText) return;
 
-        const userQuery = inputText.trim();
-        setMessages(prev => [...prev, { role: 'user', content: userQuery }]);
-        setInputText('');
+        if (page === 1) {
+            setMessages(prev => [...prev, { role: 'user', content: queryText }]);
+            setInputText('');
+            setLastSearchQuery(queryText);
+        }
         setIsProcessing(true);
 
         try {
             let response: string;
+            const isTsb = queryText.toLowerCase().includes('tsb') || queryText.toLowerCase().includes('bulletin');
 
-            if (
-                userQuery.toLowerCase().includes('tsb') ||
-                userQuery.toLowerCase().includes('bulletin')
-            ) {
-                const tsbData = await api.searchTSBs(userQuery, 10);
+            if (isTsb) {
+                const tsbData = await api.searchTSBs(queryText, 10, page);
+                setSearchPage(tsbData.page ?? 1);
+                setSearchTotalPages(tsbData.total_pages ?? 1);
                 response = api.formatResults(tsbData);
             } else {
-                const complaintData = await api.searchComplaints(userQuery, 10);
+                const complaintData = await api.searchComplaints(queryText, 10, page);
+                setSearchPage(complaintData.page ?? 1);
+                setSearchTotalPages(complaintData.total_pages ?? 1);
                 response = api.formatResults(complaintData);
             }
 
@@ -225,17 +233,40 @@ export default function Home() {
                         {activeTab === 'diagnose' ? (
                             <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
                         ) : (
-                            <CyberInput
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                                onSubmit={handleSearch}
-                                isProcessing={isProcessing}
-                                placeholder={
-                                    activeTab === 'tsbsearch'
-                                        ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
-                                        : 'ENTER COMMAND OR SYMPTOMS...'
-                                }
-                            />
+                            <div className="flex flex-col gap-2">
+                                <CyberInput
+                                    value={inputText}
+                                    onChange={(e) => setInputText(e.target.value)}
+                                    onSubmit={handleSearch}
+                                    isProcessing={isProcessing}
+                                    placeholder={
+                                        activeTab === 'tsbsearch'
+                                            ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
+                                            : 'ENTER COMMAND OR SYMPTOMS...'
+                                    }
+                                />
+                                {searchTotalPages > 1 && (
+                                    <div className="flex items-center justify-between font-mono text-xs text-cyber-gray border border-cyber-gray/20 px-3 py-1.5">
+                                        <button
+                                            onClick={() => handleSearch(searchPage - 1)}
+                                            disabled={searchPage <= 1 || isProcessing}
+                                            className="text-cyber-blue hover:text-cyber-white disabled:opacity-30 disabled:cursor-not-allowed tracking-widest uppercase"
+                                        >
+                                            ← PREV
+                                        </button>
+                                        <span className="text-cyber-gray">
+                                            PAGE <span className="text-cyber-white">{searchPage}</span> / {searchTotalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => handleSearch(searchPage + 1)}
+                                            disabled={searchPage >= searchTotalPages || isProcessing}
+                                            className="text-cyber-blue hover:text-cyber-white disabled:opacity-30 disabled:cursor-not-allowed tracking-widest uppercase"
+                                        >
+                                            NEXT →
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
 
