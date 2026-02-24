@@ -139,24 +139,135 @@ def test_brake_system_low_confidence_rejected():
 
 ---
 
+## Frontend Testing (Vitest)
+
+**Location**: `src/frontend/`
+**Framework**: Vitest + React Testing Library + `@testing-library/user-event` v14
+
+### Run Commands
+
+```bash
+# From project root
+cd src/frontend && node_modules/.bin/vitest run
+
+# Verbose output (shows each test name)
+cd src/frontend && node_modules/.bin/vitest run --reporter=verbose
+```
+
+### Mock Setup Pattern
+
+All frontend page tests mock three things:
+
+```tsx
+// 1. TypewriterText — bypass setInterval animation
+vi.mock('../components/TypewriterText', () => ({
+    TypewriterText: ({ text }: { text: string }) => <div>{text}</div>,
+}));
+
+// 2. VehicleForm — static placeholder (handleSearch tests)
+vi.mock('../components/VehicleForm', () => ({
+    default: () => <div data-testid="mock-vehicle-form" />,
+    parseDtcInput: () => [],
+}));
+
+// 3. Full api module — every method is vi.fn()
+vi.mock('../../lib/api', () => ({
+    api: {
+        healthCheck: vi.fn(),
+        diagnose: vi.fn(),
+        formatDiagnosis: vi.fn(),
+        searchComplaints: vi.fn(),
+        searchTSBs: vi.fn(),
+        formatResults: vi.fn(),
+        formatError: vi.fn(),
+        fetchVehicles: vi.fn(),
+    },
+}));
+
+import { api } from '../../lib/api';
+// Always use vi.mocked() wrapper for TypeScript type safety:
+vi.mocked(api.diagnose).mockResolvedValue(DIAG_RESPONSE);
+```
+
+### VehicleForm Callback Capture (handleDiagnose tests)
+
+When testing `handleDiagnose`, replace the static VehicleForm mock with one that **captures the `onDiagnose` callback** so tests can trigger it directly:
+
+```tsx
+// ESBUILD RULE: Declare types BEFORE vi.mock() calls (top-to-bottom processing)
+type OnDiagnose = (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => void;
+let capturedOnDiagnose!: OnDiagnose;
+
+vi.mock('../components/VehicleForm', () => ({
+    default: ({ onDiagnose, isProcessing }: { onDiagnose: OnDiagnose; isProcessing: boolean }) => {
+        capturedOnDiagnose = onDiagnose;  // captured on each render
+        return (
+            <button
+                data-testid="trigger-diagnose"
+                disabled={isProcessing}
+                onClick={() => capturedOnDiagnose(
+                    { make: 'FORD', model: 'F-150', year: 2020 },
+                    'engine shaking at idle',
+                    []
+                )}
+            >DIAGNOSE</button>
+        );
+    },
+    parseDtcInput: (_raw: string) => [],
+}));
+
+// In tests — invoke handleDiagnose directly:
+render(<Home />);
+await act(async () => { capturedOnDiagnose(vehicle, symptoms, dtcCodes); });
+```
+
+### Deferred Promise (Loading State Tests)
+
+```tsx
+function makeDeferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+}
+
+// Usage:
+const { promise, resolve } = makeDeferred<DiagnoseResponse>();
+vi.mocked(api.diagnose).mockReturnValue(promise);
+
+render(<Home />);
+await user.click(screen.getByTestId('trigger-diagnose'));
+expect(screen.getByText(/ANALYZING_DATA_STREAMS/i)).toBeInTheDocument();  // loading visible
+
+await act(async () => { resolve(DIAG_RESPONSE); });
+await waitFor(() =>
+    expect(screen.queryByText(/ANALYZING_DATA_STREAMS/i)).not.toBeInTheDocument()
+);
+```
+
+---
+
 ## Verification Protocol (Before Commits)
 
 **Always run before committing**:
 ```bash
-# 1. Run all tests
-pytest
+# 1. Python tests (from project root)
+uv run pytest --tb=no -q --rootdir=. tests/          # 300 tests
 
-# 2. Check coverage
-pytest --cov=src --cov-report=term-missing
+# 2. Frontend tests
+cd src/frontend && node_modules/.bin/vitest run       # 100 tests
 
-# 3. Verify safety tests pass
-pytest -m safety
+# 3. Check coverage
+uv run pytest --cov=src --cov-report=term-missing
 
-# 4. Run linter
-ruff check .
+# 4. Verify safety tests pass
+uv run pytest -m safety
 
-# 5. Type checking
-mypy src/
+# 5. Run linter
+uv run ruff check .
+
+# 6. Type checking
+uv run mypy src/
 ```
 
 **Hooks automatically enforce**: ruff, mypy (see `.claude/settings.json`)
