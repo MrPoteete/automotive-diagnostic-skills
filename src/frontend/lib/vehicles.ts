@@ -43,6 +43,9 @@ for (const make in MAKE_MODELS_RAW_DATA) {
  */
 export const MAKES: string[] = Object.keys(MAKE_MODELS).sort();
 
+/** Supported model years for TSB/complaint filtering (2025 → 2005). */
+export const YEARS: number[] = Array.from({ length: 21 }, (_, i) => 2025 - i);
+
 /**
  * A record mapping lowercase aliases to their official NHTSA uppercase make names.
  * Useful for normalizing user input from free-text fallback.

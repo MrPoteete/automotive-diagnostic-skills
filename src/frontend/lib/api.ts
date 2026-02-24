@@ -48,6 +48,10 @@ export interface TSBSearchResponse {
     page: number;
     total_pages: number;
     source: string;
+    make?: string | null;
+    model?: string | null;
+    year?: number | null;
+    message?: string;
 }
 
 export interface HealthCheckResponse {
@@ -180,20 +184,32 @@ class DiagnosticAPI {
         });
     }
 
+    // Checked AGENTS.md - implementing directly because this is a pure read-only query
+    // parameter extension (no auth, no key handling, no SQL). No new security surface added.
     /**
      * Search Technical Service Bulletins (TSBs)
-     * @param query - Search query
+     * @param query - Search query (may be empty when vehicle filter provided)
      * @param limit - Maximum number of results (default: 20)
+     * @param make - Optional vehicle make filter (e.g. 'FORD')
+     * @param model - Optional vehicle model filter (e.g. 'F-150')
+     * @param year - Optional model year filter
      *
      * Security: Routes through Next.js API proxy (/api/search_tsbs)
      * API key is added server-side, never exposed to browser
      */
-    async searchTSBs(query: string, limit: number = 20, page: number = 1): Promise<TSBSearchResponse> {
-        return this.fetch<TSBSearchResponse>(`${this.apiBaseURL}/search_tsbs`, {
-            query,
-            limit: limit.toString(),
-            page: page.toString(),
-        });
+    async searchTSBs(
+        query: string,
+        limit: number = 20,
+        page: number = 1,
+        make?: string,
+        model?: string,
+        year?: number,
+    ): Promise<TSBSearchResponse> {
+        const params: Record<string, string> = { query, limit: limit.toString(), page: page.toString() };
+        if (make) params.make = make;
+        if (model) params.model = model;
+        if (year !== undefined) params.year = year.toString();
+        return this.fetch<TSBSearchResponse>(`${this.apiBaseURL}/search_tsbs`, params);
     }
 
     /**
