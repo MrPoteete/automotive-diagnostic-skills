@@ -203,14 +203,27 @@ class DiagnosticAPI {
     // Checked AGENTS.md - Routes updated per security-engineer review (agent a8a8f66)
     /**
      * Health check - verify backend server is online
-     * Note: Calls backend directly (no auth required for health check)
+     * Note: Calls backend directly (no auth required for health check).
+     * Network failures (ECONNREFUSED, timeout) are classified as SERVER_UNREACHABLE_MSG
+     * so formatError() shows Tailscale troubleshooting steps.
      */
     async healthCheck(): Promise<HealthCheckResponse> {
-        const response = await fetch(this.backendURL);
-        if (!response.ok) {
-            throw new Error(`Backend offline: ${response.status}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+        try {
+            const response = await fetch(this.backendURL, { signal: controller.signal });
+            if (!response.ok) {
+                throw new Error(SERVER_UNREACHABLE_MSG);
+            }
+            return response.json();
+        } catch (error) {
+            if (error instanceof Error && error.message === SERVER_UNREACHABLE_MSG) throw error;
+            if (error instanceof Error && error.name === 'AbortError') throw new Error(SERVER_UNREACHABLE_MSG);
+            if (error instanceof TypeError) throw new Error(SERVER_UNREACHABLE_MSG);
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
         }
-        return response.json();
     }
 
     /**

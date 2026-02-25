@@ -82,12 +82,15 @@ async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
 # RECOMMENDED: Move to environment variable before production deployment:
 #   API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
 # See: .claude/docs/DOMAIN.md - Data Source Standards
-API_KEY = "mechanic-secret-key-123"
+API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
 api_key_header = APIKeyHeader(name="X-API-KEY")
 
 def get_api_key(api_key: str = Depends(api_key_header)):

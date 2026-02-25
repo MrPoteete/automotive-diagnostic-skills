@@ -14,11 +14,15 @@ Confidence: 0.5 base (forum/community data per DOMAIN.md)
 from __future__ import annotations
 
 import logging
+import pathlib
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_CHROMA_PATH = "data/vector_store/chroma/"
+# Absolute path so ChromaDB works regardless of launch directory
+_CHROMA_PATH = str(
+    pathlib.Path(__file__).resolve().parent.parent.parent / "data" / "vector_store" / "chroma"
+)
 _COLLECTION_NAME = "mechanics_forum"
 
 # Base confidence for community/forum data (DOMAIN.md Tier 3)

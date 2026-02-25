@@ -119,3 +119,5 @@ scratch.md
 
 # Frontend source lib/ — exempt from Python lib/ ignore pattern
 !src/frontend/lib/
+.env
+/backups/

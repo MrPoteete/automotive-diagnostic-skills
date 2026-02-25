@@ -207,6 +207,25 @@ export default function Home() {
                     {/* CONTENT AREA */}
                     <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-6">
 
+                        {/* OFFLINE BANNER — shown when backend is unreachable */}
+                        {systemStatus === 'OFFLINE' && (
+                            <div className="border border-cyber-pink/70 bg-cyber-pink/10 p-4 font-mono text-sm shadow-lg">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <ShieldAlert className="h-5 w-5 text-cyber-pink shrink-0" />
+                                    <span className="text-cyber-pink font-bold tracking-widest uppercase">Diagnostic Server Unreachable</span>
+                                </div>
+                                <p className="text-cyber-gray mb-3">
+                                    Please check your Tailscale connection and ensure the Home Server is running.
+                                </p>
+                                <div className="border-t border-cyber-pink/30 pt-3 space-y-1 text-xs text-cyber-gray">
+                                    <p className="text-cyber-yellow font-bold mb-1 tracking-wider">TROUBLESHOOTING:</p>
+                                    <p>›&nbsp; Verify Tailscale is connected and active</p>
+                                    <p>›&nbsp; Confirm Home Server is running: <code className="text-cyber-white bg-black/50 px-1">curl http://localhost:8000/</code></p>
+                                    <p>›&nbsp; Check server logs: <code className="text-cyber-white bg-black/50 px-1">tail -f /tmp/backend.log</code></p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* WELCOME CARD */}
                         <ShardCard corner="tr" className="mb-6 group">
                             <div className="absolute top-0 right-0 p-2 text-cyber-gray font-mono text-xs">ID: 9942-ALPHA</div>

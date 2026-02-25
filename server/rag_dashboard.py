@@ -6,8 +6,12 @@ import requests  # type: ignore[import-untyped]
 import time
 
 # --- CONFIGURATION ---
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 API_URL = "http://localhost:8000"
-API_KEY = "mechanic-secret-key-123"
+API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
 
 st.set_page_config(
     page_title="Automotive RAG Dashboard",
