@@ -311,3 +311,20 @@ params.append(make)
 ```
 
 This applies to all Python files including `server/home_server.py` SQL builder patterns.
+
+---
+
+### Ruff E701: No Single-Line `if` Statements
+
+The `ruff_validator` PostToolUse hook enforces E701 — never put the body of an `if` statement on the same line as the condition in Python. This is commonly triggered by early-return guards in CLI scripts and utility code.
+
+```python
+# ❌ Blocked by ruff hook (E701)
+if value.lower() == 'quit': return
+
+# ✅ Correct
+if value.lower() == 'quit':
+    return
+```
+
+This applies to all Python files including `interactive_diagnostic.py` and scripts with early-exit guard clauses. E701 and E702 are in the same ruff rule family — both blocked by the same hook.
