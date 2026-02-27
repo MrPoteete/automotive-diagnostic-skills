@@ -251,23 +251,63 @@ await waitFor(() =>
 
 **Always run before committing**:
 ```bash
-# 1. Python tests (from project root)
-uv run pytest --tb=no -q --rootdir=. tests/          # 300 tests
+# 1. Python unit tests (fast — skips ChromaDB-heavy integration tests)
+.venv/bin/pytest --tb=no -q --ignore=tests/integration   # ~5s, 280 tests
 
-# 2. Frontend tests
-cd src/frontend && node_modules/.bin/vitest run       # 100 tests
+# 2. Python integration tests (slow — ChromaDB init takes ~2 min; run before final commit)
+.venv/bin/pytest --tb=no -q tests/integration/           # ~2 min, 20 tests
 
-# 3. Check coverage
+# 3. Frontend tests
+cd src/frontend && node_modules/.bin/vitest run          # ~2s
+
+# 4. Check coverage
 uv run pytest --cov=src --cov-report=term-missing
 
-# 4. Verify safety tests pass
+# 5. Verify safety tests pass
 uv run pytest -m safety
 
-# 5. Run linter
+# 6. Run linter
 uv run ruff check .
 
-# 6. Type checking
+# 7. Type checking
 uv run mypy src/
 ```
 
 **Hooks automatically enforce**: ruff, mypy (see `.claude/settings.json`)
+
+---
+
+## Known Pitfalls
+
+### Integration Tests Are Slow (ChromaDB init ~2 min)
+
+Integration tests in `tests/integration/` load ChromaDB on startup. This takes 2+ minutes per run.
+
+**Rule**: For baseline verification during development, use `--ignore=tests/integration`. Run the full suite (including integration) only before the final commit.
+
+```bash
+# Quick baseline (development loop)
+.venv/bin/pytest --tb=no -q --ignore=tests/integration
+
+# Full suite (pre-commit only)
+.venv/bin/pytest --tb=no -q
+```
+
+If a background task waiting for pytest times out at 30s, it's the integration tests — check the output file rather than re-running.
+
+---
+
+### Ruff E702: No Semicolons Between Statements
+
+The `ruff_validator` PostToolUse hook enforces E702 — never use semicolons to chain statements on a single line in Python. The plan pattern of `list.append(a); list.append(b)` will block the Edit.
+
+```python
+# ❌ Blocked by ruff hook (E702)
+where_extra += " AND make = ?"; params.append(make)
+
+# ✅ Correct
+where_extra += " AND make = ?"
+params.append(make)
+```
+
+This applies to all Python files including `server/home_server.py` SQL builder patterns.
