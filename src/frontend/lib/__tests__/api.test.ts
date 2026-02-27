@@ -24,13 +24,13 @@ describe('DiagnosticAPI', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should throw error when backend is offline', async () => {
+    it('should throw SERVER_UNREACHABLE_MSG when backend returns non-ok status', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
       });
 
-      await expect(api.healthCheck()).rejects.toThrow('Backend offline');
+      await expect(api.healthCheck()).rejects.toThrow('Diagnostic Server Unreachable');
     });
 
     it('should throw error on network failure', async () => {

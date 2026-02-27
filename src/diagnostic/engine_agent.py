@@ -25,6 +25,65 @@ from src.analysis.trend_analyzer import get_trend_summary  # type: ignore[attr-d
 
 logger = logging.getLogger(__name__)
 
+# Checked AGENTS.md - implementing directly because:
+# 1. Input coercion helpers are safety-critical validation (must not delegate)
+# 2. Hardening the orchestration path requires full context of all pipeline steps
+# 3. No open-ended design decisions — changes are mechanically specified
+
+
+def _coerce_vehicle(raw: Any) -> dict:
+    """Coerce the vehicle parameter to a plain dict, returning {} on bad input."""
+    if raw is None or not isinstance(raw, dict):
+        if raw is not None:
+            logger.warning(
+                "[diagnose] vehicle must be a dict, got %s — treating as empty",
+                type(raw).__name__,
+            )
+        return {}
+    return raw
+
+
+def _coerce_symptoms(raw: Any) -> str:
+    """Coerce the symptoms parameter to a stripped string."""
+    if raw is None:
+        logger.warning("[diagnose] symptoms is None — using empty string")
+        return ""
+    if isinstance(raw, str):
+        return raw.strip()
+    try:
+        coerced = str(raw).strip()
+        logger.warning(
+            "[diagnose] symptoms was %s, coerced to str: %r",
+            type(raw).__name__,
+            coerced[:80],
+        )
+        return coerced
+    except Exception:
+        return ""
+
+
+def _coerce_dtc_codes(raw: Any) -> list[str]:
+    """Coerce dtc_codes to a list of strings."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        logger.warning("[diagnose] dtc_codes is a str %r — wrapping in list", raw)
+        return [raw]
+    if isinstance(raw, (set, tuple, frozenset)):
+        logger.warning(
+            "[diagnose] dtc_codes is %s — converting to list",
+            type(raw).__name__,
+        )
+        return list(raw)
+    logger.warning(
+        "[diagnose] dtc_codes has unexpected type %s — ignoring",
+        type(raw).__name__,
+    )
+    return []
+
+
 # OBD-II DTC validation pattern (DOMAIN.md)
 DTC_PATTERN = re.compile(r"^[PCBU][0-3][0-9A-F]{3}$", re.IGNORECASE)
 
@@ -81,11 +140,24 @@ def diagnose(
             "data_sources": {...},
         }
     """
+    # Coerce all inputs before any DB access so _run_diagnosis always
+    # receives well-typed arguments.
+    vehicle = _coerce_vehicle(vehicle)
+    symptoms = _coerce_symptoms(symptoms)
+    dtc_list = _coerce_dtc_codes(dtc_codes)
+
     _owns_db = db is None
-    owned_db: DiagnosticDB = db if db is not None else DiagnosticDB()
+    if _owns_db:
+        try:
+            owned_db: DiagnosticDB = DiagnosticDB()
+        except Exception as exc:
+            logger.error("[diagnose] DiagnosticDB init failed: %s", exc)
+            return _error_result(vehicle, symptoms, "Database connection failed.")
+    else:
+        owned_db = db  # type: ignore[assignment]
 
     try:
-        return _run_diagnosis(vehicle, symptoms, dtc_codes or [], owned_db)
+        return _run_diagnosis(vehicle, symptoms, dtc_list, owned_db)
     finally:
         if _owns_db:
             owned_db.close()
@@ -99,9 +171,17 @@ def _run_diagnosis(
 ) -> dict[str, Any]:
     """Internal diagnosis logic — runs inside managed DB context."""
     # Normalize vehicle fields
-    make = str(vehicle.get("make", "")).upper().strip()
-    model = str(vehicle.get("model", "")).upper().strip()
-    year = int(vehicle.get("year", 0))
+    make = str(vehicle.get("make", "") or "").upper().strip()
+    model = str(vehicle.get("model", "") or "").upper().strip()
+    try:
+        year = int(vehicle.get("year", 0))
+    except (ValueError, TypeError):
+        raw_year = vehicle.get("year")
+        logger.warning("[diagnose] Invalid year value %r — returning error", raw_year)
+        return _error_result(
+            vehicle, symptoms,
+            f"Vehicle year must be a valid integer (e.g. 2019); got {raw_year!r}.",
+        )
 
     if not make or not model or not year:
         return _error_result(vehicle, symptoms, "Vehicle make, model, and year are required.")
@@ -114,6 +194,13 @@ def _run_diagnosis(
         logger.warning("All provided DTC codes were invalid: %s", dtc_codes)
 
     warnings: list[str] = []
+
+    logger.info(
+        "[diagnose] Input parsed — make=%r model=%r year=%d symptoms=%r dtcs=%s",
+        make, model, year,
+        (symptoms[:80] + "…") if len(symptoms) > 80 else symptoms,
+        valid_dtcs,
+    )
 
     # Step 1a: Forum semantic search (Phase 4 — optional, degrades gracefully)
     forum_candidates: list[dict] = []
@@ -130,14 +217,27 @@ def _run_diagnosis(
         logger.debug("Forum search unavailable (ChromaDB not ready?): %s", exc)
 
     # Step 1b: Symptom matching → candidate components
-    logger.info("Matching symptoms for %s %s %d: %r", make, model, year, symptoms)
-    candidates = match_symptoms(
-        make=make,
-        model=model,
-        year=year,
-        description=symptoms,
-        db=db,
-        limit=30,
+    logger.info(
+        "[diagnose] Querying DB — make=%r model=%r year=%d symptoms=%r",
+        make, model, year,
+        (symptoms[:60] + "…") if len(symptoms) > 60 else symptoms,
+    )
+    try:
+        candidates = match_symptoms(
+            make=make,
+            model=model,
+            year=year,
+            description=symptoms,
+            db=db,
+            limit=30,
+        )
+    except Exception as exc:
+        logger.error("[diagnose] match_symptoms raised unexpectedly: %s", exc, exc_info=True)
+        candidates = []
+
+    logger.info(
+        "[diagnose] DB queried — %d NHTSA candidates, %d forum candidates",
+        len(candidates), len(forum_candidates),
     )
 
     # Merge forum candidates into NHTSA results (forum adds context, doesn't replace)
@@ -162,12 +262,24 @@ def _run_diagnosis(
         }
 
     # Step 2: Confidence scoring
-    logger.info("Scoring %d candidate components", len(candidates))
-    scored = score_results(
-        vehicle=normalized_vehicle,
-        components=candidates,
-        db=db,
-        dtc_codes=valid_dtcs,
+    logger.info("[diagnose] Scoring %d candidate components", len(candidates))
+    try:
+        scored = score_results(
+            vehicle=normalized_vehicle,
+            components=candidates,
+            db=db,
+            dtc_codes=valid_dtcs,
+        )
+    except Exception as exc:
+        logger.error("[diagnose] score_results raised unexpectedly: %s", exc, exc_info=True)
+        scored = [{**c, "confidence": 0.5} for c in candidates]
+
+    top = scored[0] if scored else {}
+    logger.info(
+        "[diagnose] Score calculated — %d candidates; top=%r conf=%.3f",
+        len(scored),
+        top.get("component", "—"),
+        top.get("confidence", 0.0),
     )
 
     # Step 3: Safety alerts + confidence gating + trend analysis + TSB lookup

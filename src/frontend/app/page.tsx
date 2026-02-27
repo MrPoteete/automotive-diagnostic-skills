@@ -4,7 +4,8 @@
 // VehicleForm and vehicles.ts data module handle structured vehicle input.
 
 import React, { useState, useEffect } from 'react';
-import { Terminal, ShieldAlert, Zap, Search, Activity, Cpu } from 'lucide-react';
+import { Terminal, ShieldAlert, Zap, Search, Activity, Cpu, ChevronDown } from 'lucide-react';
+import { MAKES, getModelsForMake, YEARS } from '../lib/vehicles';
 import { CyberButton } from './components/CyberButton';
 import { ShardCard } from './components/ShardCard';
 import { TypewriterText } from './components/TypewriterText';
@@ -24,6 +25,9 @@ export default function Home() {
     const [searchPage, setSearchPage] = useState(1);
     const [searchTotalPages, setSearchTotalPages] = useState(1);
     const [lastSearchQuery, setLastSearchQuery] = useState('');
+    const [tsbMake, setTsbMake] = useState('');
+    const [tsbModel, setTsbModel] = useState('');
+    const [tsbYear, setTsbYear] = useState('');
 
     // Check backend health on mount
     useEffect(() => {
@@ -68,13 +72,28 @@ export default function Home() {
         }
     };
 
+    const handleTsbMakeChange = (newMake: string) => {
+        setTsbMake(newMake); setTsbModel(''); setTsbYear('');
+    };
+    const handleTsbModelChange = (newModel: string) => {
+        setTsbModel(newModel); setTsbYear('');
+    };
+
+    // Reset pagination when TSB vehicle filters change
+    useEffect(() => {
+        setSearchPage(1); setSearchTotalPages(1);
+    }, [tsbMake, tsbModel, tsbYear]);
+
     /** Free-text search for TSB / complaint queries (non-diagnose tabs). */
     const handleSearch = async (page: number = 1) => {
         const queryText = page === 1 ? inputText.trim() : lastSearchQuery;
-        if (!queryText) return;
+        const isOnTsbTab = activeTab === 'tsbsearch';
+        // Allow empty query on TSB tab when a vehicle make is selected
+        if (!queryText && !(isOnTsbTab && tsbMake)) return;
 
         if (page === 1) {
-            setMessages(prev => [...prev, { role: 'user', content: queryText }]);
+            const displayText = queryText || `[Vehicle: ${tsbMake}${tsbModel ? ' ' + tsbModel : ''}${tsbYear ? ' ' + tsbYear : ''}]`;
+            setMessages(prev => [...prev, { role: 'user', content: displayText }]);
             setInputText('');
             setLastSearchQuery(queryText);
         }
@@ -84,8 +103,14 @@ export default function Home() {
             let response: string;
             const isTsb = queryText.toLowerCase().includes('tsb') || queryText.toLowerCase().includes('bulletin');
 
-            if (isTsb) {
-                const tsbData = await api.searchTSBs(queryText, 10, page);
+            if (isTsb || isOnTsbTab) {
+                // Vehicle filter args only apply on TSB Search tab
+                const make = isOnTsbTab ? (tsbMake || undefined) : undefined;
+                const model = isOnTsbTab ? (tsbModel || undefined) : undefined;
+                const yr = isOnTsbTab && tsbYear ? parseInt(tsbYear, 10) : undefined;
+                const tsbData = await (make
+                    ? api.searchTSBs(queryText, 10, page, make, model, yr)
+                    : api.searchTSBs(queryText, 10, page));
                 setSearchPage(tsbData.page ?? 1);
                 setSearchTotalPages(tsbData.total_pages ?? 1);
                 response = api.formatResults(tsbData);
@@ -182,6 +207,25 @@ export default function Home() {
                     {/* CONTENT AREA */}
                     <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-6">
 
+                        {/* OFFLINE BANNER — shown when backend is unreachable */}
+                        {systemStatus === 'OFFLINE' && (
+                            <div className="border border-cyber-pink/70 bg-cyber-pink/10 p-4 font-mono text-sm shadow-lg">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <ShieldAlert className="h-5 w-5 text-cyber-pink shrink-0" />
+                                    <span className="text-cyber-pink font-bold tracking-widest uppercase">Diagnostic Server Unreachable</span>
+                                </div>
+                                <p className="text-cyber-gray mb-3">
+                                    Please check your Tailscale connection and ensure the Home Server is running.
+                                </p>
+                                <div className="border-t border-cyber-pink/30 pt-3 space-y-1 text-xs text-cyber-gray">
+                                    <p className="text-cyber-yellow font-bold mb-1 tracking-wider">TROUBLESHOOTING:</p>
+                                    <p>›&nbsp; Verify Tailscale is connected and active</p>
+                                    <p>›&nbsp; Confirm Home Server is running: <code className="text-cyber-white bg-black/50 px-1">curl http://localhost:8000/</code></p>
+                                    <p>›&nbsp; Check server logs: <code className="text-cyber-white bg-black/50 px-1">tail -f /tmp/backend.log</code></p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* WELCOME CARD */}
                         <ShardCard corner="tr" className="mb-6 group">
                             <div className="absolute top-0 right-0 p-2 text-cyber-gray font-mono text-xs">ID: 9942-ALPHA</div>
@@ -234,6 +278,52 @@ export default function Home() {
                             <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
                         ) : (
                             <div className="flex flex-col gap-2">
+                                {/* TSB vehicle filter row — only on TSB Search tab */}
+                                {activeTab === 'tsbsearch' && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {/* MAKE */}
+                                        <div className="relative">
+                                            <select
+                                                aria-label="TSB MAKE"
+                                                value={tsbMake}
+                                                onChange={e => handleTsbMakeChange(e.target.value)}
+                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue"
+                                            >
+                                                <option value="">-- MAKE --</option>
+                                                {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+                                        </div>
+                                        {/* MODEL */}
+                                        <div className="relative">
+                                            <select
+                                                aria-label="TSB MODEL"
+                                                value={tsbModel}
+                                                disabled={!tsbMake}
+                                                onChange={e => handleTsbModelChange(e.target.value)}
+                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <option value="">{tsbMake ? '-- MODEL --' : '-- SELECT MAKE --'}</option>
+                                                {getModelsForMake(tsbMake).map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+                                        </div>
+                                        {/* YEAR */}
+                                        <div className="relative">
+                                            <select
+                                                aria-label="TSB YEAR"
+                                                value={tsbYear}
+                                                disabled={!tsbModel}
+                                                onChange={e => setTsbYear(e.target.value)}
+                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue disabled:opacity-40 disabled:cursor-not-allowed"
+                                            >
+                                                <option value="">{tsbModel ? '-- YEAR --' : '-- SELECT MODEL --'}</option>
+                                                {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
                                 <CyberInput
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}

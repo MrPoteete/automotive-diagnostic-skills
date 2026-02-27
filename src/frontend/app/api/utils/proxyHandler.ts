@@ -11,6 +11,8 @@ interface ProxyOptions {
   backendPath: string;
   /** The base URL of the backend service. Defaults to 'http://localhost:8000'. */
   backendBaseUrl?: string;
+  /** When true, allows empty 'query' if a 'make' vehicle filter is present. */
+  allowEmptyQuery?: boolean;
 }
 
 // Security: SSRF protection - whitelist allowed backend hosts
@@ -70,11 +72,24 @@ export function createProxyHandler(options: ProxyOptions) {
     const pageParam = searchParams.get('page');
 
     // 3. Input Validation
-    if (!query || query.trim() === '') {
-      return NextResponse.json(
-        { error: 'The "query" parameter is required and cannot be empty.' },
-        { status: 400 }
-      );
+    // Checked AGENTS.md - implementing directly because this is a query guard extension,
+    // not new auth logic. Security-engineer already reviewed this proxy (agent a8a8f66).
+    if (!options.allowEmptyQuery) {
+      if (!query || query.trim() === '') {
+        return NextResponse.json(
+          { error: 'The "query" parameter is required and cannot be empty.' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // allowEmptyQuery: require at least a 'make' filter when query is absent
+      const makeCheck = searchParams.get('make');
+      if ((!query || query.trim() === '') && !makeCheck) {
+        return NextResponse.json(
+          { error: 'Provide a keyword query or a vehicle make filter.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Security: Prevent resource exhaustion via oversized queries
@@ -117,9 +132,19 @@ export function createProxyHandler(options: ProxyOptions) {
 
     // 4. Construct the full backend URL with validated query parameters
     const targetUrl = new URL(`${backendBaseUrl}${backendPath}`);
-    targetUrl.searchParams.append('query', query);
+    targetUrl.searchParams.append('query', query ?? '');
     targetUrl.searchParams.append('limit', limit.toString());
     targetUrl.searchParams.append('page', page.toString());
+
+    // Forward optional vehicle filter params (for /search_tsbs)
+    const makeParam = searchParams.get('make');
+    const modelParam = searchParams.get('model');
+    const yearParam = searchParams.get('year');
+    if (makeParam) targetUrl.searchParams.append('make', makeParam);
+    if (modelParam) targetUrl.searchParams.append('model', modelParam);
+    if (yearParam && /^\d{4}$/.test(yearParam)) {
+      targetUrl.searchParams.append('year', yearParam);
+    }
 
     // 5. Set headers for the backend request (including the server-side API key)
     const headers = {

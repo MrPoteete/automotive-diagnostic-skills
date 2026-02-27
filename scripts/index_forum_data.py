@@ -5,6 +5,14 @@ Checked AGENTS.md - delegated to Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.m
 This file contains Gemini's output, reviewed and fixed by Claude:
 - Fixed: use creation_date from question data (confirmed present in raw files)
 - Fixed: clear batch lists after dry-run pass to prevent double-counting
+- Updated (Phase 5l): improved chunking strategy embeds question body symptom
+  language alongside the accepted answer, validated by test_rag_chunking.py.
+
+Chunking strategy (improved):
+  document = "Q: {title}\nSymptoms: {body[:400]}\nTags: {tags}\nA: {answer}"
+  Rationale: users query with symptom language ("loud rattle cold start"), not
+  answer language. Including both body and answer maximises cosine similarity
+  to symptom-phrased queries without losing diagnostic answer content.
 
 Run:  python scripts/index_forum_data.py
 Dry:  python scripts/index_forum_data.py --dry-run
@@ -85,15 +93,23 @@ def main() -> None:
                 total_skipped += 1
                 continue
 
-            # Use accepted answer body if available, else truncated question body
+            # Build accepted answer body (empty string if none)
             accepted_body = ""
             for answer in question.get("answers", []):
                 if answer.get("is_accepted"):
                     accepted_body = strip_html(answer.get("body", ""))
                     break
 
-            content_part = accepted_body if accepted_body else body[:500]
-            document = f"{title}. Tags: {', '.join(tags)}. {content_part}".strip()
+            # Improved chunking: embed symptom language from question body
+            # alongside the accepted answer so symptom-phrased queries match well.
+            body_excerpt = body[:400]
+            parts = [f"Q: {title}"]
+            if body_excerpt:
+                parts.append(f"Symptoms: {body_excerpt}")
+            parts.append(f"Tags: {', '.join(tags)}")
+            if accepted_body:
+                parts.append(f"A: {accepted_body}")
+            document = "\n".join(parts)
 
             if not document:
                 total_skipped += 1

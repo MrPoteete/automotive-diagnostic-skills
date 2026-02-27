@@ -376,4 +376,32 @@ describe('handleSearch — routing and behavior', () => {
             );
         });
     });
+
+    // ────────────────────────────────────────────────────────────
+    describe('offline banner — SERVER_UNREACHABLE_MSG', () => {
+        it('shows OFFLINE banner with Tailscale steps when healthCheck rejects', async () => {
+            vi.mocked(api.healthCheck).mockRejectedValue(
+                new Error('Diagnostic Server Unreachable: Please check your Tailscale connection and ensure the Home Server is running.')
+            );
+            // Do NOT override formatError here — beforeEach sets it to 'FORMATTED_ERROR'
+            // which avoids a duplicate match with the banner text.
+
+            // act(async) flushes the async useEffect health-check before assertions
+            await act(async () => { render(<Home />); });
+
+            // Banner heading uses exact mixed-case text (not matching the 'FORMATTED_ERROR' chat message)
+            expect(screen.getByText('Diagnostic Server Unreachable')).toBeInTheDocument();
+            // Tailscale connection hint
+            expect(screen.getByText(/Tailscale is connected/i)).toBeInTheDocument();
+            // Server log hint
+            expect(screen.getByText(/tail -f/i)).toBeInTheDocument();
+        });
+
+        it('does not show OFFLINE banner when healthCheck succeeds', async () => {
+            // beforeEach already sets healthCheck to resolve
+            await act(async () => { render(<Home />); });
+
+            expect(screen.queryByText(/Diagnostic Server Unreachable/)).not.toBeInTheDocument();
+        });
+    });
 });

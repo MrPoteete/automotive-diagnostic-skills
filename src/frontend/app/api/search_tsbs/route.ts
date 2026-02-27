@@ -18,4 +18,5 @@ import { createProxyHandler } from '../utils/proxyHandler';
  */
 export const GET = createProxyHandler({
   backendPath: '/search_tsbs',
+  allowEmptyQuery: true,
 });

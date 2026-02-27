@@ -82,12 +82,15 @@ async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
 # RECOMMENDED: Move to environment variable before production deployment:
 #   API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
 # See: .claude/docs/DOMAIN.md - Data Source Standards
-API_KEY = "mechanic-secret-key-123"
+API_KEY = os.getenv("API_KEY", "fallback-key-for-dev")
 api_key_header = APIKeyHeader(name="X-API-KEY")
 
 def get_api_key(api_key: str = Depends(api_key_header)):
@@ -160,15 +163,19 @@ async def search_complaints(
         logger.error(f"Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
-# Checked AGENTS.md - implementing pagination directly; same pattern as /search above.
+# Checked AGENTS.md - adding vehicle filter params (make/model/year); read-only SQL change.
+# 4-case SQL branching reviewed by Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
 @app.get("/search_tsbs")
 async def search_tsbs(
-    query: str,
+    query: str = Query(default=""),
+    make: str | None = Query(default=None),
+    model: str | None = Query(default=None),
+    year: int | None = Query(default=None, ge=1900, le=2030),
     limit: int = 20,
     page: int = Query(1, ge=1),
     api_key: str = Depends(get_api_key),
-):
-    """Search Technical Service Bulletins with pagination."""
+) -> dict[str, Any]:
+    """Search Technical Service Bulletins by keyword and/or vehicle filter."""
     if not os.path.exists(DB_PATH):
         raise HTTPException(status_code=500, detail="Database not indexed yet.")
 
@@ -180,10 +187,8 @@ async def search_tsbs(
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
-        if not clean_query:
-            clean_query = query
 
-        logger.info(f"TSB Search p{page}: '{query}' -> '{clean_query}'")
+        logger.info(f"TSB Search p{page}: '{query}' -> '{clean_query}' make={make} model={model} year={year}")
 
         # Graceful degradation if TSB table missing
         cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='tsbs_fts'")
@@ -191,20 +196,78 @@ async def search_tsbs(
             conn.close()
             return {"results": [], "total_count": 0, "page": 1, "total_pages": 1, "message": "TSB data not available yet."}
 
+        has_keyword = bool(clean_query)
+        has_vehicle = bool(make)
         offset = (page - 1) * limit
-        cursor.execute(
-            "SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?",
-            (clean_query,),
-        )
-        total_count = cursor.fetchone()[0]
-        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
 
-        cursor.execute(
-            "SELECT nhtsa_id, make, model, year, component, summary"
-            " FROM tsbs_fts WHERE tsbs_fts MATCH ?"
-            " ORDER BY rank LIMIT ? OFFSET ?",
-            (clean_query, limit, offset),
-        )
+        # Case D: nothing — return guard message
+        if not has_keyword and not has_vehicle:
+            conn.close()
+            return {"results": [], "total_count": 0, "page": 1, "total_pages": 1,
+                    "message": "Provide a keyword or a vehicle make filter."}
+
+        total_count: int
+        total_pages: int
+
+        # Case A: keyword + vehicle → FTS MATCH + column filters
+        if has_keyword and has_vehicle:
+            where_extra = ""
+            params_count: list[Any] = [clean_query]
+            if make:
+                where_extra += " AND make = ?"
+                params_count.append(make)
+            if model:
+                where_extra += " AND model = ?"
+                params_count.append(model)
+            if year is not None:
+                where_extra += " AND CAST(year AS INTEGER) = ?"
+                params_count.append(year)
+            cursor.execute(
+                f"SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?{where_extra}",
+                params_count,
+            )
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                f"SELECT nhtsa_id, make, model, year, component, summary"
+                f" FROM tsbs_fts WHERE tsbs_fts MATCH ?{where_extra}"
+                f" ORDER BY rank LIMIT ? OFFSET ?",
+                params_count + [limit, offset],
+            )
+
+        # Case B: keyword only → existing FTS path (unchanged)
+        elif has_keyword:
+            cursor.execute("SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?", (clean_query,))
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                "SELECT nhtsa_id, make, model, year, component, summary"
+                " FROM tsbs_fts WHERE tsbs_fts MATCH ?"
+                " ORDER BY rank LIMIT ? OFFSET ?",
+                (clean_query, limit, offset),
+            )
+
+        # Case C: vehicle only → base table (avoids FTS empty-MATCH error)
+        else:
+            where_clauses = ["make = ?"]
+            params_base: list[Any] = [make]
+            if model:
+                where_clauses.append("model = ?")
+                params_base.append(model)
+            if year is not None:
+                # Include year=9999 sentinel (multi-year TSBs in some datasets)
+                where_clauses.append("(year = ? OR year = 9999)")
+                params_base.append(year)
+            where_sql = " AND ".join(where_clauses)
+            cursor.execute(f"SELECT COUNT(*) FROM nhtsa_tsbs WHERE {where_sql}", params_base)
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                f"SELECT nhtsa_id, make, model, year, component, summary"
+                f" FROM nhtsa_tsbs WHERE {where_sql} ORDER BY year DESC, nhtsa_id DESC LIMIT ? OFFSET ?",
+                params_base + [limit, offset],
+            )
+
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
 
@@ -217,6 +280,9 @@ async def search_tsbs(
             "total_count": total_count,
             "page": page,
             "total_pages": total_pages,
+            "make": make,
+            "model": model,
+            "year": year,
             "source": "NHTSA TSB Index",
         }
 
