@@ -328,3 +328,27 @@ if value.lower() == 'quit':
 ```
 
 This applies to all Python files including `interactive_diagnostic.py` and scripts with early-exit guard clauses. E701 and E702 are in the same ruff rule family — both blocked by the same hook.
+
+---
+
+### Moving Files to `legacy/` Does Not Auto-Exclude Them from Mypy
+
+When you rename/move files into a `legacy/` subdirectory (e.g., `database/legacy/`), the pre-commit validator still runs mypy on them because they appear in `git diff --cached --name-only` as modified/renamed. The mypy skip logic must explicitly list these prefixes.
+
+**Current skip prefixes in `precommit_validator.py`**:
+```python
+MYPY_SKIP_PREFIXES = ("database/", "scripts/legacy/")
+mypy_files = [f for f in py_files if not any(f.startswith(p) for p in MYPY_SKIP_PREFIXES)]
+```
+
+**Key rule**: `git diff --cached --name-only` returns **relative paths without a leading slash** (e.g., `database/legacy/foo.py`, not `/database/legacy/foo.py`). Always use `startswith("database/")`, never `"/database/" in path`.
+
+If you add a new legacy directory, add its prefix to `MYPY_SKIP_PREFIXES` in `.claude/hooks/validators/precommit_validator.py` AND update the skip check in `.claude/hooks/validators/mypy_validator.py`.
+
+---
+
+### mypy.ini `exclude` Is Ignored When Mypy Runs on a Specific File Path
+
+The `exclude = database/` setting in `mypy.ini` only applies when mypy discovers files itself (e.g., `mypy src/`). When a hook calls `mypy path/to/file.py` directly, the `exclude` rule is **ignored**.
+
+Fix: skip unwanted files in the hook code itself (see both `mypy_validator.py` and `precommit_validator.py`), not just in `mypy.ini`. `mypy.ini` exclude is still useful for `uv run mypy src/` direct runs.
