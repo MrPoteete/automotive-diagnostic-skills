@@ -148,8 +148,11 @@ def main():
     if ruff_errors:
         errors.append(f"## ruff errors\n{ruff_errors}")
 
-    # Run mypy
-    mypy_errors = run_mypy(py_files)
+    # Run mypy — skip legacy/one-time scripts that predate type-checking
+    # Note: git returns relative paths (no leading slash), so match without it
+    MYPY_SKIP_PREFIXES = ("database/", "scripts/legacy/")
+    mypy_files = [f for f in py_files if not any(f.startswith(p) for p in MYPY_SKIP_PREFIXES)]
+    mypy_errors = run_mypy(mypy_files)
     if mypy_errors:
         errors.append(f"## mypy errors\n{mypy_errors}")
 

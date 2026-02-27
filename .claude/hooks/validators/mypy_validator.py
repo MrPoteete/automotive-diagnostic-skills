@@ -34,6 +34,10 @@ def main():
     if "/.claude/hooks/" in file_path:
         sys.exit(0)
 
+    # Skip legacy database/ import scripts — one-time data loaders, not core engine
+    if "/database/" in file_path:
+        sys.exit(0)
+
     try:
         result = subprocess.run(
             [

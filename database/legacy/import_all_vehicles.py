@@ -14,9 +14,7 @@ Usage:
 import sqlite3
 import csv
 import argparse
-import os
 import sys
-import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 

@@ -6,7 +6,6 @@ Creates and initializes the SQLite database with optimized schema.
 
 import sqlite3
 import os
-from pathlib import Path
 from datetime import datetime
 
 # Database configuration
@@ -48,7 +47,7 @@ class DatabaseInitializer:
 
         if db_exists:
             print(f"ℹ️  Database already exists: {self.db_path}")
-            print(f"   Use force_recreate=True to rebuild")
+            print("   Use force_recreate=True to rebuild")
             return False
 
         # Read schema file
@@ -78,7 +77,7 @@ class DatabaseInitializer:
             version = cursor.fetchone()
 
             if version:
-                print(f"✅ Database created successfully!")
+                print("✅ Database created successfully!")
                 print(f"   Schema version: {version[0]}")
 
                 # Get table count
@@ -94,7 +93,7 @@ class DatabaseInitializer:
                 conn.close()
                 return True
             else:
-                print(f"⚠️  Database created but metadata not found")
+                print("⚠️  Database created but metadata not found")
                 conn.close()
                 return False
 
@@ -111,7 +110,7 @@ class DatabaseInitializer:
         """
         if not os.path.exists(self.db_path):
             print(f"❌ Database not found: {self.db_path}")
-            print(f"   Run create_database() first")
+            print("   Run create_database() first")
             return None
 
         try:
@@ -220,7 +219,7 @@ class DatabaseInitializer:
             print(f"❌ Foreign key constraint violations: {len(fk_errors)}")
             return False
 
-        print(f"✅ Foreign key constraints valid")
+        print("✅ Foreign key constraints valid")
 
         # Check indexes
         cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='index'")

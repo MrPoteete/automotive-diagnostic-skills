@@ -106,7 +106,6 @@ class VehicleImporter:
         # Parse vehicles
         vehicles = []
         skipped = 0
-        header_found = False
 
         for line_num, line in enumerate(lines, 1):
             # Skip empty lines
@@ -115,7 +114,6 @@ class VehicleImporter:
 
             # Check for header row
             if '| Make |' in line or '| :---' in line:
-                header_found = True
                 continue
 
             # Check for category headers (e.g., | **TWO-SEATER CARS** | | | |)
@@ -208,7 +206,7 @@ class VehicleImporter:
         self.conn.commit()
 
         # Print statistics
-        print(f"\n[STATS] Import Summary")
+        print("\n[STATS] Import Summary")
         print(f"  Inserted:   {inserted:>8,}")
         print(f"  Duplicates: {duplicates:>8,}")
         print(f"  Errors:     {errors:>8,}")
@@ -271,14 +269,14 @@ class VehicleImporter:
                 total_stats['files_processed'] += 1
 
         # Print total statistics
-        print(f"\n[SUMMARY] Total Import Results")
-        print(f"=" * 50)
+        print("\n[SUMMARY] Total Import Results")
+        print("=" * 50)
         print(f"Files processed: {total_stats['files_processed']}")
         print(f"Total inserted:  {total_stats['inserted']:,}")
         print(f"Total duplicates: {total_stats['duplicates']:,}")
         print(f"Total errors:    {total_stats['errors']:,}")
         print(f"Grand total:     {total_stats['total']:,}")
-        print(f"=" * 50)
+        print("=" * 50)
 
         return total_stats
 
@@ -324,20 +322,20 @@ class VehicleImporter:
         """Print vehicle statistics."""
         stats = self.get_vehicle_stats()
 
-        print(f"\n[STATS] Vehicle Database Statistics")
-        print(f"=" * 50)
+        print("\n[STATS] Vehicle Database Statistics")
+        print("=" * 50)
         print(f"Total vehicles: {stats['total_vehicles']:,}")
         print(f"Unique models:  {stats['unique_models']:,}")
 
-        print(f"\nTop 10 Manufacturers:")
+        print("\nTop 10 Manufacturers:")
         for make, count in stats['top_makes']:
             print(f"  {make:20s} {count:>8,}")
 
-        print(f"\nVehicles by Year:")
+        print("\nVehicles by Year:")
         for year, count in stats['by_year']:
             print(f"  {year}  {count:>8,}")
 
-        print(f"=" * 50)
+        print("=" * 50)
 
 
 def main():

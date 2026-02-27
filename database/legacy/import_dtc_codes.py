@@ -16,7 +16,7 @@ import re
 import argparse
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 
 # Database and file configuration
@@ -238,7 +238,6 @@ class DTCImporter:
 
         codes = []
         in_table = False
-        current_section = ""
 
         with open(file_path, 'r', encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
@@ -246,7 +245,6 @@ class DTCImporter:
 
                 # Detect section headers
                 if line.startswith('Specific') or line.startswith('Part'):
-                    current_section = line
                     in_table = False
                     continue
 
@@ -365,7 +363,7 @@ class DTCImporter:
 
         # Insert codes
         for i, dtc in enumerate(codes, 1):
-            success = self.insert_dtc_code(dtc)
+            self.insert_dtc_code(dtc)
 
             if self.dry_run:
                 if i % 50 == 0:

@@ -19,7 +19,7 @@ import csv
 import re
 import os
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, Tuple
 
 
 class EPAVehicleImporter:
@@ -480,7 +480,7 @@ class EPAVehicleImporter:
             year = self.extract_year_from_filename(filename)
 
             if year is None:
-                print(f"[ERROR] Cannot determine year from filename. Please provide --year parameter.")
+                print("[ERROR] Cannot determine year from filename. Please provide --year parameter.")
                 return {'inserted': 0, 'duplicates': 0, 'errors': 0, 'total': 0}
 
             print(f"[INFO] Extracted year from filename: {year}")
@@ -541,7 +541,7 @@ class EPAVehicleImporter:
             self.conn.rollback()
 
         # Print statistics
-        print(f"\n[STATS] Import Summary")
+        print("\n[STATS] Import Summary")
         print(f"  Inserted:   {inserted:>8,}")
         print(f"  Duplicates: {duplicates:>8,}")
         print(f"  Errors:     {errors:>8,}")
@@ -607,14 +607,14 @@ class EPAVehicleImporter:
                 total_stats['files_processed'] += 1
 
         # Print aggregate statistics
-        print(f"\n[SUMMARY] Total Import Results")
-        print(f"=" * 50)
+        print("\n[SUMMARY] Total Import Results")
+        print("=" * 50)
         print(f"Files processed: {total_stats['files_processed']}")
         print(f"Total inserted:  {total_stats['inserted']:,}")
         print(f"Total duplicates: {total_stats['duplicates']:,}")
         print(f"Total errors:    {total_stats['errors']:,}")
         print(f"Grand total:     {total_stats['total']:,}")
-        print(f"=" * 50)
+        print("=" * 50)
 
         return total_stats
 
@@ -685,30 +685,30 @@ class EPAVehicleImporter:
         """Print comprehensive vehicle database statistics."""
         stats = self.get_vehicle_stats()
 
-        print(f"\n[STATS] Vehicle Database Statistics")
-        print(f"=" * 60)
+        print("\n[STATS] Vehicle Database Statistics")
+        print("=" * 60)
         print(f"Total vehicles:           {stats['total_vehicles']:>10,}")
         print(f"Vehicles with EPA data:   {stats['vehicles_with_epa_data']:>10,}")
 
-        print(f"\nTop 10 Manufacturers:")
+        print("\nTop 10 Manufacturers:")
         for make, count in stats['top_makes']:
             print(f"  {make:25s} {count:>10,}")
 
-        print(f"\nVehicles by Year:")
+        print("\nVehicles by Year:")
         for year, count in stats['by_year']:
             print(f"  {year}  {count:>10,}")
 
         if stats['mpg_by_fuel_type']:
-            print(f"\nAverage MPG by Fuel Type:")
+            print("\nAverage MPG by Fuel Type:")
             for fuel_type, avg_mpg, count in stats['mpg_by_fuel_type']:
                 print(f"  {fuel_type:15s} {avg_mpg:>6.1f} MPG  ({count:,} vehicles)")
 
         if stats['forced_induction']:
-            print(f"\nForced Induction Distribution:")
+            print("\nForced Induction Distribution:")
             for fi_type, count in stats['forced_induction']:
                 print(f"  {fi_type:20s} {count:>10,}")
 
-        print(f"=" * 60)
+        print("=" * 60)
 
 
 def main():

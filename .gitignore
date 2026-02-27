@@ -121,3 +121,10 @@ scratch.md
 !src/frontend/lib/
 .env
 /backups/
+
+# Next.js build output (ephemeral, regenerated on build)
+.next/
+out/
+
+# Root-level node_modules (frontend deps live in src/frontend/node_modules/)
+/node_modules/
