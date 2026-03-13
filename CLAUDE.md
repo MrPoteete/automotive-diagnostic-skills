@@ -37,6 +37,8 @@
 - **Hook Infrastructure**: See @.claude/docs/HOOKS.md
 - **Gemini Delegation**: See @.claude/docs/GEMINI_WORKFLOW.md
   - When to delegate to Gemini vs. keep with Claude, token optimization
+- **Error Playbook**: See @.claude/docs/LESSONS.md
+  - Known errors, root causes, and proven fixes — check this before debugging
 
 ## Operational Standards
 
@@ -61,11 +63,12 @@
 **Workflow**:
 1. Identify which reference file contains the rule
 2. Edit that file to add/update the rule
-3. Document the correction in the file
+3. Add the error + fix to @.claude/docs/LESSONS.md
 
 **Examples**:
-- Automotive logic error → Update @.claude/docs/DOMAIN.md
-- Testing issue → Update @.claude/docs/TESTING.md
-- Data handling mistake → Update @.claude/docs/DATA.md
+- Automotive logic error → Update @.claude/docs/DOMAIN.md + LESSONS.md
+- Testing issue → Update @.claude/docs/TESTING.md + LESSONS.md
+- Data handling mistake → Update @.claude/docs/DATA.md + LESSONS.md
+- Hook/tooling error → Update @.claude/docs/HOOKS.md + LESSONS.md
 
 **Treat this configuration as code**: Keep it lean, human-readable, and up-to-date.

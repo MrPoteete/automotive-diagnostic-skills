@@ -2,7 +2,7 @@
 
 ## Available Subagents
 
-The project has **15 specialized subagents** in `.claude/agents/`:
+The project has **17 specialized subagents** in `.claude/agents/`:
 
 ### Development & Architecture
 
@@ -43,7 +43,8 @@ The project has **15 specialized subagents** in `.claude/agents/`:
 |-------|-------------|-------------|------------|
 | **socratic-mentor** | Educational guide using Socratic method | Learning, teaching | "Use socratic-mentor to..." |
 | **learning-guide** | Programming education, progressive learning | Code explanation | "Use learning-guide to..." |
-| **technical-writer** | Clear documentation, user guides | Documentation creation | "Use technical-writer to..." |
+| **technical-writer** | Clear, audience-focused technical documentation | Documentation, user guides, API docs | "Use technical-writer to..." |
+| **research-agent** | Web research, documentation lookup, industry knowledge | Current info, TSB searches, web lookups | "Use research-agent to find..." |
 
 ### Special Agent: Business Panel Experts
 

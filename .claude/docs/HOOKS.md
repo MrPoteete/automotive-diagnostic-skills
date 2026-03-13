@@ -258,7 +258,7 @@ def main():
             "decision": "block",
             "reason": "Explanation of why blocking"
         }))
-        sys.exit(1)
+        sys.exit(0)  # Always exit(0) — JSON controls blocking, not exit code
 
     sys.exit(0)  # Allow
 
