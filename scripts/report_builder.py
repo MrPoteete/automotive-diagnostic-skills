@@ -48,7 +48,32 @@ class PatternResult(TypedDict):
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DB_PATH = PROJECT_ROOT / "database" / "automotive_complaints.db"
+DIAG_DB_PATH = PROJECT_ROOT / "database" / "automotive_diagnostics.db"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+
+# Map NHTSA complaint component keywords → DTC system + subsystem filter
+COMPONENT_TO_DTC: list[tuple[str, str, str]] = [
+    # (nhtsa_keyword_lower, dtc_system, subsystem_keyword)
+    ("power train", "Powertrain", ""),
+    ("engine", "Powertrain", ""),
+    ("fuel", "Powertrain", "Fuel"),
+    ("ignition", "Powertrain", "Ignition"),
+    ("transmission", "Powertrain", "Transmission"),
+    ("exhaust", "Powertrain", "Emissions"),
+    ("emission", "Powertrain", "Emissions"),
+    ("service brake", "Chassis", "ABS"),
+    ("abs", "Chassis", "ABS"),
+    ("brake", "Chassis", "ABS"),
+    ("traction", "Chassis", "Traction"),
+    ("steering", "Chassis", "Steering"),
+    ("suspension", "Chassis", "Suspension"),
+    ("electrical", "Body", ""),
+    ("air bag", "Body", "Airbag"),
+    ("airbag", "Body", "Airbag"),
+    ("srs", "Body", "Airbag"),
+    ("network", "Network & Integration", ""),
+    ("communication", "Network & Integration", ""),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +276,56 @@ def query_canada_recalls(
     return [dict(r) for r in cur.fetchall()]
 
 
+def query_relevant_dtcs(components: list[dict], limit_per_system: int = 8) -> list[dict]:
+    # Checked AGENTS.md - implementing directly: simple read-only SQLite lookup,
+    # no new architecture, extending existing report_builder pattern.
+    """
+    Look up relevant DTC codes in automotive_diagnostics.db for the top complaint components.
+    Returns a list of dicts for markdown rendering.
+    """
+    if not DIAG_DB_PATH.exists():
+        return []
+
+    conn = sqlite3.connect(str(DIAG_DB_PATH))
+    conn.row_factory = sqlite3.Row
+
+    seen_codes: set[str] = set()
+    results: list[dict] = []
+
+    for comp_row in components[:6]:  # top 6 complaint components
+        comp_name = (comp_row.get("component") or "").lower()
+        for keyword, dtc_system, subsystem_kw in COMPONENT_TO_DTC:
+            if keyword not in comp_name:
+                continue
+
+            params: list[object] = [dtc_system]
+            sql = (
+                "SELECT code, description, subsystem, severity, safety_critical "
+                "FROM dtc_codes WHERE system = ?"
+            )
+            if subsystem_kw:
+                sql += " AND (subsystem LIKE ? OR description LIKE ?)"
+                params += [f"%{subsystem_kw}%", f"%{subsystem_kw}%"]
+            sql += " ORDER BY safety_critical DESC, severity DESC LIMIT ?"
+            params.append(limit_per_system)
+
+            for r in conn.execute(sql, params).fetchall():
+                if r["code"] not in seen_codes:
+                    seen_codes.add(r["code"])
+                    results.append({
+                        "code": r["code"],
+                        "description": r["description"],
+                        "subsystem": r["subsystem"] or "",
+                        "severity": r["severity"],
+                        "safety_critical": r["safety_critical"],
+                        "complaint_component": comp_row.get("component", ""),
+                    })
+            break  # first matching keyword wins per component
+
+    conn.close()
+    return results
+
+
 def fetch_nhtsa_recalls_api(
     make: str,
     model: str,
@@ -373,6 +448,7 @@ def build_raw_markdown(
     investigations: list[dict],
     epa_specs: list[dict],
     canada_recalls: list[dict],
+    dtc_codes: list[dict] | None = None,
 ) -> str:
     total_complaints = sum(r["cnt"] for r in volume)
     total_tsbs = sum(r["cnt"] for r in tsb_breakdown)
@@ -453,6 +529,22 @@ def build_raw_markdown(
             lines.append("Representative complaint excerpts:")
             for s in p["samples"]:
                 lines.append(f"> *\"{s}\"*")
+        lines.append("")
+
+    # Relevant OBD-II DTC Codes
+    if dtc_codes:
+        lines.append("## Relevant OBD-II Codes by Complaint System\n")
+        lines.append(
+            "DTC codes most likely to surface given this vehicle's top complaint components. "
+            "Safety-critical codes marked ⚠️.\n"
+        )
+        lines.append("| Code | Description | Subsystem | Severity | Safety |")
+        lines.append("|------|-------------|-----------|----------|--------|")
+        for d in dtc_codes:
+            safety = "⚠️" if d["safety_critical"] else ""
+            sub = d["subsystem"] or "—"
+            desc = d["description"][:80]
+            lines.append(f"| `{d['code']}` | {desc} | {sub} | {d['severity']} | {safety} |")
         lines.append("")
 
     # NHTSA Recalls
@@ -689,6 +781,10 @@ def main() -> None:
 
     conn.close()
 
+    print("  Looking up relevant OBD-II DTC codes...", end="", flush=True)
+    dtc_codes = query_relevant_dtcs(components)
+    print(f" {len(dtc_codes)} codes")
+
     # Live NHTSA recalls API
     recalls: list[dict] = []
     if not args.no_api:
@@ -701,6 +797,7 @@ def main() -> None:
         make, model, year_start, year_end,
         volume, components, patterns, tsb_list, tsb_breakdown,
         recalls, investigations, epa_specs, canada_recalls,
+        dtc_codes=dtc_codes,
     )
     print(" done")
 
