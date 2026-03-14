@@ -333,15 +333,31 @@ def _get_collection(dry_run: bool) -> Any:
             "chromadb not installed. Run: .venv/bin/pip install chromadb"
         ) from exc
 
+    # Checked AGENTS.md - implementing directly: minor retry wrapper, no delegation needed.
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},
     )
     action = "DRY-RUN (no writes)" if dry_run else "WRITE"
+
+    # ChromaDB 1.0.x needs time to compact HNSW index after large writes.
+    # Retry count() up to 10x with 30s backoff before giving up.
+    doc_count = 0
+    for attempt in range(10):
+        try:
+            doc_count = collection.count()
+            break
+        except Exception:
+            if attempt == 9:
+                print("WARNING: ChromaDB HNSW index still compacting — proceeding without count.")
+            else:
+                print(f"  ChromaDB index compacting, retrying in 30s (attempt {attempt + 1}/10)...")
+                time.sleep(30)
+
     print(
         f"ChromaDB ready [{action}]. Collection '{COLLECTION_NAME}': "
-        f"{collection.count():,} docs before import."
+        f"{doc_count:,} docs before import."
     )
     return collection
 
