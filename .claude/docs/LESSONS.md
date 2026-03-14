@@ -123,4 +123,51 @@ def validate_dtc(code: str):           # ❌ mypy strict will reject
 
 ---
 
+## Data Import / CSV Parsing
+
+### csv.DictReader Uses First Row as Header by Default
+
+**Symptom**: All rows skipped during import — column lookups return empty strings.
+
+**Root Cause**: `csv.DictReader(f)` treats the first data row as column names when the file has no header row. Every subsequent `row.get("Code", "")` returns `""` because the column names are the first data values.
+
+**Wrong**:
+```python
+reader = csv.DictReader(f)  # ❌ first data row becomes the header
+```
+
+**Correct**:
+```python
+reader = csv.DictReader(f, fieldnames=["Code", "Description"])  # ✅ explicit names
+```
+
+**Applies to**: Any CSV without a header row (e.g. `obd-trouble-codes.csv`, some NHTSA flat files).
+
+---
+
+## Python / String Matching
+
+### Substring `in` Check Matches Partial Words
+
+**Symptom**: DTC subsystem classifier tagged `P0106` (MAP/Manifold Absolute Pressure sensor) as `ABS` subsystem.
+
+**Root Cause**: `"abs" in "manifold absolute pressure..."` is `True` because "abs" is a substring of "absolute". Same issue with `"map" in "remap"` or `"can" in "scan"`.
+
+**Wrong**:
+```python
+if "abs" in description.lower():  # ❌ matches "absolute", "absorption"
+    return "ABS"
+```
+
+**Correct**:
+```python
+import re
+if re.search(r"\babs\b", description.lower()):  # ✅ word boundary — "abs" only
+    return "ABS"
+```
+
+**Rule**: Use `re.search(r"\b<word>\b", text)` whenever matching short acronyms or words that could appear as substrings (abs, map, can, cat, egr, tcs, etc.).
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*
