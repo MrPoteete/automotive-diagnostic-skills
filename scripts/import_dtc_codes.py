@@ -53,6 +53,8 @@ def get_system(code: str) -> str:
 
 
 def get_subsystem(code: str, desc: str) -> Optional[str]:
+    # Checked AGENTS.md - fixing word-boundary false positives directly:
+    # "abs" matched "absolute", "map" matched "remap". Use \b word boundaries.
     d = desc.lower()
     if "fuel" in d or "injector" in d:
         return "Fuel System"
@@ -68,7 +70,8 @@ def get_subsystem(code: str, desc: str) -> Optional[str]:
         return "Throttle Control"
     if "maf" in d or "air flow" in d or "mass air" in d:
         return "Air Intake"
-    if "map" in d or "manifold pressure" in d or "vacuum" in d:
+    # "manifold pressure" / "vacuum" before word-boundary \bmap\b to avoid "remap"
+    if "manifold pressure" in d or "vacuum" in d or re.search(r"\bmap\b", d):
         return "Intake Manifold"
     if "coolant" in d or ("temperature" in d and "engine" in d):
         return "Cooling System"
@@ -80,7 +83,8 @@ def get_subsystem(code: str, desc: str) -> Optional[str]:
         return "EGR System"
     if "variable valve" in d or "vvt" in d or "camshaft" in d:
         return "Variable Valve Timing"
-    if "abs" in d or "anti-lock" in d:
+    # \babs\b avoids matching "absolute", "absorption", etc.
+    if re.search(r"\babs\b", d) or "anti-lock" in d:
         return "ABS"
     if "traction" in d or "tcs" in d:
         return "Traction Control"
