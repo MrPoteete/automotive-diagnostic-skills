@@ -170,4 +170,22 @@ if re.search(r"\babs\b", description.lower()):  # ✅ word boundary — "abs" on
 
 ---
 
+## Hook Development — precommit_validator Falls Back to `python3 -m pytest` When No Venv
+
+**Symptom**: Pre-commit hook blocks with "No module named pytest" even though `pytest` is installed system-wide.
+
+**Root Cause**: The hook only checks `.venv/bin/pytest`, then falls back to `python3 -m pytest`. If the venv doesn't exist and pytest is installed as a standalone binary (e.g., `/root/.local/bin/pytest`), it's never found.
+
+**Fix**: Add `shutil.which("pytest")` as a middle fallback in `precommit_validator.py`:
+```python
+if venv_pytest.exists():
+    pytest_cmd = [str(venv_pytest), ...]
+elif shutil.which("pytest"):
+    pytest_cmd = [shutil.which("pytest"), ...]
+else:
+    pytest_cmd = ["python3", "-m", "pytest", ...]
+```
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*

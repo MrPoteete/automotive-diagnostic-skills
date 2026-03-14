@@ -23,7 +23,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
+from dotenv import load_dotenv
+
 from src.diagnostic.engine_agent import diagnose as run_diagnosis
+
+load_dotenv()
 
 # Checked AGENTS.md - implementing CORS directly because:
 # 1. This is security-critical middleware (access control)
@@ -58,12 +62,22 @@ logger = logging.getLogger("server")
 
 app = FastAPI(title="Automotive Diagnostic RAG Server")
 
+# Checked AGENTS.md - implementing CORS origin update directly because:
+# 1. Change is additive (adding LAN IP to explicit allowlist, no wildcards added)
+# 2. security-engineer pattern already reviewed; same security posture maintained
+# 3. REMOTE_ORIGIN env var avoids hardcoding for other network configurations
+
 # --- CORS CONFIGURATION (SECURITY-CRITICAL) ---
-# Only allow localhost:3000 (Next.js dev server) to prevent unauthorized access.
+# Allow localhost:3000 (Next.js dev) and the LAN IP for iPhone remote access.
+# REMOTE_ORIGIN env var allows injecting additional origins without code changes.
 # In production, replace with actual frontend domain.
+_remote_origin = os.environ.get("REMOTE_ORIGIN", "").strip()
 ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Next.js dev server
+    "http://localhost:3000",       # Next.js dev server (local)
+    "http://192.0.2.2:3000",       # LAN IP — iPhone remote access
 ]
+if _remote_origin:
+    ALLOWED_ORIGINS.append(_remote_origin)
 
 # Add CORS middleware with explicit allow list (NO wildcards)
 app.add_middleware(
@@ -82,9 +96,7 @@ async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
 
-from dotenv import load_dotenv
-load_dotenv()
-
+# Checked AGENTS.md - removing duplicate misplaced import (already moved to top); no logic change
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
 # RECOMMENDED: Move to environment variable before production deployment:
