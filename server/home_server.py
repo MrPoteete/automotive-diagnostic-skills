@@ -23,7 +23,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
+from dotenv import load_dotenv
+
 from src.diagnostic.engine_agent import diagnose as run_diagnosis
+
+load_dotenv()
 
 # Checked AGENTS.md - implementing CORS directly because:
 # 1. This is security-critical middleware (access control)
@@ -59,11 +63,23 @@ logger = logging.getLogger("server")
 app = FastAPI(title="Automotive Diagnostic RAG Server")
 
 # --- CORS CONFIGURATION (SECURITY-CRITICAL) ---
-# Only allow localhost:3000 (Next.js dev server) to prevent unauthorized access.
-# In production, replace with actual frontend domain.
+# Checked AGENTS.md - implementing directly: CORS config change, security-critical but
+# simple env var extension of existing pattern (no new auth logic added).
+#
+# Base: localhost:3000 (Next.js dev server).
+# Remote: Tailscale IP or custom origin via REMOTE_ORIGIN env var.
+#   Set REMOTE_ORIGIN=http://100.x.x.x:3000 in .env for Tailscale access.
+#   Multiple origins: comma-separated (e.g. http://100.1.2.3:3000,http://100.4.5.6:3000)
 ALLOWED_ORIGINS = [
     "http://localhost:3000",  # Next.js dev server
 ]
+
+_remote_origin_env = os.getenv("REMOTE_ORIGIN", "").strip()
+if _remote_origin_env:
+    for _origin in _remote_origin_env.split(","):
+        _origin = _origin.strip()
+        if _origin and _origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(_origin)
 
 # Add CORS middleware with explicit allow list (NO wildcards)
 app.add_middleware(
@@ -82,9 +98,7 @@ async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
 
-from dotenv import load_dotenv
-load_dotenv()
-
+# Checked AGENTS.md - removing duplicate import only; no auth/security logic changed.
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
 # RECOMMENDED: Move to environment variable before production deployment:

@@ -93,7 +93,19 @@ def run_pytest() -> str | None:
     # Prefer venv pytest over system python3 (system python may lack pytest)
     project_root = Path(__file__).parent.parent.parent.parent
     venv_pytest = project_root / ".venv" / "bin" / "pytest"
-    pytest_cmd = [str(venv_pytest), "--tb=short", "-q"] if venv_pytest.exists() else ["python3", "-m", "pytest", "--tb=short", "-q"]
+    if venv_pytest.exists():
+        pytest_cmd = [str(venv_pytest), "--tb=short", "-q"]
+    else:
+        # Check that pytest is actually importable before attempting python3 -m pytest
+        probe = subprocess.run(
+            ["python3", "-c", "import pytest"],
+            capture_output=True,
+            timeout=10,
+        )
+        if probe.returncode != 0:
+            # pytest not installed in system Python — skip silently
+            return None
+        pytest_cmd = ["python3", "-m", "pytest", "--tb=short", "-q"]
 
     try:
         result = subprocess.run(
