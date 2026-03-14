@@ -25,6 +25,7 @@ import argparse
 import hashlib
 import json
 import pathlib
+from pathlib import Path
 import re
 import sys
 import time
@@ -519,10 +520,27 @@ def ingest(
 # ---------------------------------------------------------------------------
 
 
+# Checked AGENTS.md - implementing directly because this is a 2-line CLI arg
+# addition to an existing script; no security/arch concern, delegation overhead > task.
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Ingest Reddit r/MechanicAdvice JSONL data into ChromaDB.",
+        description="Ingest Reddit JSONL data into ChromaDB.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    # Checked AGENTS.md - implementing directly: trivial CLI arg addition, no delegation needed.
+    parser.add_argument(
+        "--posts",
+        type=Path,
+        default=POSTS_FILE,
+        metavar="PATH",
+        help="Path to posts JSONL file.",
+    )
+    parser.add_argument(
+        "--comments",
+        type=Path,
+        default=COMMENTS_FILE,
+        metavar="PATH",
+        help="Path to comments JSONL file.",
     )
     parser.add_argument(
         "--dry-run",
@@ -549,8 +567,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
 
+    posts_file: Path = args.posts
+    comments_file: Path = args.comments
+
     # Validate inputs
-    for path, label in [(POSTS_FILE, "posts"), (COMMENTS_FILE, "comments")]:
+    for path, label in [(posts_file, "posts"), (comments_file, "comments")]:
         if not path.exists():
             print(f"ERROR: {label} file not found: {path}", file=sys.stderr)
             return 1
@@ -562,8 +583,10 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: --batch-size must be >= 1", file=sys.stderr)
         return 1
 
+    subreddit_label = posts_file.stem.replace("_posts", "").replace("r_", "r/")
+
     print("=" * 60)
-    print("Reddit r/MechanicAdvice → ChromaDB importer")
+    print(f"Reddit {subreddit_label} → ChromaDB importer")
     print("=" * 60)
     if args.dry_run:
         print("MODE: DRY-RUN (no writes to ChromaDB)")
@@ -573,14 +596,14 @@ def main(argv: list[str] | None = None) -> int:
     print()
 
     # Phase 1: Build comment index
-    comment_index = build_comment_index(COMMENTS_FILE)
+    comment_index = build_comment_index(comments_file)
 
     # Phase 2: Open ChromaDB
     collection = _get_collection(dry_run=args.dry_run)
 
     # Phase 3: Ingest posts
     ingest(
-        posts_path=POSTS_FILE,
+        posts_path=posts_file,
         comment_index=comment_index,
         collection=collection,
         dry_run=args.dry_run,
