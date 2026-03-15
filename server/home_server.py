@@ -455,15 +455,18 @@ async def decode_vin(
         if var and val and val not in ("Not Applicable", "0", ""):
             fields[var] = val
 
-    # Check NHTSA error code
+    # Check NHTSA error code — only fail on fatal codes where no data was returned.
+    # Code "1" = check digit incorrect (very common on trucks/older vehicles) — data is still valid.
+    # Codes 7, 8, 14 = truly undecodable VINs.
     error_code = fields.get("ErrorCode", "0")
-    if error_code != "0":
+    FATAL_ERROR_CODES = {"7", "8", "14"}
+    if error_code in FATAL_ERROR_CODES or (not fields.get("Make") and not fields.get("Model")):
         logger.warning("NHTSA returned error code %s for VIN %s", error_code, vin)
         return {"vin": vin, "valid": False, "error": f"NHTSA could not decode VIN (error {error_code})"}
 
-    # Build engine string: "2.4L I4" / "3.6L V6" / "5.0L V8"
-    displacement = fields.get("DisplacementL", "")
-    cylinders_str = fields.get("EngineCylinders", "")
+    # Build engine string: "5.3L V8" — NHTSA variable names use spaces/parens
+    displacement = fields.get("Displacement (L)", "")
+    cylinders_str = fields.get("Engine Number of Cylinders", "")
     engine: str | None = None
     if displacement or cylinders_str:
         cyl_map = {"4": "I4", "6": "V6", "8": "V8", "10": "V10", "12": "V12", "3": "I3", "5": "I5"}
@@ -479,7 +482,7 @@ async def decode_vin(
         engine = " ".join(parts) if parts else None
 
     year_val: int | None = None
-    raw_year = fields.get("ModelYear", "")
+    raw_year = fields.get("Model Year", "")
     if raw_year:
         try:
             year_val = int(raw_year)
@@ -495,10 +498,10 @@ async def decode_vin(
         "make": fields.get("Make"),
         "model": fields.get("Model"),
         "engine": engine,
-        "drive_type": fields.get("DriveType"),
-        "body_class": fields.get("BodyClass"),
+        "drive_type": fields.get("Drive Type"),
+        "body_class": fields.get("Body Class"),
         "trim": fields.get("Trim"),
-        "fuel_type": fields.get("FuelTypePrimary"),
+        "fuel_type": fields.get("Fuel Type - Primary"),
         "raw": data,
     }
 
