@@ -479,6 +479,88 @@ async def decode_vin(
     }
 
 
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+# Read-only SQL queries against complaints_fts and nhtsa_tsbs — no safety logic.
+@app.get("/vehicle/dashboard")
+async def get_vehicle_dashboard(
+    make: str,
+    model: str,
+    year: int = Query(..., ge=1900, le=2030),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Return dashboard stats for a specific vehicle year/make/model."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        make_upper = make.upper()
+        model_upper = model.upper()
+
+        # 1. Total complaint count for this year
+        cursor.execute(
+            "SELECT COUNT(*) FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) = ?",
+            (make_upper, model_upper, year),
+        )
+        complaint_count: int = cursor.fetchone()[0]
+
+        # 2. TSB count
+        cursor.execute(
+            "SELECT COUNT(*) FROM nhtsa_tsbs"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ? AND CAST(year AS INTEGER) = ?",
+            (make_upper, model_upper, year),
+        )
+        tsb_count: int = cursor.fetchone()[0]
+
+        # 3. Top 5 failure components
+        cursor.execute(
+            "SELECT component, COUNT(*) AS cnt FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) = ?"
+            " GROUP BY component ORDER BY cnt DESC LIMIT 5",
+            (make_upper, model_upper, year),
+        )
+        top_components = [{"component": row["component"], "count": row["cnt"]} for row in cursor.fetchall()]
+
+        # 4. Prior-year count for trend
+        cursor.execute(
+            "SELECT COUNT(*) FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) = ?",
+            (make_upper, model_upper, year - 1),
+        )
+        prior_year_count: int = cursor.fetchone()[0]
+
+        conn.close()
+
+        if complaint_count > prior_year_count:
+            trend = "increasing"
+        elif complaint_count < prior_year_count:
+            trend = "decreasing"
+        else:
+            trend = "stable"
+
+        logger.info(
+            "Dashboard: %s %s %d — complaints=%d tsbs=%d trend=%s",
+            make_upper, model_upper, year, complaint_count, tsb_count, trend,
+        )
+
+        return {
+            "make": make_upper,
+            "model": model_upper,
+            "year": year,
+            "complaint_count": complaint_count,
+            "tsb_count": tsb_count,
+            "top_components": top_components,
+            "trend": trend,
+            "trend_current_year_count": complaint_count,
+            "trend_prior_year_count": prior_year_count,
+        }
+
+    except Exception as exc:
+        logger.error("Dashboard error for %s %s %d: %s", make, model, year, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 if __name__ == "__main__":
     # Host on 0.0.0.0 for Tailscale remote access
     import socket

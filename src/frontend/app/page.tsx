@@ -8,6 +8,7 @@ import { MAKES, YEARS, getModelsForMake } from '../lib/vehicles';
 import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
 import VehicleIdentification, { type VehicleIdentity } from './components/VehicleIdentification';
+import VehicleDashboard from './components/VehicleDashboard';
 import { parseDtcInput } from './components/VehicleForm';
 import { api, type VehicleInfo } from '../lib/api';
 
@@ -406,6 +407,21 @@ export default function Home() {
                                     >
                                         Change
                                     </button>
+                                </div>
+                            )}
+
+                            {/* Vehicle Dashboard — auto-loads stats after vehicle selected */}
+                            {selectedVehicle && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <VehicleDashboard
+                                        make={selectedVehicle.make}
+                                        model={selectedVehicle.model}
+                                        year={selectedVehicle.year}
+                                        onReportClick={() => {
+                                            // TODO: wire to report builder
+                                            alert(`Report for ${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model} coming soon.`);
+                                        }}
+                                    />
                                 </div>
                             )}
 

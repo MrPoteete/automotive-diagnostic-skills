@@ -413,6 +413,42 @@ export interface VehicleYears {
 // Export singleton instance
 export const api = new DiagnosticAPI();
 
+// --- Vehicle Dashboard ---
+
+export interface DashboardData {
+    make: string;
+    model: string;
+    year: number;
+    complaint_count: number;
+    tsb_count: number;
+    top_components: Array<{ component: string; count: number }>;
+    trend: 'increasing' | 'decreasing' | 'stable';
+    trend_current_year_count: number;
+    trend_prior_year_count: number;
+}
+
+// NOTE: fetchDashboard is a method added to DiagnosticAPI below the class definition patch
+// It is defined as a standalone function here for use by VehicleDashboard component
+export async function fetchDashboard(make: string, model: string, year: number): Promise<DashboardData | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const res = await fetch(
+            `/api/vehicle/dashboard?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&year=${year}`,
+            { signal: controller.signal, cache: 'no-store' }
+        );
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as DashboardData;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name !== 'AbortError') {
+            console.error('fetchDashboard error:', err);
+        }
+        return null;
+    }
+}
+
 // --- VIN Decode ---
 
 export interface VinDecodeResult {
