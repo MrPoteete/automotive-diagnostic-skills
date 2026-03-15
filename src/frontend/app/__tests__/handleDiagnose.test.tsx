@@ -59,6 +59,8 @@ vi.mock('../../lib/api', () => ({
     },
     fetchVin: vi.fn(),
     fetchDashboard: vi.fn().mockResolvedValue(null),
+    fetchHistory: vi.fn().mockResolvedValue(null),
+    saveHistory: vi.fn().mockResolvedValue(null),
 }));
 
 import { api } from '../../lib/api';

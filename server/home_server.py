@@ -81,10 +81,33 @@ app.add_middleware(
 
 logger.info(f"CORS enabled for origins: {ALLOWED_ORIGINS}")
 
+# Checked AGENTS.md - history endpoints implemented via Gemini delegation per GEMINI_WORKFLOW.md.
+# Startup migration and endpoint wiring done directly (structural plumbing, not domain logic).
 @app.on_event("startup")
 async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
+    # Create diagnosis_history table if not exists
+    _conn = sqlite3.connect(str(DIAG_DB_PATH))
+    _conn.execute("""
+        CREATE TABLE IF NOT EXISTS diagnosis_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            vin TEXT,
+            year INTEGER NOT NULL,
+            make TEXT NOT NULL,
+            model TEXT NOT NULL,
+            engine TEXT,
+            symptoms TEXT NOT NULL,
+            dtc_codes TEXT NOT NULL DEFAULT '[]',
+            findings TEXT NOT NULL,
+            candidate_count INTEGER NOT NULL DEFAULT 0,
+            has_warnings INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    _conn.commit()
+    _conn.close()
+    logger.info("diagnosis_history table ready in %s", DIAG_DB_PATH)
 
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
@@ -101,6 +124,7 @@ def get_api_key(api_key: str = Depends(api_key_header)):
 
 # Path to the NEW fast database we just built
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "database", "automotive_complaints.db")
+DIAG_DB_PATH = pathlib.Path(__file__).resolve().parent.parent / "database" / "automotive_diagnostics.db"
 
 @app.get("/")
 async def root():
@@ -644,6 +668,120 @@ async def get_vehicle_dashboard(
 
     except Exception as exc:
         logger.error("Dashboard error for %s %s %d: %s", make, model, year, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+class HistoryEntry(BaseModel):
+    vin: str | None = None
+    year: int = Field(..., ge=1900, le=2030)
+    make: str
+    model: str
+    engine: str | None = None
+    symptoms: str
+    dtc_codes: list[str] = Field(default_factory=list)
+    findings: str
+    candidate_count: int = 0
+    has_warnings: bool = False
+
+
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+# Simple INSERT into diagnosis_history — no safety logic.
+@app.post("/history")
+async def save_history(
+    entry: HistoryEntry,
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Save a diagnosis session to history."""
+    import json as _json  # noqa: PLC0415
+    from datetime import datetime as _dt  # noqa: PLC0415
+
+    created_at = _dt.utcnow().isoformat()
+    try:
+        conn = sqlite3.connect(str(DIAG_DB_PATH))
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO diagnosis_history (
+                created_at, vin, year, make, model, engine,
+                symptoms, dtc_codes, findings, candidate_count, has_warnings
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                created_at, entry.vin, entry.year, entry.make.upper(), entry.model.upper(),
+                entry.engine, entry.symptoms, _json.dumps(entry.dtc_codes),
+                entry.findings, entry.candidate_count, 1 if entry.has_warnings else 0,
+            ),
+        )
+        conn.commit()
+        row_id = cursor.lastrowid
+        conn.close()
+        logger.info("History saved id=%s %s %s %d", row_id, entry.make, entry.model, entry.year)
+        return {"id": row_id, "created_at": created_at}
+    except Exception as exc:
+        logger.error("History save error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+# Simple SELECT from diagnosis_history — no safety logic.
+@app.get("/history")
+async def get_history(
+    make: str,
+    model: str,
+    year: int | None = Query(default=None),
+    vin: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Retrieve diagnosis history for a vehicle."""
+    import json as _json  # noqa: PLC0415
+
+    try:
+        conn = sqlite3.connect(str(DIAG_DB_PATH))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        where: list[str] = []
+        params: list[Any] = []
+
+        if vin:
+            where.append("vin = ?")
+            params.append(vin)
+        else:
+            where.append("UPPER(make) = UPPER(?)")
+            params.append(make)
+            where.append("UPPER(model) = UPPER(?)")
+            params.append(model)
+            if year is not None:
+                where.append("year = ?")
+                params.append(year)
+
+        where_sql = " AND ".join(where) if where else "1=1"
+        cursor.execute(
+            f"SELECT * FROM diagnosis_history WHERE {where_sql} ORDER BY created_at DESC LIMIT ?",
+            params + [limit],
+        )
+        rows = cursor.fetchall()
+
+        entries = []
+        for row in rows:
+            d = dict(row)
+            d["dtc_codes"] = _json.loads(d["dtc_codes"])
+            d["has_warnings"] = bool(d["has_warnings"])
+            entries.append(d)
+
+        cursor.execute(
+            f"SELECT COUNT(*) FROM diagnosis_history WHERE {where_sql}",
+            params,
+        )
+        total: int = cursor.fetchone()[0]
+        conn.close()
+
+        logger.info("History GET %s %s: %d entries", make, model, len(entries))
+        return {"entries": entries, "total": total}
+
+    except Exception as exc:
+        logger.error("History GET error: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

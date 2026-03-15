@@ -449,6 +449,83 @@ export async function fetchDashboard(make: string, model: string, year: number):
     }
 }
 
+// --- Diagnosis History ---
+
+export interface HistoryEntry {
+    id: number;
+    created_at: string;
+    vin?: string;
+    year: number;
+    make: string;
+    model: string;
+    engine?: string;
+    symptoms: string;
+    dtc_codes: string[];
+    findings: string;
+    candidate_count: number;
+    has_warnings: boolean;
+}
+
+export interface HistoryResponse {
+    entries: HistoryEntry[];
+    total: number;
+}
+
+export interface SaveHistoryRequest {
+    vin?: string;
+    year: number;
+    make: string;
+    model: string;
+    engine?: string;
+    symptoms: string;
+    dtc_codes: string[];
+    findings: string;
+    candidate_count: number;
+    has_warnings: boolean;
+}
+
+export async function fetchHistory(
+    make: string,
+    model: string,
+    year?: number,
+    vin?: string,
+): Promise<HistoryResponse | null> {
+    const params = new URLSearchParams({ make, model });
+    if (year !== undefined) params.set('year', String(year));
+    if (vin) params.set('vin', vin);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const res = await fetch(`/api/history?${params}`, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as HistoryResponse;
+    } catch {
+        clearTimeout(timeoutId);
+        return null;
+    }
+}
+
+export async function saveHistory(entry: SaveHistoryRequest): Promise<{ id: number; created_at: string } | null> {
+    // Fire-and-forget — never throw, history save must not break diagnosis flow
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), POST_TIMEOUT_MS);
+    try {
+        const res = await fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(entry),
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as { id: number; created_at: string };
+    } catch {
+        clearTimeout(timeoutId);
+        return null;
+    }
+}
+
 // --- Report Generation ---
 
 export interface ReportRequest {

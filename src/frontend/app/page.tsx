@@ -10,8 +10,9 @@ import { LoadingState } from './components/LoadingState';
 import VehicleIdentification, { type VehicleIdentity } from './components/VehicleIdentification';
 import VehicleDashboard from './components/VehicleDashboard';
 import ReportModal from './components/ReportModal';
+import DiagnosisHistory from './components/DiagnosisHistory';
 import { parseDtcInput } from './components/VehicleForm';
-import { api, type VehicleInfo } from '../lib/api';
+import { api, saveHistory, type VehicleInfo } from '../lib/api';
 
 // Carbon icon SVG inlines — avoids SCSS import issues in test environment
 function IconActivity() {
@@ -127,7 +128,21 @@ export default function Home() {
 
         try {
             const diagData = await api.diagnose({ vehicle, symptoms, dtc_codes: dtcCodes });
-            setMessages(prev => [...prev, { role: 'system', content: api.formatDiagnosis(diagData) }]);
+            const formattedDiagnosis = api.formatDiagnosis(diagData);
+            setMessages(prev => [...prev, { role: 'system', content: formattedDiagnosis }]);
+            // Fire-and-forget — never block the diagnosis flow
+            saveHistory({
+                vin: selectedVehicle?.vin,
+                year: vehicle.year,
+                make: vehicle.make,
+                model: vehicle.model,
+                engine: selectedVehicle?.engine,
+                symptoms,
+                dtc_codes: dtcCodes,
+                findings: formattedDiagnosis,
+                candidate_count: diagData.candidates.length,
+                has_warnings: diagData.warnings.length > 0,
+            }).catch(() => {});
         } catch (error) {
             setMessages(prev => [
                 ...prev,
@@ -410,6 +425,16 @@ export default function Home() {
                                         Change
                                     </button>
                                 </div>
+                            )}
+
+                            {/* Diagnosis History — prior sessions for this vehicle */}
+                            {selectedVehicle && (
+                                <DiagnosisHistory
+                                    make={selectedVehicle.make}
+                                    model={selectedVehicle.model}
+                                    year={selectedVehicle.year}
+                                    vin={selectedVehicle.vin}
+                                />
                             )}
 
                             {/* Vehicle Dashboard — auto-loads stats after vehicle selected */}
