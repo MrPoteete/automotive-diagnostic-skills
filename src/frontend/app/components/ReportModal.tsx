@@ -93,6 +93,7 @@ export default function ReportModal({ make, model, year, isOpen, onClose }: Repo
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
+                data-testid="report-modal"
                 style={{
                     width: '100%', maxWidth: '820px', maxHeight: '88vh',
                     background: '#161616',
