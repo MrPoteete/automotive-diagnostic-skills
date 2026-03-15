@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { MAKES, YEARS, getModelsForMake } from '../lib/vehicles';
 import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
-import VehicleForm from './components/VehicleForm';
+import VehicleIdentification, { type VehicleIdentity } from './components/VehicleIdentification';
+import { parseDtcInput } from './components/VehicleForm';
 import { api, type VehicleInfo } from '../lib/api';
 
 // Carbon icon SVG inlines — avoids SCSS import issues in test environment
@@ -92,6 +93,9 @@ export default function Home() {
     const [tsbMake, setTsbMake] = useState('');
     const [tsbModel, setTsbModel] = useState('');
     const [tsbYear, setTsbYear] = useState('');
+    const [selectedVehicle, setSelectedVehicle] = useState<VehicleIdentity | null>(null);
+    const [symptoms, setSymptoms] = useState('');
+    const [dtcInput, setDtcInput] = useState('');
 
     // Check backend health on mount
     useEffect(() => {
@@ -129,6 +133,26 @@ export default function Home() {
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const handleVehicleSelected = (vehicle: VehicleIdentity) => {
+        setSelectedVehicle(vehicle);
+        setSymptoms('');
+        setDtcInput('');
+    };
+
+    const handleSubmitDiagnose = () => {
+        if (!selectedVehicle || !symptoms.trim() || isProcessing) return;
+        const vehicleInfo: VehicleInfo = {
+            make: selectedVehicle.make,
+            model: selectedVehicle.model,
+            year: selectedVehicle.year,
+        };
+        handleDiagnose(vehicleInfo, symptoms, parseDtcInput(dtcInput));
+    };
+
+    const handleSymptomsKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && e.ctrlKey && !isProcessing) handleSubmitDiagnose();
     };
 
     const handleTsbMakeChange = (newMake: string) => {
@@ -322,17 +346,135 @@ export default function Home() {
                                 </p>
                             </div>
 
-                            {/* VehicleForm — captures structured input */}
+                            {/* Vehicle Identification — VIN or manual entry */}
                             <div
                                 style={{
                                     background: 'var(--cds-layer-01)',
                                     border: '1px solid var(--cds-border-subtle-01)',
                                     padding: '1.5rem',
-                                    marginBottom: '2rem',
+                                    marginBottom: '1rem',
                                 }}
                             >
-                                <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
+                                <VehicleIdentification
+                                    onVehicleSelected={handleVehicleSelected}
+                                    isProcessing={isProcessing}
+                                />
                             </div>
+
+                            {/* Selected vehicle summary bar */}
+                            {selectedVehicle && (
+                                <div
+                                    style={{
+                                        background: 'var(--cds-layer-02)',
+                                        border: '1px solid var(--cds-border-subtle-02)',
+                                        borderLeft: '3px solid #0f62fe',
+                                        padding: '0.75rem 1.5rem',
+                                        marginBottom: '1rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        fontSize: '0.875rem',
+                                        color: 'var(--cds-text-primary)',
+                                    }}
+                                >
+                                    <strong>
+                                        {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}
+                                    </strong>
+                                    {selectedVehicle.engine && (
+                                        <span style={{ color: 'var(--cds-text-secondary)' }}>· {selectedVehicle.engine}</span>
+                                    )}
+                                    {selectedVehicle.drive_type && (
+                                        <span style={{ color: 'var(--cds-text-secondary)' }}>· {selectedVehicle.drive_type}</span>
+                                    )}
+                                    {selectedVehicle.vin && (
+                                        <span style={{ color: 'var(--cds-text-secondary)', fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                            VIN: {selectedVehicle.vin}
+                                        </span>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedVehicle(null)}
+                                        style={{
+                                            marginLeft: 'auto',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'var(--cds-text-secondary)',
+                                            cursor: 'pointer',
+                                            fontSize: '0.75rem',
+                                            padding: '0.25rem 0.5rem',
+                                        }}
+                                    >
+                                        Change
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Symptoms + DTC form — only visible once vehicle selected */}
+                            {selectedVehicle && (
+                                <div
+                                    style={{
+                                        background: 'var(--cds-layer-01)',
+                                        border: '1px solid var(--cds-border-subtle-01)',
+                                        padding: '1.5rem',
+                                        marginBottom: '2rem',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div className="cds--form-item">
+                                            <label htmlFor="symptoms-input" className="cds--label">
+                                                Symptoms / Complaint Description
+                                            </label>
+                                            <div className="cds--text-area-wrapper">
+                                                <textarea
+                                                    id="symptoms-input"
+                                                    className="cds--text-area"
+                                                    rows={4}
+                                                    value={symptoms}
+                                                    onChange={(e) => setSymptoms(e.target.value)}
+                                                    onKeyDown={handleSymptomsKeyDown}
+                                                    placeholder="Describe symptoms in detail. e.g. Rough idle at cold start, surging RPM, check engine light..."
+                                                    disabled={isProcessing}
+                                                />
+                                            </div>
+                                            <p className="cds--form__helper-text">Ctrl+Enter to submit</p>
+                                        </div>
+                                        <div className="cds--form-item">
+                                            <label htmlFor="dtc-input" className="cds--label">
+                                                DTC Codes (optional)
+                                            </label>
+                                            <div className="cds--text-input-wrapper">
+                                                <input
+                                                    id="dtc-input"
+                                                    type="text"
+                                                    className="cds--text-input"
+                                                    value={dtcInput}
+                                                    onChange={(e) => setDtcInput(e.target.value.toUpperCase())}
+                                                    placeholder="e.g. P0300, P0301, C0034"
+                                                    disabled={isProcessing}
+                                                />
+                                            </div>
+                                            <p className="cds--form__helper-text">Separate multiple codes with commas</p>
+                                        </div>
+                                        <div>
+                                            <button
+                                                type="button"
+                                                onClick={handleSubmitDiagnose}
+                                                disabled={!symptoms.trim() || isProcessing}
+                                                className="cds--btn cds--btn--primary"
+                                            >
+                                                {isProcessing ? (
+                                                    <>
+                                                        <span className="loading-spinner" style={{ marginRight: '0.5rem' }} />
+                                                        Analyzing...
+                                                    </>
+                                                ) : (
+                                                    'Run Diagnostic'
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Diagnostic results */}
                             <div className="message-area">

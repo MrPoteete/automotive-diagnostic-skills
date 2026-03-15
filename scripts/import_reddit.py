@@ -2,21 +2,29 @@
 # Checked AGENTS.md - implementing directly because this is a standalone data import CLI
 # with no auth/sensitive data (read-only file I/O + ChromaDB upsert).
 """
-Ingest Reddit r/MechanicAdvice JSONL data into ChromaDB mechanics_forum collection.
+Ingest Reddit JSONL data into ChromaDB mechanics_forum collection.
 
 Input files (relative to project root):
   data/knowledge_base/reddit/r_MechanicAdvice_posts.jsonl
   data/knowledge_base/reddit/r_MechanicAdvice_comments.jsonl
+  data/knowledge_base/reddit/r_AskMechanics_posts.jsonl
+  data/knowledge_base/reddit/r_AskMechanics_comments.jsonl
 
 Strategy:
-  1. Stream comments file into memory as a filtered index (post_id → [comment, ...]).
+  0. Pre-scan posts file to collect qualifying post IDs (reduces comment index memory).
+  1. Stream comments file into memory as a filtered index (post_id → [comment, ...]),
+     restricted to qualifying post IDs only.
   2. Stream posts file, assemble post+comments documents, batch-upsert to ChromaDB.
+  3. Checkpoint file tracks byte offset after each batch — resume on restart.
 
 Run:
   .venv/bin/python3 scripts/import_reddit.py
+  .venv/bin/python3 scripts/import_reddit.py --posts data/knowledge_base/reddit/r_AskMechanics_posts.jsonl \\
+      --comments data/knowledge_base/reddit/r_AskMechanics_comments.jsonl
   .venv/bin/python3 scripts/import_reddit.py --dry-run
   .venv/bin/python3 scripts/import_reddit.py --limit 1000
   .venv/bin/python3 scripts/import_reddit.py --batch-size 250
+  .venv/bin/python3 scripts/import_reddit.py --resume  # continue from checkpoint
 """
 
 from __future__ import annotations
@@ -24,12 +32,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import pathlib
-from pathlib import Path
-import re
 import sys
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -45,86 +53,53 @@ CHROMA_PATH = PROJECT_ROOT / "data" / "vector_store" / "chroma"
 COLLECTION_NAME = "mechanics_forum"
 
 # ---------------------------------------------------------------------------
+# Logging setup — writes to both stdout and a persistent log file
+# ---------------------------------------------------------------------------
+
+
+def setup_logging(log_path: pathlib.Path) -> logging.Logger:
+    """Configure root logger to write to stdout + a persistent log file."""
+    logger = logging.getLogger("reddit_import")
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter("%(asctime)s  %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+    # Console handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
+
+    # File handler — append so prior runs are preserved
+    fh = logging.FileHandler(log_path, encoding="utf-8")
+    fh.setFormatter(fmt)
+    logger.addHandler(fh)
+
+    return logger
+
+
+# ---------------------------------------------------------------------------
 # Automotive tech-term filter (pre-compiled as a single alternation regex)
 # ---------------------------------------------------------------------------
 
+import re  # noqa: E402 (after stdlib imports)
+
 _TECH_TERMS = [
     # Parts
-    "sensor",
-    "solenoid",
-    "relay",
-    "fuse",
-    "connector",
-    "bearing",
-    "gasket",
-    "pump",
-    "injector",
-    "coil",
-    "alternator",
-    "starter",
-    "caliper",
-    "rotor",
-    "strut",
-    "actuator",
-    "harness",
-    "seal",
-    "valve",
-    "thermostat",
-    "catalytic",
-    "oxygen",
-    "throttle",
-    "camshaft",
-    "crankshaft",
-    "timing",
-    "serpentine",
+    "sensor", "solenoid", "relay", "fuse", "connector", "bearing", "gasket",
+    "pump", "injector", "coil", "alternator", "starter", "caliper", "rotor",
+    "strut", "actuator", "harness", "seal", "valve", "thermostat", "catalytic",
+    "oxygen", "throttle", "camshaft", "crankshaft", "timing", "serpentine",
     # Actions
-    "replace",
-    "torque",
-    "bleed",
-    "flush",
-    "ohm",
-    "voltage",
-    "resistance",
-    "measure",
-    "inspect",
-    "disconnect",
-    "diagnose",
-    "scan",
-    "test",
+    "replace", "torque", "bleed", "flush", "ohm", "voltage", "resistance",
+    "measure", "inspect", "disconnect", "diagnose", "scan", "test",
     # Diagnostic codes / ECUs
-    "OBD",
-    "DTC",
-    "misfire",
-    "lean",
-    "rich",
-    "vacuum",
-    "pressure",
-    "fault",
-    "code",
-    "ECU",
-    "PCM",
-    "BCM",
-    "TCM",
-    "MAF",
-    "MAP",
-    "TPS",
-    "IAT",
+    "OBD", "DTC", "misfire", "lean", "rich", "vacuum", "pressure", "fault",
+    "code", "ECU", "PCM", "BCM", "TCM", "MAF", "MAP", "TPS", "IAT",
     # Systems
-    "transmission",
-    "differential",
-    "coolant",
-    "cylinder",
-    "ABS",
-    "brake",
-    "suspension",
-    "steering",
-    "ignition",
-    "exhaust",
-    "fuel",
-    "oil",
+    "transmission", "differential", "coolant", "cylinder", "ABS", "brake",
+    "suspension", "steering", "ignition", "exhaust", "fuel", "oil",
 ]
 
-# Sorted longest-first to avoid shorter alternations shadowing longer ones
 _TECH_TERMS_SORTED = sorted(set(_TECH_TERMS), key=len, reverse=True)
 _TECH_RE = re.compile(
     r"\b(?:" + "|".join(re.escape(t) for t in _TECH_TERMS_SORTED) + r")\b",
@@ -136,34 +111,18 @@ _TECH_RE = re.compile(
 # ---------------------------------------------------------------------------
 
 _REJECT_PATTERNS: list[str] = [
-    "take it to a",
-    "take it to your",
-    "go to a dealer",
-    "go to the dealer",
-    "can't help",
-    "cannot help",
-    "no idea",
-    "same here",
-    "same issue",
-    "sounds expensive",
-    "good luck with",
-    "yikes",
-    "idk man",
+    "take it to a", "take it to your", "go to a dealer", "go to the dealer",
+    "can't help", "cannot help", "no idea", "same here", "same issue",
+    "sounds expensive", "good luck with", "yikes", "idk man",
 ]
 
-# Pre-compile reject patterns as a single regex for efficiency
 _REJECT_RE = re.compile(
     "|".join(re.escape(p) for p in _REJECT_PATTERNS),
     re.IGNORECASE,
 )
 
-# Year pattern for post title vehicle context detection
 _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
-
-# Bot / mod author names to skip
 _BOT_AUTHORS: frozenset[str] = frozenset({"automoderator", "[deleted]", "[removed]"})
-
-# Selftext values that indicate deleted / empty posts
 _EMPTY_SELFTEXT: frozenset[str] = frozenset({"", "[deleted]", "[removed]"})
 
 # ---------------------------------------------------------------------------
@@ -172,83 +131,118 @@ _EMPTY_SELFTEXT: frozenset[str] = frozenset({"", "[deleted]", "[removed]"})
 
 
 def _sha256(text: str) -> str:
-    """Return hex SHA-256 of text (for dedup fingerprinting)."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def tech_score(body: str) -> int:
-    """Count distinct automotive tech-term matches in body (word-boundary, case-insensitive)."""
     return len(_TECH_RE.findall(body))
 
 
 def _comment_passes(comment: dict[str, Any]) -> bool:
-    """Return True if a comment satisfies all quality gates."""
     body: str = comment.get("body") or ""
     if body in _EMPTY_SELFTEXT:
         return False
     if len(body) < 80:
         return False
-
     score = comment.get("score")
     if score is None or int(score) < 2:
         return False
-
     author: str = (comment.get("author") or "").lower()
     if "bot" in author or author in _BOT_AUTHORS:
         return False
-
     if tech_score(body) < 1:
         return False
-
     if _REJECT_RE.search(body):
         return False
-
     return True
 
 
 def _post_passes(post: dict[str, Any]) -> bool:
-    """Return True if a post satisfies all quality gates (excluding dedup)."""
     selftext: str = post.get("selftext") or ""
     if selftext in _EMPTY_SELFTEXT:
         return False
-
     score = post.get("score")
     if score is None or int(score) < 1:
         return False
-
     title: str | None = post.get("title")
     if not title:
         return False
-
     long_enough = len(selftext) >= 100
     has_year = bool(_YEAR_RE.search(title))
     if not long_enough and not has_year:
         return False
-
     return True
 
 
 # ---------------------------------------------------------------------------
-# Comment index builder
+# Phase 0: Pre-scan posts to collect qualifying post IDs
+# ---------------------------------------------------------------------------
+
+
+def collect_qualifying_post_ids(
+    posts_path: pathlib.Path,
+    log: logging.Logger,
+) -> set[str]:
+    """
+    Quick first pass of the posts file: collect IDs of posts that pass quality gates.
+    This set is used to restrict the comment index to only relevant entries,
+    dramatically reducing memory for large comments files.
+    """
+    qualifying_ids: set[str] = set()
+    lines_seen = 0
+    malformed = 0
+
+    log.info(f"Phase 0: Pre-scanning {posts_path.name} for qualifying post IDs …")
+    t0 = time.monotonic()
+
+    with posts_path.open(encoding="utf-8", errors="replace") as fh:
+        for raw_line in fh:
+            raw_line = raw_line.strip()
+            if not raw_line:
+                continue
+            lines_seen += 1
+            try:
+                post = json.loads(raw_line)
+            except json.JSONDecodeError:
+                malformed += 1
+                continue
+            if _post_passes(post):
+                post_id: str = post.get("id") or ""
+                if post_id:
+                    qualifying_ids.add(post_id)
+
+    elapsed = time.monotonic() - t0
+    log.info(
+        f"Phase 0 done: {lines_seen:,} posts scanned | "
+        f"{len(qualifying_ids):,} qualifying IDs | "
+        f"{malformed:,} malformed | {elapsed:.1f}s"
+    )
+    return qualifying_ids
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: Comment index builder (restricted to qualifying post IDs)
 # ---------------------------------------------------------------------------
 
 
 def build_comment_index(
     path: pathlib.Path,
+    qualifying_post_ids: set[str],
+    log: logging.Logger,
 ) -> dict[str, list[dict[str, Any]]]:
     """
     Stream the comments JSONL and build a filtered in-memory index.
-
-    Returns:
-        Mapping of post_id → list of qualifying comment dicts,
-        each containing only {body, score}.
+    Only keeps comments for posts in qualifying_post_ids — massively reduces
+    memory usage for large comments files (e.g. 4.3GB r_AskMechanics_comments.jsonl).
     """
     index: dict[str, list[dict[str, Any]]] = defaultdict(list)
     lines_seen = 0
     comments_kept = 0
+    skipped_no_post_match = 0
     malformed = 0
 
-    print(f"Building comment index from {path.name} …")
+    log.info(f"Phase 1: Building comment index from {path.name} …")
+    log.info(f"  Filtering to {len(qualifying_post_ids):,} qualifying post IDs only.")
     t0 = time.monotonic()
 
     with path.open(encoding="utf-8", errors="replace") as fh:
@@ -264,14 +258,18 @@ def build_comment_index(
                 malformed += 1
                 continue
 
-            if not _comment_passes(comment):
-                continue
-
-            # Extract post_id from link_id (format: "t3_<post_id>")
+            # Check post ID first (cheap) before quality filter (more expensive)
             link_id: str = comment.get("link_id") or ""
             if not link_id.startswith("t3_"):
                 continue
             post_id = link_id[3:]
+
+            if post_id not in qualifying_post_ids:
+                skipped_no_post_match += 1
+                continue
+
+            if not _comment_passes(comment):
+                continue
 
             index[post_id].append({
                 "body": comment["body"],
@@ -279,20 +277,77 @@ def build_comment_index(
             })
             comments_kept += 1
 
-            if lines_seen % 200_000 == 0:
+            if lines_seen % 500_000 == 0:
                 elapsed = time.monotonic() - t0
-                print(
+                log.info(
                     f"  Comments: {lines_seen:,} seen | {comments_kept:,} kept"
-                    f" | {malformed:,} malformed | {elapsed:.1f}s elapsed"
+                    f" | {skipped_no_post_match:,} skipped (no post match)"
+                    f" | {malformed:,} malformed | {elapsed:.1f}s"
                 )
 
     elapsed = time.monotonic() - t0
-    print(
-        f"Comment index built: {lines_seen:,} lines | {comments_kept:,} kept"
+    log.info(
+        f"Phase 1 done: {lines_seen:,} lines | {comments_kept:,} kept"
+        f" | {skipped_no_post_match:,} skipped (no post match)"
         f" | {malformed:,} malformed | {len(index):,} posts have comments"
         f" | {elapsed:.1f}s"
     )
     return dict(index)
+
+
+# ---------------------------------------------------------------------------
+# Checkpoint helpers
+# ---------------------------------------------------------------------------
+
+
+def _checkpoint_path(posts_path: pathlib.Path) -> pathlib.Path:
+    """Return the checkpoint file path for a given posts file."""
+    return posts_path.parent / f".{posts_path.stem}.checkpoint.json"
+
+
+def load_checkpoint(posts_path: pathlib.Path, log: logging.Logger) -> dict[str, Any]:
+    """Load checkpoint if it exists, else return empty state."""
+    cp_path = _checkpoint_path(posts_path)
+    if cp_path.exists():
+        try:
+            state = json.loads(cp_path.read_text())
+            log.info(
+                f"Checkpoint found: {cp_path.name} — "
+                f"posts_seen={state.get('posts_seen', 0):,}, "
+                f"docs_upserted={state.get('docs_upserted', 0):,}, "
+                f"file_offset={state.get('file_offset', 0):,}"
+            )
+            return state
+        except Exception as exc:
+            log.warning(f"Could not load checkpoint ({exc}) — starting fresh.")
+    return {}
+
+
+def save_checkpoint(
+    posts_path: pathlib.Path,
+    posts_seen: int,
+    docs_upserted: int,
+    file_offset: int,
+    seen_title_hashes: set[str],
+) -> None:
+    """Persist checkpoint state to disk."""
+    cp_path = _checkpoint_path(posts_path)
+    state = {
+        "posts_seen": posts_seen,
+        "docs_upserted": docs_upserted,
+        "file_offset": file_offset,
+        "seen_title_hashes": list(seen_title_hashes),
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    cp_path.write_text(json.dumps(state))
+
+
+def clear_checkpoint(posts_path: pathlib.Path, log: logging.Logger) -> None:
+    """Remove checkpoint file after successful completion."""
+    cp_path = _checkpoint_path(posts_path)
+    if cp_path.exists():
+        cp_path.unlink()
+        log.info(f"Checkpoint cleared: {cp_path.name}")
 
 
 # ---------------------------------------------------------------------------
@@ -304,18 +359,14 @@ def _assemble_document(
     post: dict[str, Any],
     top_comments: list[dict[str, Any]],
 ) -> str:
-    """Build the final document string from post and its top comments."""
     title: str = post.get("title") or ""
     selftext: str = post.get("selftext") or ""
-
     parts = [f"[VEHICLE QUESTION] {title}", selftext]
-
     if top_comments:
         parts.append("[TOP ANSWERS]")
         for c in top_comments:
             body = c["body"].strip()
             parts.append(f"• {body}")
-
     return "\n".join(parts)
 
 
@@ -324,8 +375,7 @@ def _assemble_document(
 # ---------------------------------------------------------------------------
 
 
-def _get_collection(dry_run: bool) -> Any:
-    """Initialise ChromaDB client and return the target collection."""
+def _get_collection(dry_run: bool, log: logging.Logger) -> Any:
     try:
         import chromadb  # type: ignore[import-untyped]
     except ImportError as exc:
@@ -333,7 +383,6 @@ def _get_collection(dry_run: bool) -> Any:
             "chromadb not installed. Run: .venv/bin/pip install chromadb"
         ) from exc
 
-    # Checked AGENTS.md - implementing directly: minor retry wrapper, no delegation needed.
     client = chromadb.PersistentClient(path=str(CHROMA_PATH))
     collection = client.get_or_create_collection(
         name=COLLECTION_NAME,
@@ -341,8 +390,6 @@ def _get_collection(dry_run: bool) -> Any:
     )
     action = "DRY-RUN (no writes)" if dry_run else "WRITE"
 
-    # ChromaDB 1.0.x needs time to compact HNSW index after large writes.
-    # Retry count() up to 10x with 30s backoff before giving up.
     doc_count = 0
     for attempt in range(10):
         try:
@@ -350,12 +397,12 @@ def _get_collection(dry_run: bool) -> Any:
             break
         except Exception:
             if attempt == 9:
-                print("WARNING: ChromaDB HNSW index still compacting — proceeding without count.")
+                log.warning("ChromaDB HNSW index still compacting — proceeding without count.")
             else:
-                print(f"  ChromaDB index compacting, retrying in 30s (attempt {attempt + 1}/10)...")
+                log.info(f"  ChromaDB index compacting, retrying in 30s (attempt {attempt + 1}/10)...")
                 time.sleep(30)
 
-    print(
+    log.info(
         f"ChromaDB ready [{action}]. Collection '{COLLECTION_NAME}': "
         f"{doc_count:,} docs before import."
     )
@@ -369,11 +416,10 @@ def _upsert_batch(
     batch_ids: list[str],
     dry_run: bool,
     total_upserted: int,
+    log: logging.Logger,
 ) -> int:
-    """Upsert one batch to ChromaDB. Returns updated total_upserted count."""
     if not batch_ids:
         return total_upserted
-
     if not dry_run:
         try:
             collection.upsert(
@@ -382,11 +428,10 @@ def _upsert_batch(
                 ids=batch_ids,
             )
         except Exception as exc:
-            print(f"  [WARN] Batch upsert error: {exc}")
+            log.warning(f"Batch upsert error: {exc}")
             return total_upserted
-
     total_upserted += len(batch_ids)
-    print(
+    log.info(
         f"  Batch upserted: {len(batch_ids)} docs | "
         f"running total: {total_upserted:,}"
         + (" [DRY-RUN]" if dry_run else "")
@@ -395,7 +440,7 @@ def _upsert_batch(
 
 
 # ---------------------------------------------------------------------------
-# Main ingestion loop
+# Phase 2: Main ingestion loop (with checkpoint/resume)
 # ---------------------------------------------------------------------------
 
 
@@ -403,27 +448,33 @@ def ingest(
     posts_path: pathlib.Path,
     comment_index: dict[str, list[dict[str, Any]]],
     collection: Any,
+    log: logging.Logger,
     *,
     dry_run: bool,
     limit: int | None,
     batch_size: int,
+    resume: bool,
 ) -> None:
     """
     Stream posts file, assemble documents, and upsert to ChromaDB.
-
-    Args:
-        posts_path: Path to the posts JSONL file.
-        comment_index: Pre-built mapping of post_id → qualifying comments.
-        collection: ChromaDB collection object.
-        dry_run: If True, skip writes.
-        limit: Stop after this many posts (None = no limit).
-        batch_size: ChromaDB upsert batch size.
+    Checkpoints byte offset after each batch so the run can be resumed.
     """
-    seen_title_hashes: set[str] = set()
+    # Load checkpoint if resuming
+    checkpoint_state: dict[str, Any] = {}
+    if resume:
+        checkpoint_state = load_checkpoint(posts_path, log)
 
-    posts_seen = 0
-    posts_kept = 0
-    docs_upserted = 0
+    resume_offset: int = checkpoint_state.get("file_offset", 0)
+    posts_seen: int = checkpoint_state.get("posts_seen", 0)
+    docs_upserted: int = checkpoint_state.get("docs_upserted", 0)
+    seen_title_hashes: set[str] = set(checkpoint_state.get("seen_title_hashes", []))
+
+    if resume_offset > 0:
+        log.info(
+            f"Resuming from byte offset {resume_offset:,} "
+            f"(posts_seen={posts_seen:,}, docs_upserted={docs_upserted:,})"
+        )
+
     docs_skipped = 0
     malformed = 0
 
@@ -431,11 +482,18 @@ def ingest(
     batch_meta: list[dict[str, Any]] = []
     batch_ids: list[str] = []
 
-    print(f"\nStreaming posts from {posts_path.name} …")
+    log.info(f"\nPhase 2: Streaming posts from {posts_path.name} …")
     t0 = time.monotonic()
 
     with posts_path.open(encoding="utf-8", errors="replace") as fh:
-        for raw_line in fh:
+        if resume_offset > 0:
+            fh.seek(resume_offset)
+
+        while True:
+            raw_line = fh.readline()
+            if not raw_line:
+                break  # EOF
+
             raw_line = raw_line.strip()
             if not raw_line:
                 continue
@@ -451,16 +509,13 @@ def ingest(
             if limit is not None and posts_seen > limit:
                 break
 
-            # Progress reporting every 10,000 posts
             if posts_seen % 10_000 == 0:
                 elapsed = time.monotonic() - t0
-                print(
-                    f"  Posts: {posts_seen:,} seen | {posts_kept:,} kept"
-                    f" | {docs_upserted:,} upserted | {docs_skipped:,} skipped"
-                    f" | {elapsed:.1f}s elapsed"
+                log.info(
+                    f"  Posts: {posts_seen:,} seen | {docs_upserted:,} upserted"
+                    f" | {docs_skipped:,} skipped | {elapsed:.1f}s elapsed"
                 )
 
-            # --- Quality gate ---
             if not _post_passes(post):
                 docs_skipped += 1
                 continue
@@ -472,9 +527,6 @@ def ingest(
                 continue
             seen_title_hashes.add(title_hash)
 
-            posts_kept += 1
-
-            # --- Assemble document ---
             post_id: str = post.get("id") or ""
             raw_comments = comment_index.get(post_id, [])
             top_comments = sorted(raw_comments, key=lambda c: c["score"], reverse=True)[:3]
@@ -484,7 +536,6 @@ def ingest(
                 docs_skipped += 1
                 continue
 
-            # --- Build ChromaDB record ---
             doc_id = f"reddit_{post_id}"
             metadata: dict[str, Any] = {
                 "source": "reddit_mechanicadvice",
@@ -501,34 +552,56 @@ def ingest(
             batch_meta.append(metadata)
             batch_ids.append(doc_id)
 
-            # --- Flush batch ---
             if len(batch_ids) >= batch_size:
                 docs_upserted = _upsert_batch(
-                    collection, batch_docs, batch_meta, batch_ids, dry_run, docs_upserted
+                    collection, batch_docs, batch_meta, batch_ids,
+                    dry_run, docs_upserted, log
                 )
                 batch_docs.clear()
                 batch_meta.clear()
                 batch_ids.clear()
 
+                # Checkpoint after every successful batch flush
+                if not dry_run:
+                    save_checkpoint(
+                        posts_path,
+                        posts_seen=posts_seen,
+                        docs_upserted=docs_upserted,
+                        file_offset=fh.tell(),
+                        seen_title_hashes=seen_title_hashes,
+                    )
+
     # Final partial batch
     if batch_ids:
         docs_upserted = _upsert_batch(
-            collection, batch_docs, batch_meta, batch_ids, dry_run, docs_upserted
+            collection, batch_docs, batch_meta, batch_ids,
+            dry_run, docs_upserted, log
         )
+        if not dry_run:
+            save_checkpoint(
+                posts_path,
+                posts_seen=posts_seen,
+                docs_upserted=docs_upserted,
+                file_offset=0,  # 0 = completed
+                seen_title_hashes=seen_title_hashes,
+            )
 
     elapsed = time.monotonic() - t0
-    print("\n--- Import Complete ---")
-    print(f"  Posts seen:      {posts_seen:,}")
-    print(f"  Posts kept:      {posts_kept:,}")
-    print(f"  Docs upserted:   {docs_upserted:,}" + (" [DRY-RUN]" if dry_run else ""))
-    print(f"  Docs skipped:    {docs_skipped:,}")
-    print(f"  Malformed lines: {malformed:,}")
-    print(f"  Elapsed:         {elapsed:.1f}s")
+    log.info("\n--- Import Complete ---")
+    log.info(f"  Posts seen:      {posts_seen:,}")
+    log.info(f"  Docs upserted:   {docs_upserted:,}" + (" [DRY-RUN]" if dry_run else ""))
+    log.info(f"  Docs skipped:    {docs_skipped:,}")
+    log.info(f"  Malformed lines: {malformed:,}")
+    log.info(f"  Elapsed:         {elapsed:.1f}s")
     if not dry_run:
         try:
-            print(f"  Collection total after import: {collection.count():,} docs")
+            log.info(f"  Collection total after import: {collection.count():,} docs")
         except Exception:
             pass
+
+    # Clear checkpoint on successful completion
+    if not dry_run:
+        clear_checkpoint(posts_path, log)
 
 
 # ---------------------------------------------------------------------------
@@ -536,14 +609,11 @@ def ingest(
 # ---------------------------------------------------------------------------
 
 
-# Checked AGENTS.md - implementing directly because this is a 2-line CLI arg
-# addition to an existing script; no security/arch concern, delegation overhead > task.
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Ingest Reddit JSONL data into ChromaDB.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    # Checked AGENTS.md - implementing directly: trivial CLI arg addition, no delegation needed.
     parser.add_argument(
         "--posts",
         type=Path,
@@ -577,6 +647,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         metavar="N",
         help="Number of documents per ChromaDB upsert call.",
     )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from checkpoint if one exists for this posts file.",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Path to persistent log file. Defaults to /tmp/reddit_import_<subreddit>.log",
+    )
     return parser.parse_args(argv)
 
 
@@ -586,45 +668,58 @@ def main(argv: list[str] | None = None) -> int:
     posts_file: Path = args.posts
     comments_file: Path = args.comments
 
+    # Derive log file path
+    subreddit_slug = posts_file.stem.replace("_posts", "")
+    log_path: Path = args.log_file or Path(f"/tmp/reddit_import_{subreddit_slug}.log")
+
+    log = setup_logging(log_path)
+
     # Validate inputs
     for path, label in [(posts_file, "posts"), (comments_file, "comments")]:
         if not path.exists():
-            print(f"ERROR: {label} file not found: {path}", file=sys.stderr)
+            log.error(f"ERROR: {label} file not found: {path}")
             return 1
         if path.stat().st_size == 0:
-            print(f"ERROR: {label} file is empty: {path}", file=sys.stderr)
+            log.error(f"ERROR: {label} file is empty: {path}")
             return 1
 
     if args.batch_size < 1:
-        print("ERROR: --batch-size must be >= 1", file=sys.stderr)
+        log.error("ERROR: --batch-size must be >= 1")
         return 1
 
     subreddit_label = posts_file.stem.replace("_posts", "").replace("r_", "r/")
 
-    print("=" * 60)
-    print(f"Reddit {subreddit_label} → ChromaDB importer")
-    print("=" * 60)
+    log.info("=" * 60)
+    log.info(f"Reddit {subreddit_label} → ChromaDB importer")
+    log.info(f"Log file: {log_path}")
+    log.info("=" * 60)
     if args.dry_run:
-        print("MODE: DRY-RUN (no writes to ChromaDB)")
+        log.info("MODE: DRY-RUN (no writes to ChromaDB)")
     if args.limit:
-        print(f"LIMIT: {args.limit:,} posts")
-    print(f"Batch size: {args.batch_size}")
-    print()
+        log.info(f"LIMIT: {args.limit:,} posts")
+    if args.resume:
+        log.info("RESUME: will continue from checkpoint if found")
+    log.info(f"Batch size: {args.batch_size}")
 
-    # Phase 1: Build comment index
-    comment_index = build_comment_index(comments_file)
+    # Phase 0: Pre-scan posts to collect qualifying IDs (reduces comment index memory)
+    qualifying_ids = collect_qualifying_post_ids(posts_file, log)
+
+    # Phase 1: Build comment index (restricted to qualifying post IDs)
+    comment_index = build_comment_index(comments_file, qualifying_ids, log)
 
     # Phase 2: Open ChromaDB
-    collection = _get_collection(dry_run=args.dry_run)
+    collection = _get_collection(dry_run=args.dry_run, log=log)
 
     # Phase 3: Ingest posts
     ingest(
         posts_path=posts_file,
         comment_index=comment_index,
         collection=collection,
+        log=log,
         dry_run=args.dry_run,
         limit=args.limit,
         batch_size=args.batch_size,
+        resume=args.resume,
     )
 
     return 0

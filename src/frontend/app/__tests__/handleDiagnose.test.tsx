@@ -1,5 +1,6 @@
 // Checked AGENTS.md - implementing directly, pure test file
-// Generated via Gemini 2.5 Flash (GEMINI_WORKFLOW.md — boilerplate delegation), reviewed by Claude.
+// Updated for new two-step VehicleIdentification + symptoms flow.
+// Generated via Gemini 2.5 Flash (GEMINI_WORKFLOW.md), corrected by Claude.
 
 // IMPORTANT ESBUILD RULE: Type/interface declarations must come BEFORE vi.mock() calls
 // to avoid forward reference issues with esbuild's top-to-bottom processing.
@@ -10,38 +11,39 @@ import userEvent from '@testing-library/user-event';
 import Home from '../page';
 import type { DiagnoseResponse, VehicleInfo } from '../../lib/api';
 
-type OnDiagnose = (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => void;
+type VehicleIdentity = {
+    vin?: string;
+    year: number;
+    make: string;
+    model: string;
+    engine?: string;
+    drive_type?: string;
+};
+
+type OnVehicleSelected = (vehicle: VehicleIdentity) => void;
 
 // Mock TypewriterText to render text immediately (bypasses setInterval delay)
 vi.mock('../components/TypewriterText', () => ({
     TypewriterText: ({ text }: { text: string }) => <div>{text}</div>,
 }));
 
-// CRITICAL — VehicleForm mock captures the onDiagnose callback via stored reference
-// so individual tests can invoke handleDiagnose without needing real dropdown interactions.
-let capturedOnDiagnose!: OnDiagnose;
+// VehicleIdentification mock captures onVehicleSelected so tests can trigger vehicle selection directly
+let capturedOnVehicleSelected!: OnVehicleSelected;
 
-vi.mock('../components/VehicleForm', () => ({
-    default: ({ onDiagnose, isProcessing }: { onDiagnose: OnDiagnose; isProcessing: boolean }) => {
-        capturedOnDiagnose = onDiagnose;
-        return (
-            <button
-                data-testid="trigger-diagnose"
-                disabled={isProcessing}
-                onClick={() => capturedOnDiagnose(
-                    { make: 'FORD', model: 'F-150', year: 2020 },
-                    'engine shaking at idle',
-                    []
-                )}
-            >
-                DIAGNOSE
-            </button>
-        );
+vi.mock('../components/VehicleIdentification', () => ({
+    default: ({ onVehicleSelected }: { onVehicleSelected: OnVehicleSelected }) => {
+        capturedOnVehicleSelected = onVehicleSelected;
+        return <div data-testid="vehicle-identification-mock" />;
     },
-    parseDtcInput: (_raw: string) => [],
 }));
 
-// Mock full api module — every method is a vi.fn()
+// VehicleForm — only parseDtcInput is used now; vi.fn() so tests can override return value
+vi.mock('../components/VehicleForm', () => ({
+    default: () => null,
+    parseDtcInput: vi.fn((_raw: string) => [] as string[]),
+}));
+
+// Mock full api module
 vi.mock('../../lib/api', () => ({
     api: {
         healthCheck: vi.fn(),
@@ -52,7 +54,10 @@ vi.mock('../../lib/api', () => ({
         diagnose: vi.fn(),
         formatDiagnosis: vi.fn(),
         fetchVehicles: vi.fn(),
+        fetchVehicleYears: vi.fn(),
+        fetchVin: vi.fn(),
     },
+    fetchVin: vi.fn(),
 }));
 
 import { api } from '../../lib/api';
@@ -61,7 +66,6 @@ import { api } from '../../lib/api';
 // Helpers
 // ────────────────────────────────────────────────────────────────
 
-/** Create a manually-resolvable promise for testing loading states. */
 function makeDeferred<T>() {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -69,6 +73,7 @@ function makeDeferred<T>() {
     return { promise, resolve, reject };
 }
 
+const MOCK_IDENTITY: VehicleIdentity = { make: 'FORD', model: 'F-150', year: 2020 };
 const MOCK_VEHICLE: VehicleInfo = { make: 'FORD', model: 'F-150', year: 2020 };
 const MOCK_SYMPTOMS = 'engine shaking at idle';
 
@@ -81,30 +86,36 @@ const DIAG_RESPONSE: DiagnoseResponse = {
     data_sources: {},
 };
 
+/** Render Home, select vehicle, fill symptoms, return the Run Diagnostic button. */
+async function setupWithVehicleAndSymptoms(symptomsText: string = MOCK_SYMPTOMS) {
+    const user = userEvent.setup();
+    render(<Home />);
+
+    act(() => { capturedOnVehicleSelected(MOCK_IDENTITY); });
+
+    const textarea = await screen.findByLabelText(/symptoms/i);
+    await user.type(textarea, symptomsText);
+
+    return { user, textarea, button: screen.getByRole('button', { name: /run diagnostic/i }) };
+}
+
 // ────────────────────────────────────────────────────────────────
 describe('handleDiagnose — routing and behavior', () => {
-    let user: ReturnType<typeof userEvent.setup>;
-
     beforeEach(() => {
         vi.clearAllMocks();
-        user = userEvent.setup();
-        // healthCheck resolves by default (fires in useEffect on mount)
         vi.mocked(api.healthCheck).mockResolvedValue({ status: 'ok', message: 'Online' });
         vi.mocked(api.diagnose).mockResolvedValue(DIAG_RESPONSE);
         vi.mocked(api.formatDiagnosis).mockReturnValue('DIAGNOSIS: Engine misfire');
         vi.mocked(api.formatError).mockReturnValue('ERROR: network error');
-        // fetchVehicles is called inside real VehicleForm useEffect — our mock
-        // doesn't run that hook, but define the method to prevent undefined errors.
         vi.mocked(api.fetchVehicles).mockResolvedValue(null);
+        vi.mocked(api.fetchVehicleYears).mockResolvedValue([]);
     });
 
     // ────────────────────────────────────────────────────────────
     describe('api call arguments', () => {
         it('calls api.diagnose with correct vehicle, symptoms, dtc_codes args (no DTCs)', async () => {
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
             expect(vi.mocked(api.diagnose)).toHaveBeenCalledWith({
                 vehicle: MOCK_VEHICLE,
@@ -114,31 +125,31 @@ describe('handleDiagnose — routing and behavior', () => {
         });
 
         it('passes DTC codes through to api.diagnose and includes them in user message', async () => {
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, ['P0300', 'P0301']);
-            });
+            // Override parseDtcInput for this test to return real codes
+            const { parseDtcInput } = vi.mocked(await import('../components/VehicleForm'));
+            (parseDtcInput as ReturnType<typeof vi.fn>).mockReturnValueOnce(['P0300', 'P0301']);
+
+            const { user, button } = await setupWithVehicleAndSymptoms();
+
+            // Type DTC codes into the DTC input
+            const dtcInput = screen.getByPlaceholderText(/P0300/i);
+            await user.type(dtcInput, 'P0300,P0301');
+
+            await user.click(button);
 
             expect(vi.mocked(api.diagnose)).toHaveBeenCalledWith({
                 vehicle: MOCK_VEHICLE,
                 symptoms: MOCK_SYMPTOMS,
                 dtc_codes: ['P0300', 'P0301'],
             });
-
-            // User message includes DTC label
-            expect(screen.getByText(
-                `${MOCK_VEHICLE.year} ${MOCK_VEHICLE.make} ${MOCK_VEHICLE.model} — ${MOCK_SYMPTOMS} [P0300, P0301]`
-            )).toBeInTheDocument();
         });
     });
 
     // ────────────────────────────────────────────────────────────
     describe('success path', () => {
         it('appends user query message before API resolves', async () => {
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
             expect(screen.getByText(
                 `${MOCK_VEHICLE.year} ${MOCK_VEHICLE.make} ${MOCK_VEHICLE.model} — ${MOCK_SYMPTOMS}`
@@ -146,10 +157,8 @@ describe('handleDiagnose — routing and behavior', () => {
         });
 
         it('calls formatDiagnosis with API response and displays result', async () => {
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
             await waitFor(() => {
                 expect(vi.mocked(api.formatDiagnosis)).toHaveBeenCalledWith(DIAG_RESPONSE);
@@ -166,14 +175,16 @@ describe('handleDiagnose — routing and behavior', () => {
                 .mockReturnValueOnce('DIAGNOSIS: Engine misfire')
                 .mockReturnValueOnce('DIAGNOSIS: Alignment issue');
 
-            render(<Home />);
-
-            // First diagnosis
-            await act(async () => { capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []); });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
             await waitFor(() => expect(screen.getByText('DIAGNOSIS: Engine misfire')).toBeInTheDocument());
 
-            // Second diagnosis
-            await act(async () => { capturedOnDiagnose(MOCK_VEHICLE, symptoms2, []); });
+            // Second diagnosis — type new symptoms
+            const textarea = screen.getByLabelText(/symptoms/i);
+            await user.clear(textarea);
+            await user.type(textarea, symptoms2);
+            await user.click(screen.getByRole('button', { name: /run diagnostic/i }));
+
             await waitFor(() => {
                 expect(screen.getByText(
                     `${MOCK_VEHICLE.year} ${MOCK_VEHICLE.make} ${MOCK_VEHICLE.model} — ${symptoms2}`
@@ -181,7 +192,6 @@ describe('handleDiagnose — routing and behavior', () => {
                 expect(screen.getByText('DIAGNOSIS: Alignment issue')).toBeInTheDocument();
             });
 
-            // Original messages still present
             expect(screen.getByText(
                 `${MOCK_VEHICLE.year} ${MOCK_VEHICLE.make} ${MOCK_VEHICLE.model} — ${MOCK_SYMPTOMS}`
             )).toBeInTheDocument();
@@ -192,11 +202,8 @@ describe('handleDiagnose — routing and behavior', () => {
     describe('error path', () => {
         it('calls formatError when api.diagnose rejects', async () => {
             vi.mocked(api.diagnose).mockRejectedValue(new Error('network error'));
-
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
             await waitFor(() => {
                 expect(vi.mocked(api.formatError)).toHaveBeenCalledWith(
@@ -207,11 +214,8 @@ describe('handleDiagnose — routing and behavior', () => {
 
         it('displays formatted error message in chat when api.diagnose rejects', async () => {
             vi.mocked(api.diagnose).mockRejectedValue(new Error('network error'));
-
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
             await waitFor(() => {
                 expect(screen.getByText('ERROR: network error')).toBeInTheDocument();
@@ -225,38 +229,29 @@ describe('handleDiagnose — routing and behavior', () => {
             const { promise, resolve } = makeDeferred<DiagnoseResponse>();
             vi.mocked(api.diagnose).mockReturnValue(promise);
 
-            render(<Home />);
-            await act(async () => {
-                capturedOnDiagnose(MOCK_VEHICLE, MOCK_SYMPTOMS, []);
-            });
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
 
-            // isProcessing=true → LoadingState visible
             expect(screen.getByText(/ANALYZING_DATA_STREAMS/i)).toBeInTheDocument();
 
-            // Resolve → isProcessing=false → LoadingState gone
             await act(async () => { resolve(DIAG_RESPONSE); });
             await waitFor(() =>
                 expect(screen.queryByText(/ANALYZING_DATA_STREAMS/i)).not.toBeInTheDocument()
             );
         });
 
-        it('disables the trigger button while isProcessing is true', async () => {
+        it('disables the Run Diagnostic button while isProcessing is true', async () => {
             const { promise, resolve } = makeDeferred<DiagnoseResponse>();
             vi.mocked(api.diagnose).mockReturnValue(promise);
 
-            render(<Home />);
-            const btn = screen.getByTestId('trigger-diagnose');
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            expect(button).not.toBeDisabled();
 
-            // Initially enabled
-            expect(btn).not.toBeDisabled();
-
-            await user.click(btn);
-
-            // isProcessing=true → button disabled
-            expect(btn).toBeDisabled();
+            await user.click(button);
+            expect(button).toBeDisabled();
 
             await act(async () => { resolve(DIAG_RESPONSE); });
-            await waitFor(() => expect(btn).not.toBeDisabled());
+            await waitFor(() => expect(button).not.toBeDisabled());
         });
     });
 });

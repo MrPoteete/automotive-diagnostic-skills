@@ -23,7 +23,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
+from dotenv import load_dotenv
+
 from src.diagnostic.engine_agent import diagnose as run_diagnosis
+
+load_dotenv()
 
 # Checked AGENTS.md - implementing CORS directly because:
 # 1. This is security-critical middleware (access control)
@@ -81,9 +85,6 @@ logger.info(f"CORS enabled for origins: {ALLOWED_ORIGINS}")
 async def startup_event():
     logger.info("Server starting up...")
     logger.info(f"Database Path: {DB_PATH}")
-
-from dotenv import load_dotenv
-load_dotenv()
 
 # 🔒 SECURITY
 # ⚠️ SECURITY WARNING: API key hardcoded in source code.
@@ -390,6 +391,92 @@ async def get_vehicle_years(make: str, model: str, api_key: str = Depends(get_ap
     except Exception as e:
         logger.error("Years error: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+# No safety logic — simple proxy to NHTSA vPIC API with VIN validation.
+@app.get("/vin/decode")
+async def decode_vin(
+    vin: str = Query(..., min_length=17, max_length=17),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Decode a VIN using the NHTSA vPIC API. Returns vehicle details or valid=false on error."""
+    import re as _re
+    import httpx
+
+    vin = vin.upper().strip()
+    if not _re.match(r"^[0-9A-HJ-NPR-Z]{17}$", vin):
+        return {"vin": vin, "valid": False, "error": "Invalid VIN format (17 alphanumeric chars, no I/O/Q)"}
+
+    nhtsa_url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/{vin}?format=json"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(nhtsa_url)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPStatusError as exc:
+        logger.error("NHTSA HTTP error for VIN %s: %s", vin, exc)
+        return {"vin": vin, "valid": False, "error": f"NHTSA API error: {exc.response.status_code}"}
+    except httpx.RequestError as exc:
+        logger.error("NHTSA network error for VIN %s: %s", vin, exc)
+        return {"vin": vin, "valid": False, "error": "Failed to reach NHTSA API"}
+
+    results: list[dict[str, object]] = data.get("Results", [])
+
+    # Build lookup: Variable → Value
+    fields: dict[str, str] = {}
+    for item in results:
+        var = str(item.get("Variable") or "")
+        val = str(item.get("Value") or "")
+        if var and val and val not in ("Not Applicable", "0", ""):
+            fields[var] = val
+
+    # Check NHTSA error code
+    error_code = fields.get("ErrorCode", "0")
+    if error_code != "0":
+        logger.warning("NHTSA returned error code %s for VIN %s", error_code, vin)
+        return {"vin": vin, "valid": False, "error": f"NHTSA could not decode VIN (error {error_code})"}
+
+    # Build engine string: "2.4L I4" / "3.6L V6" / "5.0L V8"
+    displacement = fields.get("DisplacementL", "")
+    cylinders_str = fields.get("EngineCylinders", "")
+    engine: str | None = None
+    if displacement or cylinders_str:
+        cyl_map = {"4": "I4", "6": "V6", "8": "V8", "10": "V10", "12": "V12", "3": "I3", "5": "I5"}
+        cyl_label = cyl_map.get(cylinders_str, f"{cylinders_str}cyl" if cylinders_str else "")
+        parts = []
+        if displacement:
+            try:
+                parts.append(f"{float(displacement):.1f}L")
+            except ValueError:
+                parts.append(f"{displacement}L")
+        if cyl_label:
+            parts.append(cyl_label)
+        engine = " ".join(parts) if parts else None
+
+    year_val: int | None = None
+    raw_year = fields.get("ModelYear", "")
+    if raw_year:
+        try:
+            year_val = int(raw_year)
+        except ValueError:
+            pass
+
+    logger.info("VIN decoded: %s → %s %s %s %s", vin, year_val, fields.get("Make"), fields.get("Model"), engine)
+
+    return {
+        "vin": vin,
+        "valid": True,
+        "year": year_val,
+        "make": fields.get("Make"),
+        "model": fields.get("Model"),
+        "engine": engine,
+        "drive_type": fields.get("DriveType"),
+        "body_class": fields.get("BodyClass"),
+        "trim": fields.get("Trim"),
+        "fuel_type": fields.get("FuelTypePrimary"),
+        "raw": data,
+    }
 
 
 if __name__ == "__main__":

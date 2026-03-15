@@ -412,3 +412,36 @@ export interface VehicleYears {
 
 // Export singleton instance
 export const api = new DiagnosticAPI();
+
+// --- VIN Decode ---
+
+export interface VinDecodeResult {
+    vin: string;
+    valid: boolean;
+    year?: number;
+    make?: string;
+    model?: string;
+    engine?: string;
+    drive_type?: string;
+    body_class?: string;
+    trim?: string;
+    fuel_type?: string;
+    error?: string;
+}
+
+export async function fetchVin(vin: string): Promise<VinDecodeResult | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const res = await fetch(`/api/vin?vin=${encodeURIComponent(vin)}`, {
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+        clearTimeout(timeoutId);
+        return (await res.json()) as VinDecodeResult;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        const msg = err instanceof Error && err.name === 'AbortError' ? 'Request timed out' : 'Network error';
+        return { vin, valid: false, error: msg };
+    }
+}
