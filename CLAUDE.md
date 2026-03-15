@@ -48,6 +48,39 @@
 4. **Data Integrity**: Read @.claude/docs/DATA.md before touching data files
 5. **Agent Delegation**: See @.claude/docs/AGENTS.md for specialized subagents
 
+## ⚡ MANDATORY: Automotive Diagnostic Requests
+
+**When the user provides vehicle info + symptoms OR asks about DTCs/TSBs/recalls/component testing, you MUST execute this protocol — no exceptions.**
+
+### Trigger Conditions (ANY ONE is sufficient)
+- Vehicle year + make/model mentioned with symptoms
+- DTC code (P/C/B/U + digits) present in conversation
+- Words: diagnose, troubleshoot, what's wrong, surge, misfire, stall, noise, leak, shudder, hesitation, check engine, scan tool, live data, TSB, recall
+
+### Required Steps (in order)
+1. **Read `skills/SKILL.md`** — master protocol, routing logic, output format
+2. **Read manufacturer protocol** — `skills/references/manufacturers/[make]-protocols.md`
+   - Ford/Lincoln → `ford-protocols.md`
+   - GM/Chevrolet/Buick/Cadillac → `gm-protocols.md`
+   - Stellantis/Dodge/Jeep/Ram → `stellantis-protocols.md`
+   - Toyota/Lexus → `toyota-protocols.md`
+   - Honda/Acura → `honda-protocols.md`
+3. **Classify request type** (Type 1–6 per SKILL.md)
+4. **Output routing header** as FIRST LINE of response:
+   ```
+   [Request Type: X | Loading: skill.md, manufacturer-protocols.md, ...]
+   ```
+5. **Follow the full CO-STAR output structure** including mandatory SOURCES and DISCLAIMER sections
+6. **Use categorical assessment levels only** — STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS (never percentages to user)
+
+### Shortcut
+`/diagnose` slash command auto-loads all context and enforces the full protocol.
+
+### Why This Is Non-Negotiable
+The skill framework exists because incorrect automotive diagnoses affect vehicle safety. The SOURCES and DISCLAIMER sections exist because ASE technicians need to know the evidence quality behind each recommendation. Skipping the protocol means skipping safety infrastructure.
+
+---
+
 ## Key Rules
 
 1. **NEVER MODIFY**: `data/raw_imports/` (see @.claude/docs/DATA.md)
