@@ -220,4 +220,66 @@ experimental: { transpilePackages: ['@carbon/react', '@carbon/icons-react'] }
 
 ---
 
+## Playwright E2E — `<option>` Elements Are Never "Visible"
+
+**Symptom**: `waitForSelector('#select option[value="X"]')` times out even though the option exists in the DOM.
+
+**Root Cause**: Playwright's default `waitForSelector` state is `visible`. `<option>` elements inside `<select>` are always hidden in headless browsers — they only "appear" when the dropdown is open.
+
+**Wrong**:
+```typescript
+await page.waitForSelector('#my-select option[value="FORD"]', { timeout: 5000 }); // ❌ always times out
+```
+
+**Correct**:
+```typescript
+await page.waitForSelector('#my-select option[value="FORD"]', { state: 'attached', timeout: 5000 }); // ✅
+```
+
+---
+
+## Playwright E2E — Strict Mode Violation on Short Text Locators
+
+**Symptom**: `Error: strict mode violation: locator('text=FORD') resolved to 3 elements`
+
+**Root Cause**: Short text like `text=FORD` matches everywhere — dropdown options, summary bars, labels. Playwright strict mode rejects ambiguous locators.
+
+**Wrong**:
+```typescript
+await expect(page.locator('text=FORD')).toBeVisible(); // ❌ may match option + summary bar + label
+```
+
+**Correct** — use a structurally unique element:
+```typescript
+// The "Change" button only appears in the vehicle summary bar after selection
+await expect(page.locator('button:has-text("Change")')).toBeVisible(); // ✅
+```
+
+**Rule**: For short text that could appear in dropdowns, use a parent container or a unique sibling to scope the locator.
+
+---
+
+## Playwright E2E — Carbon `hasIconOnly` Buttons Need `data-testid`
+
+**Symptom**: `button[aria-label="Close"]` selector never resolves — test times out.
+
+**Root Cause**: Carbon's `Button` with `hasIconOnly` does not consistently expose `aria-label` across versions. The `iconDescription` prop may render as a tooltip/title, not an `aria-label`.
+
+**Wrong**:
+```typescript
+await page.locator('button[aria-label="Close"]').click(); // ❌ unreliable across Carbon versions
+```
+
+**Correct** — add `data-testid` to the component:
+```tsx
+<Button data-testid="close-modal" hasIconOnly renderIcon={Close} iconDescription="Close" />
+```
+```typescript
+await page.locator('[data-testid="close-modal"]').click(); // ✅ always works
+```
+
+**Rule**: Always add `data-testid` to Carbon `hasIconOnly` buttons that need e2e targeting.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*
