@@ -37,7 +37,11 @@ Diagnostic Response {candidates, warnings, data_sources}
 | **Frontend API Routes** | Diagnose Proxy | `src/frontend/app/api/diagnose/route.ts` | Server-side POST proxy → `/diagnose` (adds API key) |
 | | Search Proxy | `src/frontend/app/api/search/route.ts` | Server-side GET proxy → `/search` |
 | | TSB Proxy | `src/frontend/app/api/search_tsbs/route.ts` | Server-side GET proxy → `/search_tsbs` |
-| | Vehicles Proxy | `src/frontend/app/api/vehicles/route.ts` | Server-side GET proxy → `/vehicles` (Phase 5g) |
+| | Vehicles Proxy | `src/frontend/app/api/vehicles/route.ts` | Server-side GET proxy → `/vehicles` |
+| | VIN Proxy | `src/frontend/app/api/vin/route.ts` | Server-side GET proxy → `/vin/decode` (NHTSA vPIC) |
+| | Dashboard Proxy | `src/frontend/app/api/vehicle/dashboard/route.ts` | Server-side GET proxy → `/vehicle/dashboard` |
+| | Report Proxy | `src/frontend/app/api/vehicle/report/route.ts` | Server-side POST proxy → `/vehicle/report` |
+| | History Proxy | `src/frontend/app/api/history/route.ts` | Server-side GET+POST proxy → `/history` |
 | **Skills Layer** | Router | `skills/router_skill/` | Classifies DTC codes by system |
 | | Engine | `skills/engine_skill/` | Powertrain diagnostics (P-codes) |
 | | Transmission | `skills/transmission_skill/` | Transmission diagnostics |
@@ -51,8 +55,8 @@ Diagnostic Response {candidates, warnings, data_sources}
 | | DB Service | `src/data/db_service.py` | DiagnosticDB wrapper (FTS5 queries) |
 | | Chroma Service | `src/data/chroma_service.py` | Forum semantic search (Phase 4) |
 | **Data Layer** | Complaints DB | `database/automotive_complaints.db` | 562K NHTSA complaints, 211K TSBs (FTS5) |
-| | Diagnostics DB | `database/automotive_diagnostics.db` | 792 vehicles (DTC/failure tables empty) |
-| | ChromaDB | `data/vector_store/chroma/` | 24,353 StackExchange mechanics Q&A |
+| | Diagnostics DB | `database/automotive_diagnostics.db` | 792 vehicles, 3,071 DTC codes, diagnosis_history |
+| | ChromaDB | `data/vector_store/chroma/` | 539,277 docs (r/MechanicAdvice + r/AskMechanics) |
 | | Raw Imports | `data/raw_imports/` | **NEVER MODIFY** - Original sources |
 
 ## Data Flow: Query to Response
@@ -75,7 +79,9 @@ Diagnostic Response {candidates, warnings, data_sources}
 
 **automotive_diagnostics.db** (secondary):
 - `vehicles` (792 rows) — make/model/year/engine
-- DTC/failure tables exist in schema but are empty — import scripts not yet run
+- `dtc_codes` (3,071 rows) — OBD-II codes with severity, safety_critical, system, subsystem
+- `diagnosis_history` — auto-created on startup; one row per diagnosis session (vin, year, make, model, symptoms, findings, dtc_codes JSON, candidate_count, has_warnings)
+- Other tables (failure_patterns, diagnostic_tests, etc.) exist in schema but are empty
 
 **ChromaDB** (`data/vector_store/chroma/`):
 - Collection: `mechanics_forum` (24,353 documents)
