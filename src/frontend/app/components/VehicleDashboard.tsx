@@ -8,6 +8,7 @@ import { Button } from '@carbon/react';
 import { Document } from '@carbon/icons-react';
 import { fetchDashboard, type DashboardData } from '../../lib/api';
 import ComponentDrillDown from './ComponentDrillDown';
+import TsbDrillDown from './TsbDrillDown';
 
 interface VehicleDashboardProps {
     make: string;
@@ -83,6 +84,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
+    const [showTsbDrillDown, setShowTsbDrillDown] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -90,6 +92,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
         setError(null);
         setData(null);
         setSelectedComponent(null);
+        setShowTsbDrillDown(false);
 
         fetchDashboard(make, model, year).then((result) => {
             if (cancelled) return;
@@ -137,11 +140,28 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     </div>
                 </StatTile>
 
-                <StatTile label="TSBs">
+                {/* TSB Tile — clickable */}
+                <div
+                    onClick={() => setShowTsbDrillDown(prev => !prev)}
+                    style={{
+                        flex: '1 1 180px',
+                        background: showTsbDrillDown ? 'var(--cds-layer-selected)' : 'var(--cds-layer-01)',
+                        border: '1px solid var(--cds-border-subtle-01)',
+                        borderLeft: showTsbDrillDown ? '3px solid var(--cds-interactive)' : '1px solid var(--cds-border-subtle-01)',
+                        padding: '1.25rem 1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        cursor: 'pointer',
+                        transition: 'background 100ms ease-in-out',
+                    }}
+                >
+                    <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>TSBs</span>
                     <span style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--cds-text-primary)', lineHeight: 1 }}>
                         {data.tsb_count.toLocaleString()}
                     </span>
-                </StatTile>
+                    <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary)' }}>click to view</span>
+                </div>
 
                 <StatTile label="Year-over-Year Trend">
                     <span style={{ fontSize: '1.25rem', fontWeight: 600, color: trendColor, lineHeight: 1.2 }}>
@@ -165,6 +185,16 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                 </StatTile>
 
             </div>
+
+            {/* ── TSB Drill-Down Panel ──────────────────────────────── */}
+            {showTsbDrillDown && (
+                <TsbDrillDown
+                    make={make}
+                    model={model}
+                    year={year}
+                    onClose={() => setShowTsbDrillDown(false)}
+                />
+            )}
 
             {/* ── Top Components Bar ────────────────────────────────── */}
             {data.top_components.length > 0 && (

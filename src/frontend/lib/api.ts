@@ -497,6 +497,50 @@ export async function fetchComponentComplaints(
     }
 }
 
+// --- TSB Drill-Down ---
+
+export interface TsbItem {
+    bulletin_no: string;
+    bulletin_date: string;   // "YYYYMMDD" string from backend
+    component: string;
+    summary: string;
+}
+
+export interface VehicleTsbsResponse {
+    make: string;
+    model: string;
+    year: number;
+    results: TsbItem[];
+    total_count: number;
+    page: number;
+    total_pages: number;
+}
+
+export async function fetchVehicleTsbs(
+    make: string, model: string, year: number, page: number = 1
+): Promise<VehicleTsbsResponse | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const params = new URLSearchParams({
+            make, model, year: year.toString(), page: page.toString(),
+        });
+        const res = await fetch(
+            `/api/vehicle/tsbs?${params.toString()}`,
+            { signal: controller.signal, cache: 'no-store' }
+        );
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as VehicleTsbsResponse;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name !== 'AbortError') {
+            console.error('fetchVehicleTsbs error:', err);
+        }
+        return null;
+    }
+}
+
 // --- Diagnosis History ---
 
 export interface HistoryEntry {

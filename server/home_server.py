@@ -733,6 +733,66 @@ async def get_vehicle_complaints(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+@app.get("/vehicle/tsbs")
+async def get_vehicle_tsbs(
+    make: str,
+    model: str,
+    year: int = Query(..., ge=1900, le=2030),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Return paginated TSB summaries for a specific vehicle."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        make_upper = make.upper()
+        model_upper = model.upper()
+        offset = (page - 1) * limit
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM nhtsa_tsbs"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ? AND year = ?",
+            (make_upper, model_upper, year),
+        )
+        total_count: int = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT bulletin_no, bulletin_date, component, summary"
+            " FROM nhtsa_tsbs"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ? AND year = ?"
+            " ORDER BY bulletin_date DESC"
+            " LIMIT ? OFFSET ?",
+            (make_upper, model_upper, year, limit, offset),
+        )
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+
+        logger.info(
+            "VehicleTSBs: %s %s %d — %d results (page %d/%d)",
+            make_upper, model_upper, year, total_count, page, total_pages,
+        )
+
+        return {
+            "make": make_upper,
+            "model": model_upper,
+            "year": year,
+            "results": results,
+            "total_count": total_count,
+            "page": page,
+            "total_pages": total_pages,
+        }
+
+    except Exception as exc:
+        logger.error("VehicleTSBs error for %s %s %d: %s", make, model, year, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 class HistoryEntry(BaseModel):
     vin: str | None = None
     year: int = Field(..., ge=1900, le=2030)
