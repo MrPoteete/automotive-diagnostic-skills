@@ -1,107 +1,275 @@
-@tailwind base;
-@tailwind components;
+/* IBM Carbon Design System — pre-built CSS (no SCSS compiler needed) */
+@import '@carbon/styles/css/styles.css';
+
+/* Tailwind utilities — scoped to avoid conflicting with Carbon resets */
 @tailwind utilities;
 
-/* Cyberpunk-styled select elements — color-scheme: dark prevents white option
-   backgrounds on macOS/Safari where CSS background-color on <option> is ignored */
-.cyber-select {
-    color-scheme: dark;
-}
-
-.cyber-select option {
-    background-color: #0a0a14;
-    color: #e0e0e0;
-}
-
+/* Application-level overrides for Carbon gray-10 theme */
 :root {
-  --font-rajdhani: 'Rajdhani', sans-serif;
-  --font-orbitron: 'Orbitron', sans-serif;
-  --font-roboto-mono: 'Roboto Mono', monospace;
-  
-  --color-cyber-blue: #00f0ff;
-  --color-cyber-pink: #ff003c;
-  --color-cyber-green: #39ff14;
+  --cds-background: #f4f4f4;
+  --cds-layer-01: #ffffff;
+  --cds-layer-02: #f4f4f4;
+  --cds-text-primary: #161616;
+  --cds-text-secondary: #525252;
+  --cds-border-subtle-01: #e0e0e0;
+  --cds-interactive: #0f62fe;
+  --cds-support-error: #da1e28;
+  --cds-support-warning: #f1c21b;
+  --cds-support-success: #198038;
 }
 
+html,
 body {
-  background-color: #050505;
-  color: #e0e0e0;
-}
-
-/* Custom Scrollbar for the "High Tech" feel */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #0a0a14; 
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1a1a2e; 
-  border-radius: 2px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #00f0ff; 
-  box-shadow: 0 0 10px #00f0ff;
-}
-
-/* Utility Class for the "Cut Corner" Shard */
-.clip-corner-tr {
-  clip-path: polygon(0 0, 95% 0, 100% 15%, 100% 100%, 0 100%);
-}
-
-.clip-corner-bl {
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 5% 100%, 0 85%);
-}
-
-/* Glitch Animation Keyframes */
-@keyframes glitch-anim-1 {
-  0% { clip: rect(20px, 9999px, 15px, 0); }
-  20% { clip: rect(60px, 9999px, 80px, 0); }
-  40% { clip: rect(10px, 9999px, 5px, 0); }
-  60% { clip: rect(80px, 9999px, 100px, 0); }
-  80% { clip: rect(30px, 9999px, 40px, 0); }
-  100% { clip: rect(50px, 9999px, 60px, 0); }
-}
-
-@keyframes glitch-anim-2 {
-  0% { clip: rect(10px, 9999px, 30px, 0); }
-  20% { clip: rect(70px, 9999px, 60px, 0); }
-  40% { clip: rect(20px, 9999px, 30px, 0); }
-  60% { clip: rect(50px, 9999px, 40px, 0); }
-  80% { clip: rect(90px, 9999px, 80px, 0); }
-  100% { clip: rect(30px, 9999px, 20px, 0); }
-}
-
-.glitch-text {
-  position: relative;
-}
-
-.glitch-text::before,
-.glitch-text::after {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
   height: 100%;
-  background: #050505;
+  margin: 0;
+  padding: 0;
+  background-color: var(--cds-background);
+  color: var(--cds-text-primary);
+  font-family: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
 }
 
-.glitch-text::before {
-  content: attr(data-text);
-  left: 2px;
-  text-shadow: -1px 0 #ff003c;
-  clip: rect(24px, 550px, 90px, 0);
-  animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+/* App shell layout */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.glitch-text::after {
-  content: attr(data-text);
-  left: -2px;
-  text-shadow: -1px 0 #00f0ff;
-  clip: rect(85px, 550px, 140px, 0);
-  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+/* Main content area below header */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Side navigation panel */
+.app-sidenav {
+  width: 16rem;
+  min-width: 16rem;
+  background-color: #161616;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #393939;
+}
+
+/* Content area right of nav */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+  background-color: var(--cds-background);
+}
+
+/* Nav item styles */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #c6c6c6;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  transition: background-color 0.1s ease;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background-color: #353535;
+  color: #f4f4f4;
+}
+
+.nav-item.active {
+  background-color: #393939;
+  color: #ffffff;
+  border-left-color: #0f62fe;
+}
+
+/* Status indicator */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background-color: #24a148;
+}
+
+.status-dot.offline {
+  background-color: #da1e28;
+}
+
+.status-dot.checking {
+  background-color: #f1c21b;
+}
+
+/* Result tiles */
+.result-tile {
+  background-color: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle-01);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Confidence bar wrapper */
+.confidence-bar {
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.5rem 0;
+}
+
+.confidence-bar-fill {
+  height: 100%;
+  background-color: #0f62fe;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.confidence-bar-fill.sufficient {
+  background-color: #24a148;
+}
+
+.confidence-bar-fill.insufficient {
+  background-color: #f1c21b;
+}
+
+/* Message area for diagnose results */
+.message-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 5rem;
+}
+
+/* User query display */
+.query-bubble {
+  background-color: #0f62fe;
+  color: #ffffff;
+  padding: 0.75rem 1rem;
+  border-radius: 0;
+  max-width: 40rem;
+  align-self: flex-end;
+  font-size: 0.875rem;
+}
+
+/* System response display */
+.response-card {
+  background-color: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle-01);
+  border-left: 4px solid #0f62fe;
+  padding: 1rem;
+  max-width: 56rem;
+  white-space: pre-wrap;
+  font-size: 0.875rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* Input area at bottom of diagnose tab */
+.input-panel {
+  background-color: var(--cds-layer-01);
+  border-top: 1px solid var(--cds-border-subtle-01);
+  padding: 1rem;
+  position: sticky;
+  bottom: 0;
+}
+
+/* Offline banner */
+.offline-banner {
+  background-color: #fff1f1;
+  border: 1px solid #da1e28;
+  border-left: 4px solid #da1e28;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Safety alert inline */
+.safety-critical {
+  background-color: #fff1f1;
+  border: 1px solid #da1e28;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #da1e28;
+  font-weight: 600;
+}
+
+.safety-high {
+  background-color: #fdf6dd;
+  border: 1px solid #f1c21b;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: #8a6914;
+  font-weight: 600;
+}
+
+/* Loading indicator */
+.loading-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #e0e0e0;
+  border-top-color: #0f62fe;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Pagination controls */
+.pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--cds-border-subtle-01);
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--cds-text-secondary);
+}
+
+/* Search result table alternating rows */
+.result-row-even {
+  background-color: var(--cds-layer-01);
+}
+
+.result-row-odd {
+  background-color: var(--cds-background);
+}
+
+/* Form section layout */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+/* Carbon Select accessibility fix — dark dropdown options on macOS */
+select {
+  color-scheme: light;
 }

@@ -1,27 +1,25 @@
 import type { Metadata } from "next";
-import { Rajdhani, Orbitron, Roboto_Mono } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import ErrorBoundaryWrapper from "./components/ErrorBoundary";
 
-const rajdhani = Rajdhani({
+const ibmPlexSans = IBM_Plex_Sans({
     subsets: ["latin"],
     weight: ["300", "400", "500", "600", "700"],
-    variable: "--font-rajdhani",
+    variable: "--font-ibm-plex-sans",
+    display: "swap",
 });
 
-const orbitron = Orbitron({
+const ibmPlexMono = IBM_Plex_Mono({
     subsets: ["latin"],
-    variable: "--font-orbitron",
-});
-
-const robotoMono = Roboto_Mono({
-    subsets: ["latin"],
-    variable: "--font-roboto-mono",
+    weight: ["400", "500"],
+    variable: "--font-ibm-plex-mono",
+    display: "swap",
 });
 
 export const metadata: Metadata = {
-    title: "AutoDiagnostix | AI Neural Interface",
-    description: "Advanced Automotive Diagnostic System",
+    title: "Automotive Diagnostic System",
+    description: "Professional Automotive Diagnostic Tool — Ford, GM, RAM, Toyota",
 };
 
 export default function RootLayout({
@@ -30,10 +28,8 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en" className="dark">
-            <body className={`${rajdhani.variable} ${orbitron.variable} ${robotoMono.variable} bg-cyber-black text-cyber-white antialiased overflow-hidden`}>
-                <div className="fixed inset-0 pointer-events-none z-50 scanlines opacity-20"></div>
-                <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyber-dark/50 via-cyber-black/80 to-cyber-black pointer-events-none -z-10"></div>
+        <html lang="en">
+            <body className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}>
                 <ErrorBoundaryWrapper>
                     {children}
                 </ErrorBoundaryWrapper>

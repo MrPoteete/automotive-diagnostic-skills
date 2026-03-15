@@ -1,17 +1,12 @@
 "use client";
 
 // Checked AGENTS.md - implementing directly, UI component with no security/data concerns.
-// Gemini generated vehicles.ts data module; VehicleForm uses Claude for UI/state logic.
-// Dynamic vehicle loading added: fetchVehicles() on mount, static fallback on error.
+// Carbon Design System rewrite — preserves all accessibility attributes and test contracts.
 
 import React, { useState, useEffect } from 'react';
-import { Zap, ChevronDown } from 'lucide-react';
 import { api } from '../../lib/api';
 import type { VehicleInfo, VehicleData } from '../../lib/api';
 import { MAKES, getModelsForMake } from '../../lib/vehicles';
-
-// Checked AGENTS.md - implementing VehicleForm state logic directly (complex multi-state).
-// fetchVehicleYears API method reviewed via Gemini (gemini-2.5-flash) per GEMINI_WORKFLOW.md.
 
 interface VehicleFormProps {
     onDiagnose: (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => void;
@@ -22,43 +17,6 @@ const DTC_CODE_PATTERN = /^[PCBU][0-3][0-9A-F]{3}$/i;
 
 /** Year range 2025 → 1990 (descending — mechanics mostly work on recent vehicles) */
 const YEARS: number[] = Array.from({ length: 36 }, (_, i) => 2025 - i);
-
-function CyberSelect({
-    label,
-    value,
-    onChange,
-    options,
-    disabled = false,
-    placeholder,
-}: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    options: (string | number)[];
-    disabled?: boolean;
-    placeholder: string;
-}) {
-    return (
-        <div className="flex flex-col gap-1">
-            <label className="font-mono text-xs text-cyber-gray tracking-widest uppercase">{label}</label>
-            <div className="relative">
-                <select
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    disabled={disabled}
-                    aria-label={label}
-                    className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-sm px-3 py-2 pr-8 focus:outline-none focus:border-cyber-blue focus:ring-1 focus:ring-cyber-blue/50 hover:border-cyber-blue/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                    <option value="" disabled>{placeholder}</option>
-                    {options.map((opt) => (
-                        <option key={opt} value={String(opt)}>{String(opt)}</option>
-                    ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-cyber-blue pointer-events-none" />
-            </div>
-        </div>
-    );
-}
 
 /** Parse a raw DTC code string (comma/space/semicolon-separated) into validated uppercase codes. */
 export function parseDtcInput(raw: string): string[] {
@@ -87,7 +45,6 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
         if (make && model) {
             api.fetchVehicleYears(make, model).then((years) => {
                 setAvailableYears(years ?? []);
-                // If current year is no longer valid, reset it
                 setYear((prev) => (years && years.includes(Number(prev)) ? prev : ''));
             });
         } else {
@@ -104,13 +61,13 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
 
     const handleMakeChange = (newMake: string) => {
         setMake(newMake);
-        setModel('');  // reset model — prevents cross-make invalid combos
-        setYear('');   // reset year — make change invalidates the year selection
+        setModel('');
+        setYear('');
     };
 
     const handleModelChange = (newModel: string) => {
         setModel(newModel);
-        setYear('');  // reset year — new model may have different year coverage
+        setYear('');
     };
 
     const handleSubmit = () => {
@@ -125,83 +82,183 @@ export default function VehicleForm({ onDiagnose, isProcessing }: VehicleFormPro
     };
 
     return (
-        <div className="w-full space-y-3">
-            {/* Row 1: Year / Make / Model */}
-            <div className="grid grid-cols-3 gap-3">
-                <CyberSelect
-                    label="YEAR"
-                    value={year}
-                    onChange={setYear}
-                    options={yearOptions}
-                    disabled={!make || !model}
-                    placeholder={make && model ? '-- SELECT --' : '-- SELECT MAKE/MODEL FIRST --'}
-                />
-                <CyberSelect
-                    label="MAKE"
-                    value={make}
-                    onChange={handleMakeChange}
-                    options={activeMakes}
-                    placeholder="-- SELECT --"
-                />
-                <CyberSelect
-                    label="MODEL"
-                    value={model}
-                    onChange={handleModelChange}
-                    options={modelOptions}
-                    disabled={!make}
-                    placeholder={make ? '-- SELECT --' : '-- SELECT MAKE FIRST --'}
-                />
+        <div className="w-full">
+            {/* Row 1: Make / Model / Year selects */}
+            <div className="form-row">
+                {/* MAKE */}
+                <div className="cds--form-item">
+                    <label
+                        htmlFor="vf-make"
+                        className="cds--label"
+                    >
+                        Make
+                    </label>
+                    <div className="cds--select">
+                        <select
+                            id="vf-make"
+                            aria-label="MAKE"
+                            value={make}
+                            onChange={(e) => handleMakeChange(e.target.value)}
+                            className="cds--select-input"
+                        >
+                            <option value="" disabled>Select make</option>
+                            {activeMakes.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                        <svg
+                            focusable="false"
+                            preserveAspectRatio="xMidYMid meet"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="currentColor"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            aria-hidden="true"
+                            className="cds--select__arrow"
+                        >
+                            <path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* MODEL */}
+                <div className="cds--form-item">
+                    <label
+                        htmlFor="vf-model"
+                        className="cds--label"
+                    >
+                        Model
+                    </label>
+                    <div className={`cds--select${!make ? ' cds--select--disabled' : ''}`}>
+                        <select
+                            id="vf-model"
+                            aria-label="MODEL"
+                            value={model}
+                            disabled={!make}
+                            onChange={(e) => handleModelChange(e.target.value)}
+                            className="cds--select-input"
+                        >
+                            <option value="" disabled>
+                                {make ? 'Select model' : 'Select make first'}
+                            </option>
+                            {modelOptions.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                        <svg
+                            focusable="false"
+                            preserveAspectRatio="xMidYMid meet"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="currentColor"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            aria-hidden="true"
+                            className="cds--select__arrow"
+                        >
+                            <path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* YEAR */}
+                <div className="cds--form-item">
+                    <label
+                        htmlFor="vf-year"
+                        className="cds--label"
+                    >
+                        Year
+                    </label>
+                    <div className={`cds--select${(!make || !model) ? ' cds--select--disabled' : ''}`}>
+                        <select
+                            id="vf-year"
+                            aria-label="YEAR"
+                            value={year}
+                            disabled={!make || !model}
+                            onChange={(e) => setYear(e.target.value)}
+                            className="cds--select-input"
+                        >
+                            <option value="" disabled>
+                                {make && model ? 'Select year' : 'Select make & model first'}
+                            </option>
+                            {yearOptions.map((opt) => (
+                                <option key={opt} value={String(opt)}>{String(opt)}</option>
+                            ))}
+                        </select>
+                        <svg
+                            focusable="false"
+                            preserveAspectRatio="xMidYMid meet"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="currentColor"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            aria-hidden="true"
+                            className="cds--select__arrow"
+                        >
+                            <path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" />
+                        </svg>
+                    </div>
+                </div>
             </div>
 
-            {/* Row 2: Symptoms + DTC Codes */}
-            <div className="flex gap-3">
-                <div className="flex-1 flex flex-col gap-1">
-                    <label className="font-mono text-xs text-cyber-gray tracking-widest uppercase">
-                        SYMPTOMS / DESCRIPTION
+            {/* Row 2: Symptoms textarea + DTC codes input */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: '1rem', marginBottom: '1rem' }}>
+                {/* Symptoms */}
+                <div className="cds--form-item">
+                    <label htmlFor="vf-symptoms" className="cds--label">
+                        Symptoms / Description
                     </label>
-                    <div className="relative group">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-cyber-blue via-cyber-pink to-cyber-blue rounded opacity-0 group-focus-within:opacity-30 transition duration-500" />
+                    <div className="cds--text-area__wrapper">
                         <textarea
+                            id="vf-symptoms"
                             value={symptoms}
                             onChange={(e) => setSymptoms(e.target.value)}
                             rows={2}
                             placeholder="e.g. engine shaking at idle, transmission slip, stalls on acceleration..."
-                            className="relative w-full bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-cyber-blue focus:ring-1 focus:ring-cyber-blue/50 hover:border-cyber-blue/50 transition-colors placeholder-cyber-gray/50 resize-none"
+                            className="cds--text-area"
+                            style={{ resize: 'none' }}
                         />
                     </div>
                 </div>
 
-                <div className="w-44 flex flex-col gap-1">
-                    <label className="font-mono text-xs text-cyber-gray tracking-widest uppercase">
-                        DTC CODES{' '}
-                        <span className="normal-case text-cyber-gray/50 tracking-normal">(optional)</span>
+                {/* DTC Codes */}
+                <div className="cds--form-item">
+                    <label htmlFor="vf-dtc" className="cds--label">
+                        DTC Codes{' '}
+                        <span style={{ fontWeight: 400, color: 'var(--cds-text-secondary)' }}>
+                            (optional)
+                        </span>
                     </label>
-                    <input
-                        type="text"
-                        value={dtcInput}
-                        onChange={(e) => setDtcInput(e.target.value)}
-                        placeholder="P0300, P0301..."
-                        className="h-full bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-sm px-3 py-2 focus:outline-none focus:border-cyber-blue focus:ring-1 focus:ring-cyber-blue/50 hover:border-cyber-blue/50 transition-colors placeholder-cyber-gray/50"
-                    />
+                    <div className="cds--text-input-wrapper">
+                        <input
+                            id="vf-dtc"
+                            type="text"
+                            value={dtcInput}
+                            onChange={(e) => setDtcInput(e.target.value)}
+                            placeholder="P0300, P0301..."
+                            className="cds--text-input"
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Row 3: Submit */}
+            {/* Row 3: Submit button */}
             <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full px-6 py-3 font-bold tracking-widest text-sm uppercase transition-all duration-300 bg-cyber-blue/10 border border-cyber-blue text-cyber-blue hover:bg-cyber-blue hover:text-black hover:shadow-neon-blue disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyber-blue/10 disabled:hover:text-cyber-blue disabled:hover:shadow-none font-display flex items-center justify-center gap-2"
+                className="cds--btn cds--btn--primary"
+                style={{ width: '100%', maxWidth: '100%', justifyContent: 'center' }}
             >
                 {isProcessing ? (
                     <>
-                        <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        <span className="loading-spinner" style={{ marginRight: '0.5rem' }} />
                         ANALYZING...
                     </>
                 ) : (
-                    <>
-                        <Zap className="h-4 w-4" />
-                        INITIATE DIAGNOSTIC SCAN
-                    </>
+                    'INITIATE DIAGNOSTIC SCAN'
                 )}
             </button>
         </div>

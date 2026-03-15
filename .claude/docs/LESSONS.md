@@ -170,4 +170,54 @@ if re.search(r"\babs\b", description.lower()):  # ✅ word boundary — "abs" on
 
 ---
 
+## ChromaDB — Prefer API Deletion Over File Wipe for Single Collection
+
+**Symptom**: One ChromaDB collection is corrupted (HNSW index error) but other collections are healthy.
+
+**Root Cause**: Large background imports can leave the HNSW index in an inconsistent state (ChromaDB 1.0.x Rust backend). The `mechanics_forum` collection fails with `Error loading hnsw index` while other collections (e.g., test collections) remain intact.
+
+**Wrong** (nuclear — destroys ALL collections):
+```bash
+find data/vector_store/chroma -type f -delete  # ❌ wipes everything
+```
+
+**Correct** (surgical — only removes the broken collection):
+```python
+import chromadb
+client = chromadb.PersistentClient(path='data/vector_store/chroma')
+client.delete_collection('mechanics_forum')  # ✅ preserves other collections
+```
+
+Then re-run the import script. The file-wipe option in DATA.md is the last resort — use API deletion first.
+
+---
+
+## Frontend — Carbon + Tailwind Coexistence
+
+**Symptom**: After adding `@carbon/react`, CSS resets conflict with Tailwind's base styles — buttons, inputs, and layout break in unpredictable ways.
+
+**Root Cause**: `@tailwind base` and `@tailwind components` inject CSS resets that fight Carbon's own reset layer.
+
+**Wrong**:
+```css
+@tailwind base;       /* ❌ fights Carbon's resets */
+@tailwind components; /* ❌ fights Carbon's component styles */
+@tailwind utilities;
+@import '@carbon/styles/css/styles.css';
+```
+
+**Correct** — Carbon first, Tailwind utilities only:
+```css
+/* globals.css */
+@import '@carbon/styles/css/styles.css';  /* ✅ Carbon resets and components */
+@tailwind utilities;                       /* ✅ utilities only — no conflicts */
+```
+
+Also add to `next.config.mjs`:
+```js
+experimental: { transpilePackages: ['@carbon/react', '@carbon/icons-react'] }
+```
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*

@@ -1,26 +1,90 @@
 "use client";
 
 // Checked AGENTS.md - implementing directly, UI orchestration layer.
-// VehicleForm and vehicles.ts data module handle structured vehicle input.
+// Carbon Design System rewrite — preserves all behavioral test contracts.
 
 import React, { useState, useEffect } from 'react';
-import { Terminal, ShieldAlert, Zap, Search, Activity, Cpu, ChevronDown } from 'lucide-react';
-import { MAKES, getModelsForMake, YEARS } from '../lib/vehicles';
-import { CyberButton } from './components/CyberButton';
-import { ShardCard } from './components/ShardCard';
+import { MAKES, YEARS, getModelsForMake } from '../lib/vehicles';
 import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
-import { CyberInput } from './components/CyberInput';
 import VehicleForm from './components/VehicleForm';
 import { api, type VehicleInfo } from '../lib/api';
 
+// Carbon icon SVG inlines — avoids SCSS import issues in test environment
+function IconActivity() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M28 18h-4.18l-3.1-9.3A1 1 0 0019.77 8a1 1 0 00-.94.72L15 21.34 12.13 10.7A1 1 0 0011.2 10a1 1 0 00-.97.66L7.72 18H4v2h4.28a1 1 0 00.94-.66L11 13.58l2.87 10.72a1 1 0 00.93.7H15a1 1 0 00.95-.68l3.8-12.44 2.31 6.92A1 1 0 0023 19.5h5z" />
+        </svg>
+    );
+}
+
+function IconSearch() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M29 27.586l-7.552-7.552a11.018 11.018 0 10-1.414 1.414L27.586 29zM4 13a9 9 0 119 9 9.01 9.01 0 01-9-9z" />
+        </svg>
+    );
+}
+
+function IconDatabase() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 2C8.832 2 4 5.14 4 9v14c0 3.86 4.832 7 12 7s12-3.14 12-7V9c0-3.86-4.832-7-12-7zm10 20.5c0 2.36-4.144 5-10 5S6 24.86 6 22.5V20a16.27 16.27 0 0010 3 16.27 16.27 0 0010-3zm0-6c0 2.36-4.144 5-10 5S6 18.86 6 16.5V14a16.27 16.27 0 0010 3 16.27 16.27 0 0010-3zm-10-3C10.144 13.5 6 10.86 6 8.5S10.144 3.5 16 3.5 26 5.14 26 7.5 21.856 13.5 16 13.5z" />
+        </svg>
+    );
+}
+
+function IconDocument() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M25.7 9.3l-7-7A1 1 0 0018 2H8a2 2 0 00-2 2v24a2 2 0 002 2h16a2 2 0 002-2V10a1 1 0 00-.3-.7zM18 4.4l5.6 5.6H18zM24 28H8V4h8v6a2 2 0 002 2h6z" />
+            <path d="M10 22h12v2H10zM10 16h12v2H10z" />
+        </svg>
+    );
+}
+
+function IconWarning() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="16" height="16" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 2a14 14 0 1014 14A14 14 0 0016 2zm-1 6h2v11h-2zm1 17.25A1.25 1.25 0 1117.25 24 1.25 1.25 0 0116 25.25z" />
+        </svg>
+    );
+}
+
+function IconChevronDown() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" />
+        </svg>
+    );
+}
+
+type Tab = 'diagnose' | 'database' | 'tsbsearch';
+
+interface NavItem {
+    key: Tab;
+    label: string;
+    icon: React.ReactNode;
+}
+
+const NAV_ITEMS: NavItem[] = [
+    { key: 'diagnose', label: 'Diagnose', icon: <IconActivity /> },
+    { key: 'database', label: 'Database', icon: <IconDatabase /> },
+    { key: 'tsbsearch', label: 'TSB Search', icon: <IconDocument /> },
+];
+
 export default function Home() {
-    const [activeTab, setActiveTab] = useState('diagnose');
-    const [systemStatus, setSystemStatus] = useState('CHECKING');
+    const [activeTab, setActiveTab] = useState<Tab>('diagnose');
+    const [systemStatus, setSystemStatus] = useState<'CHECKING' | 'ONLINE' | 'OFFLINE'>('CHECKING');
     const [inputText, setInputText] = useState('');
-    const [messages, setMessages] = useState<Array<{ role: 'user' | 'system', content: string }>>([
-        { role: 'system', content: 'NEURAL LINK ESTABLISHED. CHECKING BACKEND CONNECTION...' }
-    ]);
+    const [messages, setMessages] = useState<Array<{ role: 'user' | 'system'; content: string }>>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     const [searchPage, setSearchPage] = useState(1);
     const [searchTotalPages, setSearchTotalPages] = useState(1);
@@ -33,12 +97,8 @@ export default function Home() {
     useEffect(() => {
         const checkHealth = async () => {
             try {
-                const health = await api.healthCheck();
+                await api.healthCheck();
                 setSystemStatus('ONLINE');
-                setMessages(prev => [
-                    ...prev,
-                    { role: 'system', content: `✓ Backend connection verified: ${health.message}\n\nReady for diagnostic queries.` }
-                ]);
             } catch (error) {
                 setSystemStatus('OFFLINE');
                 setMessages(prev => [
@@ -47,11 +107,10 @@ export default function Home() {
                 ]);
             }
         };
-
         checkHealth();
     }, []);
 
-    /** Structured diagnostic from VehicleForm — bypasses text parsing entirely. */
+    /** Structured diagnostic from VehicleForm */
     const handleDiagnose = async (vehicle: VehicleInfo, symptoms: string, dtcCodes: string[]) => {
         const dtcLabel = dtcCodes.length ? ` [${dtcCodes.join(', ')}]` : '';
         const userQuery = `${vehicle.year} ${vehicle.make} ${vehicle.model} — ${symptoms}${dtcLabel}`;
@@ -73,22 +132,26 @@ export default function Home() {
     };
 
     const handleTsbMakeChange = (newMake: string) => {
-        setTsbMake(newMake); setTsbModel(''); setTsbYear('');
+        setTsbMake(newMake);
+        setTsbModel('');
+        setTsbYear('');
     };
+
     const handleTsbModelChange = (newModel: string) => {
-        setTsbModel(newModel); setTsbYear('');
+        setTsbModel(newModel);
+        setTsbYear('');
     };
 
     // Reset pagination when TSB vehicle filters change
     useEffect(() => {
-        setSearchPage(1); setSearchTotalPages(1);
+        setSearchPage(1);
+        setSearchTotalPages(1);
     }, [tsbMake, tsbModel, tsbYear]);
 
-    /** Free-text search for TSB / complaint queries (non-diagnose tabs). */
+    /** Free-text search for TSB / complaint queries */
     const handleSearch = async (page: number = 1) => {
         const queryText = page === 1 ? inputText.trim() : lastSearchQuery;
         const isOnTsbTab = activeTab === 'tsbsearch';
-        // Allow empty query on TSB tab when a vehicle make is selected
         if (!queryText && !(isOnTsbTab && tsbMake)) return;
 
         if (page === 1) {
@@ -104,7 +167,6 @@ export default function Home() {
             const isTsb = queryText.toLowerCase().includes('tsb') || queryText.toLowerCase().includes('bulletin');
 
             if (isTsb || isOnTsbTab) {
-                // Vehicle filter args only apply on TSB Search tab
                 const make = isOnTsbTab ? (tsbMake || undefined) : undefined;
                 const model = isOnTsbTab ? (tsbModel || undefined) : undefined;
                 const yr = isOnTsbTab && tsbYear ? parseInt(tsbYear, 10) : undefined;
@@ -132,237 +194,385 @@ export default function Home() {
         }
     };
 
-    return (
-        <main className="flex h-screen w-full flex-col font-sans text-cyber-white p-2 overflow-hidden">
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && !isProcessing) {
+            handleSearch();
+        }
+    };
 
-            {/* HUD HEADER */}
-            <header className="flex h-16 w-full items-center justify-between border-b border-cyber-gray/30 bg-cyber-dark/50 px-6 backdrop-blur-md shrink-0">
-                <div className="flex items-center gap-4">
-                    <Cpu className="h-8 w-8 text-cyber-blue animate-pulse" />
-                    <h1 className="text-3xl font-display font-bold tracking-widest text-cyber-blue glitch-text" data-text="AUTODIAGNOSYS_V3">
-                        AUTODIAGNOSYS<span className="text-xs align-top opacity-50">_V3</span>
-                    </h1>
-                </div>
-                <div className="flex items-center gap-6 font-mono text-sm">
-                    <div className="flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full animate-pulse ${
-                            systemStatus === 'ONLINE' ? 'bg-cyber-green' :
-                            systemStatus === 'OFFLINE' ? 'bg-cyber-pink' :
-                            'bg-cyber-yellow'
-                        }`}></span>
-                        <span className={
-                            systemStatus === 'ONLINE' ? 'text-cyber-green' :
-                            systemStatus === 'OFFLINE' ? 'text-cyber-pink' :
-                            'text-cyber-yellow'
-                        }>SYSTEM {systemStatus}</span>
-                    </div>
-                    <div className="text-cyber-gray">PING: 24ms</div>
-                    <div className="text-cyber-blue border border-cyber-blue/30 px-2 py-0.5 rounded">NET: SECURE</div>
+    return (
+        <div className="app-shell">
+
+            {/* ── Carbon-style Header ─────────────────────────────────────── */}
+            <header
+                className="cds--header"
+                role="banner"
+                aria-label="Automotive Diagnostic System"
+            >
+                <a className="cds--header__name" href="/" aria-label="Automotive Diagnostic System — Home">
+                    <span className="cds--header__name--prefix">ADS&nbsp;</span>
+                    Automotive Diagnostic System
+                </a>
+
+                {/* System status indicator */}
+                <div
+                    style={{
+                        marginLeft: 'auto',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        paddingRight: '1.5rem',
+                        fontSize: '0.875rem',
+                        color: '#c6c6c6',
+                    }}
+                >
+                    <span
+                        className={`status-dot ${
+                            systemStatus === 'ONLINE' ? 'online' :
+                            systemStatus === 'OFFLINE' ? 'offline' :
+                            'checking'
+                        }`}
+                        aria-hidden="true"
+                    />
+                    <span>
+                        System{' '}
+                        {systemStatus === 'ONLINE' ? 'Online' :
+                         systemStatus === 'OFFLINE' ? 'Offline' :
+                         'Checking...'}
+                    </span>
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden mt-2 gap-2 relative z-10">
+            {/* ── Body: side nav + content ─────────────────────────────────── */}
+            <div className="app-body">
 
-                {/* SIDEBAR NAVIGATION */}
-                <aside className="w-16 md:w-64 flex flex-col border-r border-cyber-gray/30 bg-cyber-dark/30 clip-corner-bl backdrop-blur-sm">
-                    <nav className="flex flex-col gap-2 p-2">
-                        {['Diagnose', 'Database', 'TSB Search', 'Settings'].map((item, idx) => {
-                            const tabKey = item.toLowerCase().replace(' ', '');
-                            const isActive = activeTab === tabKey;
-                            return (
+                {/* ── Side Navigation ───────────────────────────────────────── */}
+                <nav className="app-sidenav" aria-label="Main navigation">
+                    <ul style={{ listStyle: 'none', margin: 0, padding: '1rem 0' }}>
+                        {NAV_ITEMS.map((item) => (
+                            <li key={item.key}>
                                 <button
-                                    key={item}
-                                    onClick={() => setActiveTab(tabKey)}
-                                    className={`
-                      group relative flex items-center justify-start gap-3 p-3 text-left transition-all
-                      border border-transparent hover:border-cyber-blue/50 hover:bg-cyber-blue/10
-                      ${isActive ? 'bg-cyber-blue/10 border-l-2 border-l-cyber-blue text-cyber-blue' : 'text-cyber-gray'}
-                    `}
+                                    type="button"
+                                    className={`nav-item${activeTab === item.key ? ' active' : ''}`}
+                                    onClick={() => setActiveTab(item.key)}
+                                    aria-current={activeTab === item.key ? 'page' : undefined}
                                 >
-                                    {idx === 0 && <Activity className="h-5 w-5" />}
-                                    {idx === 1 && <Terminal className="h-5 w-5" />}
-                                    {idx === 2 && <Search className="h-5 w-5" />}
-                                    {idx === 3 && <Zap className="h-5 w-5" />}
-
-                                    <span className="hidden md:block font-bold tracking-wider font-display uppercase">{item}</span>
-
-                                    {/* Hover Glitch Decorative */}
-                                    <div className="absolute right-0 top-0 h-full w-1 bg-cyber-blue opacity-0 transition-opacity group-hover:opacity-100"></div>
+                                    {item.icon}
+                                    <span>{item.label}</span>
                                 </button>
-                            )
-                        })}
-                    </nav>
+                            </li>
+                        ))}
+                    </ul>
 
-                    <div className="mt-auto p-4 border-t border-cyber-gray/20">
-                        <div className="bg-cyber-pink/10 border border-cyber-pink/50 p-2 text-xs font-mono text-cyber-pink animate-pulse-slow flex items-center gap-2">
-                            <ShieldAlert className="h-4 w-4" />
-                            SAFETY PROTOCOLS ACTIVE
-                        </div>
+                    {/* Safety protocol notice at bottom of nav */}
+                    <div
+                        style={{
+                            marginTop: 'auto',
+                            padding: '1rem',
+                            borderTop: '1px solid #393939',
+                            fontSize: '0.75rem',
+                            color: '#8d8d8d',
+                        }}
+                    >
+                        Safety protocols active. CRITICAL systems require confidence &ge; 0.9.
                     </div>
-                </aside>
+                </nav>
 
-                {/* MAIN STAGE */}
-                <section className="flex-1 flex flex-col gap-4 relative overflow-hidden">
+                {/* ── Main Content ──────────────────────────────────────────── */}
+                <main className="app-content" id="main-content">
 
-                    {/* CONTENT AREA */}
-                    <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-6">
-
-                        {/* OFFLINE BANNER — shown when backend is unreachable */}
-                        {systemStatus === 'OFFLINE' && (
-                            <div className="border border-cyber-pink/70 bg-cyber-pink/10 p-4 font-mono text-sm shadow-lg">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <ShieldAlert className="h-5 w-5 text-cyber-pink shrink-0" />
-                                    <span className="text-cyber-pink font-bold tracking-widest uppercase">Diagnostic Server Unreachable</span>
-                                </div>
-                                <p className="text-cyber-gray mb-3">
-                                    Please check your Tailscale connection and ensure the Home Server is running.
-                                </p>
-                                <div className="border-t border-cyber-pink/30 pt-3 space-y-1 text-xs text-cyber-gray">
-                                    <p className="text-cyber-yellow font-bold mb-1 tracking-wider">TROUBLESHOOTING:</p>
-                                    <p>›&nbsp; Verify Tailscale is connected and active</p>
-                                    <p>›&nbsp; Confirm Home Server is running: <code className="text-cyber-white bg-black/50 px-1">curl http://localhost:8000/</code></p>
-                                    <p>›&nbsp; Check server logs: <code className="text-cyber-white bg-black/50 px-1">tail -f /tmp/backend.log</code></p>
-                                </div>
+                    {/* OFFLINE BANNER */}
+                    {systemStatus === 'OFFLINE' && (
+                        <div className="offline-banner" role="alert">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                <IconWarning />
+                                <strong>Diagnostic Server Unreachable</strong>
                             </div>
-                        )}
-
-                        {/* WELCOME CARD */}
-                        <ShardCard corner="tr" className="mb-6 group">
-                            <div className="absolute top-0 right-0 p-2 text-cyber-gray font-mono text-xs">ID: 9942-ALPHA</div>
-                            <h2 className="text-2xl font-display text-cyber-white mb-2">NEURAL LINK ESTABLISHED</h2>
-                            <p className="text-cyber-gray font-mono max-w-2xl mb-6">
-                                {activeTab === 'diagnose'
-                                    ? 'Select year, make, and model below, then describe symptoms to begin differential diagnosis.'
-                                    : 'Ready for input. Describe symptoms or search TSBs using the command input below.'}
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: '#525252' }}>
+                                The backend server could not be reached. Check your network connection and server status below.
                             </p>
+                            <ul style={{ fontSize: '0.8125rem', color: '#525252', borderTop: '1px solid #ffb3b8', paddingTop: '0.75rem', paddingLeft: '1.25rem', margin: 0 }}>
+                                <li>Verify Tailscale is connected and active</li>
+                                <li>
+                                    Confirm Home Server is running:{' '}
+                                    <code style={{ fontFamily: 'monospace', backgroundColor: '#f4f4f4', padding: '0 4px' }}>
+                                        curl http://localhost:8000/
+                                    </code>
+                                </li>
+                                <li>
+                                    Check server logs:{' '}
+                                    <code style={{ fontFamily: 'monospace', backgroundColor: '#f4f4f4', padding: '0 4px' }}>
+                                        tail -f /tmp/backend.log
+                                    </code>
+                                </li>
+                            </ul>
+                        </div>
+                    )}
 
-                            <div className="flex gap-4">
-                                <CyberButton variant="primary" onClick={() => setActiveTab('diagnose')}>INITIATE SCAN</CyberButton>
-                                <CyberButton variant="secondary" onClick={() => {
-                                    setActiveTab('tsbsearch');
-                                    setInputText('TSB ');
-                                }}>SEARCH TSBs</CyberButton>
+                    {/* ── DIAGNOSE TAB ─────────────────────────────────────── */}
+                    {activeTab === 'diagnose' && (
+                        <div>
+                            {/* Page heading */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h1 className="cds--productive-heading-04" style={{ marginBottom: '0.5rem' }}>
+                                    Vehicle Diagnostic
+                                </h1>
+                                <p className="cds--body-short-01" style={{ color: 'var(--cds-text-secondary)' }}>
+                                    Select a vehicle and describe symptoms to begin a differential diagnosis.
+                                </p>
                             </div>
-                        </ShardCard>
 
-                        {/* CHAT INTERFACE */}
-                        <div className="flex flex-col gap-6 pb-20">
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className={`max-w-3xl ${msg.role === 'user' ? 'self-end' : 'self-start'}`}>
+                            {/* VehicleForm — captures structured input */}
+                            <div
+                                style={{
+                                    background: 'var(--cds-layer-01)',
+                                    border: '1px solid var(--cds-border-subtle-01)',
+                                    padding: '1.5rem',
+                                    marginBottom: '2rem',
+                                }}
+                            >
+                                <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
+                            </div>
 
-                                    {msg.role === 'user' ? (
-                                        <ShardCard corner="bl" className="bg-cyber-blue/5 border-cyber-blue/30 text-right">
-                                            <p className="font-mono text-cyber-blue text-xs mb-1">USER_COMMAND</p>
-                                            <p className="font-sans text-lg">{msg.content}</p>
-                                        </ShardCard>
-                                    ) : (
-                                        <div className="relative pl-4">
-                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyber-green/50"></div>
-                                            <div className="bg-cyber-dark border border-cyber-gray/20 p-4 shadow-lg">
-                                                <p className="font-mono text-cyber-green text-xs mb-2">SYSTEM_RESPONSE // AGENT: CLAUDE</p>
+                            {/* Diagnostic results */}
+                            <div className="message-area">
+                                {messages.map((msg, idx) => (
+                                    <div key={idx}>
+                                        {msg.role === 'user' ? (
+                                            <div className="query-bubble">
+                                                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.25rem' }}>
+                                                    Query
+                                                </div>
+                                                {msg.content}
+                                            </div>
+                                        ) : (
+                                            <div className="response-card">
+                                                <div style={{
+                                                    fontSize: '0.6875rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.08em',
+                                                    color: '#0f62fe',
+                                                    marginBottom: '0.5rem',
+                                                    fontFamily: 'inherit',
+                                                }}>
+                                                    Diagnostic Report
+                                                </div>
                                                 <TypewriterText text={msg.content} speed={15} />
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                        )}
+                                    </div>
+                                ))}
 
-                            {isProcessing && <LoadingState />}
+                                {isProcessing && <LoadingState />}
+                            </div>
                         </div>
+                    )}
 
-                    </div>
+                    {/* ── DATABASE / TSB SEARCH TABS ────────────────────────── */}
+                    {(activeTab === 'database' || activeTab === 'tsbsearch') && (
+                        <div>
+                            {/* Page heading */}
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h1 className="cds--productive-heading-04" style={{ marginBottom: '0.5rem' }}>
+                                    {activeTab === 'tsbsearch' ? 'TSB Search' : 'Complaints Database'}
+                                </h1>
+                                <p className="cds--body-short-01" style={{ color: 'var(--cds-text-secondary)' }}>
+                                    {activeTab === 'tsbsearch'
+                                        ? 'Search Technical Service Bulletins by keyword and vehicle.'
+                                        : 'Search NHTSA complaints database for known failure patterns.'}
+                                </p>
+                            </div>
 
-                    {/* INPUT AREA — VehicleForm for Diagnose tab, CyberInput for all others */}
-                    <div className="p-4 bg-cyber-dark/80 backdrop-blur border-t border-cyber-gray/30 shrink-0">
-                        {activeTab === 'diagnose' ? (
-                            <VehicleForm onDiagnose={handleDiagnose} isProcessing={isProcessing} />
-                        ) : (
-                            <div className="flex flex-col gap-2">
-                                {/* TSB vehicle filter row — only on TSB Search tab */}
-                                {activeTab === 'tsbsearch' && (
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {/* MAKE */}
-                                        <div className="relative">
-                                            <select
-                                                aria-label="TSB MAKE"
-                                                value={tsbMake}
-                                                onChange={e => handleTsbMakeChange(e.target.value)}
-                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue"
-                                            >
-                                                <option value="">-- MAKE --</option>
-                                                {MAKES.map(m => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+                            {/* TSB vehicle filter row */}
+                            {activeTab === 'tsbsearch' && (
+                                <div
+                                    style={{
+                                        background: 'var(--cds-layer-01)',
+                                        border: '1px solid var(--cds-border-subtle-01)',
+                                        padding: '1.5rem',
+                                        marginBottom: '1rem',
+                                    }}
+                                >
+                                    <p className="cds--label" style={{ marginBottom: '0.75rem' }}>
+                                        Filter by vehicle (optional)
+                                    </p>
+                                    <div className="form-row">
+                                        {/* TSB MAKE */}
+                                        <div className="cds--form-item">
+                                            <label htmlFor="tsb-make" className="cds--label">Make</label>
+                                            <div className="cds--select">
+                                                <select
+                                                    id="tsb-make"
+                                                    aria-label="TSB MAKE"
+                                                    value={tsbMake}
+                                                    onChange={(e) => handleTsbMakeChange(e.target.value)}
+                                                    className="cds--select-input"
+                                                >
+                                                    <option value="">All makes</option>
+                                                    {MAKES.map((m) => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                                <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="cds--select__arrow"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" /></svg>
+                                            </div>
                                         </div>
-                                        {/* MODEL */}
-                                        <div className="relative">
-                                            <select
-                                                aria-label="TSB MODEL"
-                                                value={tsbModel}
-                                                disabled={!tsbMake}
-                                                onChange={e => handleTsbModelChange(e.target.value)}
-                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue disabled:opacity-40 disabled:cursor-not-allowed"
-                                            >
-                                                <option value="">{tsbMake ? '-- MODEL --' : '-- SELECT MAKE --'}</option>
-                                                {getModelsForMake(tsbMake).map(m => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+
+                                        {/* TSB MODEL */}
+                                        <div className="cds--form-item">
+                                            <label htmlFor="tsb-model" className="cds--label">Model</label>
+                                            <div className={`cds--select${!tsbMake ? ' cds--select--disabled' : ''}`}>
+                                                <select
+                                                    id="tsb-model"
+                                                    aria-label="TSB MODEL"
+                                                    value={tsbModel}
+                                                    disabled={!tsbMake}
+                                                    onChange={(e) => handleTsbModelChange(e.target.value)}
+                                                    className="cds--select-input"
+                                                >
+                                                    <option value="">{tsbMake ? 'All models' : 'Select make first'}</option>
+                                                    {tsbMake && getModelsForMake(tsbMake).map((m: string) => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                                <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="cds--select__arrow"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" /></svg>
+                                            </div>
                                         </div>
-                                        {/* YEAR */}
-                                        <div className="relative">
-                                            <select
-                                                aria-label="TSB YEAR"
-                                                value={tsbYear}
-                                                disabled={!tsbModel}
-                                                onChange={e => setTsbYear(e.target.value)}
-                                                className="cyber-select w-full appearance-none bg-black/80 border border-cyber-gray/30 text-cyber-white font-mono text-xs px-2 py-2 pr-7 focus:outline-none focus:border-cyber-blue disabled:opacity-40 disabled:cursor-not-allowed"
-                                            >
-                                                <option value="">{tsbModel ? '-- YEAR --' : '-- SELECT MODEL --'}</option>
-                                                {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
-                                            </select>
-                                            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-cyber-blue pointer-events-none" />
+
+                                        {/* TSB YEAR */}
+                                        <div className="cds--form-item">
+                                            <label htmlFor="tsb-year" className="cds--label">Year</label>
+                                            <div className={`cds--select${!tsbModel ? ' cds--select--disabled' : ''}`}>
+                                                <select
+                                                    id="tsb-year"
+                                                    aria-label="TSB YEAR"
+                                                    value={tsbYear}
+                                                    disabled={!tsbModel}
+                                                    onChange={(e) => setTsbYear(e.target.value)}
+                                                    className="cds--select-input"
+                                                >
+                                                    <option value="">{tsbModel ? 'All years' : 'Select model first'}</option>
+                                                    {YEARS.map((y) => (
+                                                        <option key={y} value={String(y)}>{y}</option>
+                                                    ))}
+                                                </select>
+                                                <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="cds--select__arrow"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" /></svg>
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-                                <CyberInput
-                                    value={inputText}
-                                    onChange={(e) => setInputText(e.target.value)}
-                                    onSubmit={handleSearch}
-                                    isProcessing={isProcessing}
-                                    placeholder={
-                                        activeTab === 'tsbsearch'
-                                            ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
-                                            : 'ENTER COMMAND OR SYMPTOMS...'
-                                    }
-                                />
+                                </div>
+                            )}
+
+                            {/* Search input row */}
+                            <div
+                                style={{
+                                    background: 'var(--cds-layer-01)',
+                                    border: '1px solid var(--cds-border-subtle-01)',
+                                    padding: '1.5rem',
+                                    marginBottom: '1.5rem',
+                                }}
+                            >
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                    <div className="cds--form-item" style={{ flex: 1 }}>
+                                        <label htmlFor="search-input" className="cds--label">
+                                            {activeTab === 'tsbsearch' ? 'Search TSBs' : 'Search complaints'}
+                                        </label>
+                                        <div className="cds--text-input-wrapper">
+                                            <input
+                                                id="search-input"
+                                                type="text"
+                                                value={inputText}
+                                                onChange={(e) => setInputText(e.target.value)}
+                                                onKeyDown={handleKeyDown}
+                                                placeholder={
+                                                    activeTab === 'tsbsearch'
+                                                        ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
+                                                        : 'ENTER COMMAND OR SYMPTOMS...'
+                                                }
+                                                className="cds--text-input"
+                                                disabled={isProcessing}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSearch()}
+                                        disabled={isProcessing}
+                                        className="cds--btn cds--btn--primary"
+                                        style={{ minWidth: '8rem' }}
+                                    >
+                                        {isProcessing ? (
+                                            <>
+                                                <span className="loading-spinner" style={{ marginRight: '0.5rem' }} />
+                                                Searching...
+                                            </>
+                                        ) : (
+                                            'Search'
+                                        )}
+                                    </button>
+                                </div>
+
+                                {/* Pagination controls */}
                                 {searchTotalPages > 1 && (
-                                    <div className="flex items-center justify-between font-mono text-xs text-cyber-gray border border-cyber-gray/20 px-3 py-1.5">
+                                    <div className="pagination-row">
                                         <button
+                                            type="button"
                                             onClick={() => handleSearch(searchPage - 1)}
                                             disabled={searchPage <= 1 || isProcessing}
-                                            className="text-cyber-blue hover:text-cyber-white disabled:opacity-30 disabled:cursor-not-allowed tracking-widest uppercase"
+                                            className="cds--btn cds--btn--ghost cds--btn--sm"
                                         >
-                                            ← PREV
+                                            PREV
                                         </button>
-                                        <span className="text-cyber-gray">
-                                            PAGE <span className="text-cyber-white">{searchPage}</span> / {searchTotalPages}
+                                        <span>
+                                            PAGE <strong>{searchPage}</strong> / {searchTotalPages}
                                         </span>
                                         <button
+                                            type="button"
                                             onClick={() => handleSearch(searchPage + 1)}
                                             disabled={searchPage >= searchTotalPages || isProcessing}
-                                            className="text-cyber-blue hover:text-cyber-white disabled:opacity-30 disabled:cursor-not-allowed tracking-widest uppercase"
+                                            className="cds--btn cds--btn--ghost cds--btn--sm"
                                         >
-                                            NEXT →
+                                            NEXT
                                         </button>
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
 
-                </section>
+                            {/* Results area */}
+                            <div className="message-area">
+                                {messages.map((msg, idx) => (
+                                    <div key={idx}>
+                                        {msg.role === 'user' ? (
+                                            <div className="query-bubble">
+                                                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.25rem' }}>
+                                                    Query
+                                                </div>
+                                                {msg.content}
+                                            </div>
+                                        ) : (
+                                            <div className="response-card">
+                                                <div style={{
+                                                    fontSize: '0.6875rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.08em',
+                                                    color: '#0f62fe',
+                                                    marginBottom: '0.5rem',
+                                                    fontFamily: 'inherit',
+                                                }}>
+                                                    Search Results
+                                                </div>
+                                                <TypewriterText text={msg.content} speed={15} />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
 
+                                {isProcessing && <LoadingState />}
+                            </div>
+                        </div>
+                    )}
+
+                </main>
             </div>
-        </main>
+        </div>
     );
 }

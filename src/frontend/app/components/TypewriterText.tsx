@@ -39,10 +39,21 @@ export const TypewriterText = ({ text, speed = 15, onComplete, className = "" }:
     }, [text, speed]); // Removed onComplete from dependencies
 
     return (
-        <div className={`font-mono ${className}`}>
+        <div style={{ fontFamily: 'IBM Plex Mono, monospace' }} className={className}>
             {displayedText}
             {!isComplete && (
-                <span className="inline-block w-2 h-4 bg-cyber-blue ml-1 animate-pulse align-middle" />
+                <span
+                    className="animate-pulse"
+                    style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '16px',
+                        backgroundColor: '#0f62fe',
+                        marginLeft: '2px',
+                        verticalAlign: 'middle',
+                    }}
+                    aria-hidden="true"
+                />
             )}
         </div>
     );
