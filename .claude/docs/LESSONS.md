@@ -282,4 +282,24 @@ await page.locator('[data-testid="close-modal"]').click(); // ✅ always works
 
 ---
 
+---
+
+## Playwright E2E — FORD F-150 2020 Has 0 Complaints in FTS Index
+
+**Symptom**: Tests for `[data-testid="component-bar"]` time out even though the vehicle selects successfully and the dashboard loads.
+
+**Root Cause**: `complaints_fts` only contains "F-150 REGULAR CAB", "F-150 EXTENDED CAB", etc. — NOT plain "F-150". The exact model value "F-150" returns 0 complaints for 2020 and the `top_components` array is empty, so the component bars never render.
+
+**Fix**: Use **FORD ESCAPE 2020** (1,347 complaints) for tests that require the top-components bar:
+```typescript
+// Use FORD ESCAPE 2020 — FORD F-150 2020 has 0 complaints in complaints_fts
+async function selectFordEscape2020(page) { ... }
+await page.selectOption('#manual-model', 'ESCAPE');
+await page.selectOption('#manual-year', '2020');
+```
+
+**Rule**: Before writing a complaint-based Playwright test, verify the test vehicle has data: `SELECT COUNT(*) FROM complaints_fts WHERE make=? AND model=? AND CAST(year AS INTEGER)=?`
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*
