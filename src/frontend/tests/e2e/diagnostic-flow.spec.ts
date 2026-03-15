@@ -165,3 +165,96 @@ test.describe('VIN entry UI', () => {
         expect(value.length).toBeLessThanOrEqual(17);
     });
 });
+
+// Helper — select FORD ESCAPE 2020 (1,347 complaints — guaranteed top_components)
+async function selectFordEscape2020(page: import('@playwright/test').Page) {
+    await page.selectOption('#manual-make', 'FORD');
+    await page.waitForSelector('#manual-model option[value="ESCAPE"]', { state: 'attached', timeout: 5000 });
+    await page.selectOption('#manual-model', 'ESCAPE');
+    await page.waitForSelector('#manual-year option[value="2020"]', { state: 'attached', timeout: 5000 });
+    await page.selectOption('#manual-year', '2020');
+    await page.locator('button:has-text("Select Vehicle")').click();
+    await expect(page.locator('button:has-text("Change")')).toBeVisible({ timeout: 8000 });
+}
+
+// ---------------------------------------------------------------------------
+// Suite 5: Component drill-down
+// ---------------------------------------------------------------------------
+test.describe('Component drill-down', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await selectFordEscape2020(page);
+        // Wait for component bars to appear (dashboard fully loaded with complaint data)
+        await expect(page.locator('[data-testid="component-bar"]').first()).toBeVisible({ timeout: 15000 });
+    });
+
+    test('clicking first component bar opens the drill-down panel', async ({ page }) => {
+        await page.locator('[data-testid="component-bar"]').first().click();
+        // Panel header is unique: "complaints — 2020 FORD ESCAPE"
+        await expect(page.locator('text=complaints — 2020 FORD ESCAPE')).toBeVisible({ timeout: 10000 });
+    });
+
+    test('drill-down panel header contains vehicle info and complaints label', async ({ page }) => {
+        await page.locator('[data-testid="component-bar"]').first().click();
+        await expect(page.locator('text=complaints — 2020 FORD ESCAPE')).toBeVisible({ timeout: 10000 });
+        // Close button is present when panel is open
+        await expect(page.locator('[data-testid="close-drilldown-btn"]')).toBeVisible();
+    });
+
+    test('close button hides the drill-down panel', async ({ page }) => {
+        await page.locator('[data-testid="component-bar"]').first().click();
+        await expect(page.locator('[data-testid="close-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await page.locator('[data-testid="close-drilldown-btn"]').click();
+        await expect(page.locator('[data-testid="close-drilldown-btn"]')).not.toBeVisible();
+    });
+
+    test('clicking same component bar again toggles panel closed', async ({ page }) => {
+        const firstBar = page.locator('[data-testid="component-bar"]').first();
+        await firstBar.click();
+        await expect(page.locator('[data-testid="close-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await firstBar.click();
+        await expect(page.locator('[data-testid="close-drilldown-btn"]')).not.toBeVisible();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 6: TSB drill-down
+// ---------------------------------------------------------------------------
+test.describe('TSB drill-down', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await selectFordF150(page);
+        // Wait for TSB tile with "click to view" hint
+        await expect(page.locator('text=click to view')).toBeVisible({ timeout: 15000 });
+    });
+
+    test('TSB tile shows "click to view" hint text', async ({ page }) => {
+        await expect(page.locator('text=click to view')).toBeVisible();
+    });
+
+    test('clicking TSB tile opens TsbDrillDown panel', async ({ page }) => {
+        await page.locator('text=click to view').click();
+        await expect(page.locator('text=Technical Service Bulletins')).toBeVisible({ timeout: 10000 });
+    });
+
+    test('close button hides the TSB panel', async ({ page }) => {
+        await page.locator('text=click to view').click();
+        await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await page.locator('[data-testid="close-tsb-drilldown-btn"]').click();
+        await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).not.toBeVisible();
+    });
+
+    test('clicking TSB tile again toggles panel closed', async ({ page }) => {
+        const tsbHint = page.locator('text=click to view');
+        await tsbHint.click();
+        await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await tsbHint.click();
+        await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).not.toBeVisible();
+    });
+});

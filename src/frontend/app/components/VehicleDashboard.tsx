@@ -214,6 +214,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                             return (
                                 <div
                                     key={item.component}
+                                    data-testid="component-bar"
                                     onClick={() => setSelectedComponent(isSelected ? null : item.component)}
                                     style={{
                                         display: 'flex',
