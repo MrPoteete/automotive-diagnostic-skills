@@ -468,7 +468,7 @@ export default function Home() {
                                                 <textarea
                                                     id="symptoms-input"
                                                     className="cds--text-area"
-                                                    rows={4}
+                                                    rows={6}
                                                     value={symptoms}
                                                     onChange={(e) => setSymptoms(e.target.value)}
                                                     onKeyDown={handleSymptomsKeyDown}
@@ -658,10 +658,10 @@ export default function Home() {
                                         <label htmlFor="search-input" className="cds--label">
                                             {activeTab === 'tsbsearch' ? 'Search TSBs' : 'Search complaints'}
                                         </label>
-                                        <div className="cds--text-input-wrapper">
-                                            <input
+                                        <div className="cds--text-area-wrapper">
+                                            <textarea
                                                 id="search-input"
-                                                type="text"
+                                                rows={3}
                                                 value={inputText}
                                                 onChange={(e) => setInputText(e.target.value)}
                                                 onKeyDown={handleKeyDown}
@@ -670,7 +670,7 @@ export default function Home() {
                                                         ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
                                                         : 'ENTER COMMAND OR SYMPTOMS...'
                                                 }
-                                                className="cds--text-input"
+                                                className="cds--text-area"
                                                 disabled={isProcessing}
                                             />
                                         </div>

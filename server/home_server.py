@@ -525,7 +525,6 @@ async def generate_vehicle_report(
     """Run report_builder.py as a subprocess and return generated markdown."""
     import asyncio  # noqa: PLC0415
     import time     # noqa: PLC0415
-    import tempfile  # noqa: PLC0415
 
     make = request.make.upper().replace(" ", "_")
     model = request.model.upper().replace(" ", "_")
@@ -533,7 +532,9 @@ async def generate_vehicle_report(
     if request.year_start > request.year_end:
         raise HTTPException(status_code=400, detail="year_start cannot be greater than year_end")
 
-    output_path = pathlib.Path(tempfile.gettempdir()) / f"report_{make}_{model}_{request.year_start}_{request.year_end}.md"
+    reports_dir = pathlib.Path(__file__).resolve().parent.parent / "reports"
+    reports_dir.mkdir(exist_ok=True)
+    output_path = reports_dir / f"report_{make}_{model}_{request.year_start}_{request.year_end}.md"
     project_root = pathlib.Path(__file__).resolve().parent.parent
     python_exe = project_root / ".venv" / "bin" / "python3"
     script = project_root / "scripts" / "report_builder.py"
