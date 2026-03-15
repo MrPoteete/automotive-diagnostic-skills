@@ -449,6 +449,53 @@ export async function fetchDashboard(make: string, model: string, year: number):
     }
 }
 
+// --- Report Generation ---
+
+export interface ReportRequest {
+    make: string;
+    model: string;
+    year_start: number;
+    year_end: number;
+    no_llm?: boolean;
+    no_api?: boolean;
+}
+
+export interface ReportResponse {
+    content: string;
+    filename: string;
+    make: string;
+    model: string;
+    year_start: number;
+    year_end: number;
+}
+
+const REPORT_TIMEOUT_MS = 185_000;
+
+export async function generateReport(req: ReportRequest): Promise<ReportResponse> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REPORT_TIMEOUT_MS);
+    try {
+        const res = await fetch('/api/vehicle/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req),
+            signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+            throw new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`);
+        }
+        return (await res.json()) as ReportResponse;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name === 'AbortError') {
+            throw new Error('Report generation timed out. Try Fast mode (skip AI polish).');
+        }
+        throw err;
+    }
+}
+
 // --- VIN Decode ---
 
 export interface VinDecodeResult {

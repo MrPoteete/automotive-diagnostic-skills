@@ -9,6 +9,7 @@ import { TypewriterText } from './components/TypewriterText';
 import { LoadingState } from './components/LoadingState';
 import VehicleIdentification, { type VehicleIdentity } from './components/VehicleIdentification';
 import VehicleDashboard from './components/VehicleDashboard';
+import ReportModal from './components/ReportModal';
 import { parseDtcInput } from './components/VehicleForm';
 import { api, type VehicleInfo } from '../lib/api';
 
@@ -97,6 +98,7 @@ export default function Home() {
     const [selectedVehicle, setSelectedVehicle] = useState<VehicleIdentity | null>(null);
     const [symptoms, setSymptoms] = useState('');
     const [dtcInput, setDtcInput] = useState('');
+    const [reportModalOpen, setReportModalOpen] = useState(false);
 
     // Check backend health on mount
     useEffect(() => {
@@ -417,10 +419,7 @@ export default function Home() {
                                         make={selectedVehicle.make}
                                         model={selectedVehicle.model}
                                         year={selectedVehicle.year}
-                                        onReportClick={() => {
-                                            // TODO: wire to report builder
-                                            alert(`Report for ${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model} coming soon.`);
-                                        }}
+                                        onReportClick={() => setReportModalOpen(true)}
                                     />
                                 </div>
                             )}
@@ -731,6 +730,17 @@ export default function Home() {
 
                 </main>
             </div>
+
+            {/* Report Modal — rendered inside root div so it's always in the tree */}
+            {selectedVehicle && (
+                <ReportModal
+                    make={selectedVehicle.make}
+                    model={selectedVehicle.model}
+                    year={selectedVehicle.year}
+                    isOpen={reportModalOpen}
+                    onClose={() => setReportModalOpen(false)}
+                />
+            )}
         </div>
     );
 }

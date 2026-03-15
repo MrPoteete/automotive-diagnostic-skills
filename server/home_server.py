@@ -479,6 +479,92 @@ async def decode_vin(
     }
 
 
+class ReportRequest(BaseModel):
+    make: str
+    model: str
+    year_start: int = Field(..., ge=1900, le=2030)
+    year_end: int = Field(..., ge=1900, le=2030)
+    no_llm: bool = True
+    no_api: bool = False
+
+
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+# Runs report_builder.py as subprocess — no safety logic, read-only data access.
+@app.post("/vehicle/report")
+async def generate_vehicle_report(
+    request: ReportRequest,
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Run report_builder.py as a subprocess and return generated markdown."""
+    import asyncio  # noqa: PLC0415
+    import time     # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+
+    make = request.make.upper().replace(" ", "_")
+    model = request.model.upper().replace(" ", "_")
+
+    if request.year_start > request.year_end:
+        raise HTTPException(status_code=400, detail="year_start cannot be greater than year_end")
+
+    output_path = pathlib.Path(tempfile.gettempdir()) / f"report_{make}_{model}_{request.year_start}_{request.year_end}.md"
+    project_root = pathlib.Path(__file__).resolve().parent.parent
+    python_exe = project_root / ".venv" / "bin" / "python3"
+    script = project_root / "scripts" / "report_builder.py"
+
+    args = [
+        str(python_exe), str(script),
+        "--make", make,
+        "--model", model,
+        "--year-start", str(request.year_start),
+        "--year-end", str(request.year_end),
+        "--output", str(output_path),
+    ]
+    if request.no_llm:
+        args.append("--no-llm")
+    if request.no_api:
+        args.append("--no-api")
+
+    t0 = time.monotonic()
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180.0)
+
+        if proc.returncode != 0:
+            err_text = stderr.decode().strip()[-500:]
+            logger.error("Report failed for %s %s: %s", make, model, err_text)
+            raise HTTPException(status_code=500, detail=f"Report generation failed: {err_text}")
+
+        content = output_path.read_text(encoding="utf-8")
+        logger.info("Report done: %s %s %d-%d in %.1fs", make, model, request.year_start, request.year_end, time.monotonic() - t0)
+        return {
+            "content": content,
+            "filename": f"{make}_{model}_{request.year_start}_{request.year_end}.md",
+            "make": make,
+            "model": model,
+            "year_start": request.year_start,
+            "year_end": request.year_end,
+        }
+
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
+        raise HTTPException(status_code=504, detail="Report generation timed out (180s)")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Report error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if output_path.exists():
+            output_path.unlink(missing_ok=True)
+
+
 # Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
 # Read-only SQL queries against complaints_fts and nhtsa_tsbs — no safety logic.
 @app.get("/vehicle/dashboard")
