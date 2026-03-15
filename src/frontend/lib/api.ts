@@ -449,6 +449,54 @@ export async function fetchDashboard(make: string, model: string, year: number):
     }
 }
 
+// --- Component Drill-Down ---
+
+export interface ComplaintItem {
+    year: number;
+    component: string;
+    summary: string;
+}
+
+export interface ComponentComplaintsResponse {
+    make: string;
+    model: string;
+    year: number;
+    component: string;
+    results: ComplaintItem[];
+    total_count: number;
+    page: number;
+    total_pages: number;
+}
+
+export async function fetchComponentComplaints(
+    make: string, model: string, year: number, component: string, page: number = 1
+): Promise<ComponentComplaintsResponse | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const params = new URLSearchParams({
+            make,
+            model,
+            year: year.toString(),
+            component,
+            page: page.toString(),
+        });
+        const res = await fetch(
+            `/api/vehicle/complaints?${params.toString()}`,
+            { signal: controller.signal, cache: 'no-store' }
+        );
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as ComponentComplaintsResponse;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name !== 'AbortError') {
+            console.error('fetchComponentComplaints error:', err);
+        }
+        return null;
+    }
+}
+
 // --- Diagnosis History ---
 
 export interface HistoryEntry {

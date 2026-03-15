@@ -671,6 +671,68 @@ async def get_vehicle_dashboard(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
+@app.get("/vehicle/complaints")
+async def get_vehicle_complaints(
+    make: str,
+    model: str,
+    component: str,
+    year: int = Query(..., ge=1900, le=2030),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Return paginated complaint summaries for a specific vehicle + component."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        make_upper = make.upper()
+        model_upper = model.upper()
+        component_like = f"%{component}%"
+        offset = (page - 1) * limit
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) = ? AND component LIKE ?",
+            (make_upper, model_upper, year, component_like),
+        )
+        total_count: int = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT year, component, summary FROM complaints_fts"
+            " WHERE make = ? AND model = ? AND CAST(year AS INTEGER) = ? AND component LIKE ?"
+            " LIMIT ? OFFSET ?",
+            (make_upper, model_upper, year, component_like, limit, offset),
+        )
+        results = [dict(row) for row in cursor.fetchall()]
+
+        conn.close()
+
+        total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+
+        logger.info(
+            "ComponentComplaints: %s %s %d component=%s — %d results (page %d/%d)",
+            make_upper, model_upper, year, component, total_count, page, total_pages,
+        )
+
+        return {
+            "make": make_upper,
+            "model": model_upper,
+            "year": year,
+            "component": component,
+            "results": results,
+            "total_count": total_count,
+            "page": page,
+            "total_pages": total_pages,
+        }
+
+    except Exception as exc:
+        logger.error("ComponentComplaints error for %s %s %d: %s", make, model, year, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 class HistoryEntry(BaseModel):
     vin: str | None = None
     year: int = Field(..., ge=1900, le=2030)
