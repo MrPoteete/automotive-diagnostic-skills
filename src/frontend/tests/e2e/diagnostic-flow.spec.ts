@@ -7,12 +7,12 @@ import { test, expect } from '@playwright/test';
 async function selectFordF150(page: import('@playwright/test').Page) {
     await page.selectOption('#manual-make', 'FORD');
     // Wait for model options to populate
-    await page.waitForSelector('#manual-model option[value="F-150"]', { timeout: 5000 });
+    await page.waitForSelector('#manual-model option[value="F-150"]', { state: 'attached', timeout: 5000 });
     await page.selectOption('#manual-model', 'F-150');
     await page.selectOption('#manual-year', '2020');
     await page.locator('button:has-text("Select Vehicle")').click();
-    // Wait for summary bar
-    await expect(page.locator('text=FORD')).toBeVisible({ timeout: 8000 });
+    // "Change" button only appears in the summary bar after vehicle is selected
+    await expect(page.locator('button:has-text("Change")')).toBeVisible({ timeout: 8000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -124,8 +124,7 @@ test.describe('Report modal', () => {
         await page.locator('button:has-text("Generate Report")').click();
         await expect(page.locator('[data-testid="report-modal"]')).toBeVisible({ timeout: 5000 });
 
-        // Click the close button (aria-label or title "Close")
-        await page.locator('[data-testid="report-modal"] button[aria-label="Close"]').click();
+        await page.locator('[data-testid="close-modal"]').click();
         await expect(page.locator('[data-testid="report-modal"]')).not.toBeVisible();
     });
 });

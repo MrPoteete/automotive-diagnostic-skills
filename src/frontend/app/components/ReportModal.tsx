@@ -115,7 +115,7 @@ export default function ReportModal({ make, model, year, isOpen, onClose }: Repo
                             Generate Report — {year} {make} {model}
                         </span>
                     </div>
-                    <Button kind="ghost" hasIconOnly renderIcon={Close} iconDescription="Close" onClick={onClose} size="sm" />
+                    <Button data-testid="close-modal" kind="ghost" hasIconOnly renderIcon={Close} iconDescription="Close" onClick={onClose} size="sm" />
                 </div>
 
                 {/* Scrollable body */}
