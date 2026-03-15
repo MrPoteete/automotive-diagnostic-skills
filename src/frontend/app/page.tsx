@@ -653,8 +653,8 @@ export default function Home() {
                                     marginBottom: '1.5rem',
                                 }}
                             >
-                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                                    <div className="cds--form-item" style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div className="cds--form-item">
                                         <label htmlFor="search-input" className="cds--label">
                                             {activeTab === 'tsbsearch' ? 'Search TSBs' : 'Search complaints'}
                                         </label>
@@ -675,22 +675,24 @@ export default function Home() {
                                             />
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleSearch()}
-                                        disabled={isProcessing}
-                                        className="cds--btn cds--btn--primary"
-                                        style={{ minWidth: '8rem' }}
-                                    >
-                                        {isProcessing ? (
-                                            <>
-                                                <span className="loading-spinner" style={{ marginRight: '0.5rem' }} />
-                                                Searching...
-                                            </>
-                                        ) : (
-                                            'Search'
-                                        )}
-                                    </button>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSearch()}
+                                            disabled={isProcessing}
+                                            className="cds--btn cds--btn--primary"
+                                            style={{ minWidth: '8rem' }}
+                                        >
+                                            {isProcessing ? (
+                                                <>
+                                                    <span className="loading-spinner" style={{ marginRight: '0.5rem' }} />
+                                                    Searching...
+                                                </>
+                                            ) : (
+                                                'Search'
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Pagination controls */}
