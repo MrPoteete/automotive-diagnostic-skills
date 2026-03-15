@@ -302,4 +302,59 @@ await page.selectOption('#manual-year', '2020');
 
 ---
 
+---
+
+## NHTSA vPIC API — Field Names Use Spaces and Parentheses, Not camelCase
+
+**Symptom**: VIN decode returns `valid: true` but `year`, `engine`, `drive_type`, `body_class`, `fuel_type` are all `null`.
+
+**Root Cause**: NHTSA vPIC API returns variable names with spaces and punctuation (e.g. `"Model Year"`, `"Displacement (L)"`, `"Engine Number of Cylinders"`, `"Drive Type"`, `"Body Class"`, `"Fuel Type - Primary"`). Code was using camelCase keys (`"ModelYear"`, `"DisplacementL"`, etc.) that never matched.
+
+**Fix**: Use exact NHTSA variable names as dictionary keys:
+```python
+fields.get("Model Year")          # not "ModelYear"
+fields.get("Displacement (L)")    # not "DisplacementL"
+fields.get("Engine Number of Cylinders")  # not "EngineCylinders"
+fields.get("Drive Type")          # not "DriveType"
+fields.get("Body Class")          # not "BodyClass"
+fields.get("Fuel Type - Primary") # not "FuelTypePrimary"
+```
+
+**Rule**: Always inspect the raw NHTSA API response before writing field lookups — variable names are human-readable strings, not camelCase identifiers.
+
+---
+
+## NHTSA vPIC ErrorCode "1" is Non-Fatal (Check Digit Warning Only)
+
+**Symptom**: Valid VIN for a known vehicle (e.g. 2020 Chevy Silverado) returns `valid: false` with "NHTSA could not decode VIN (error 1)".
+
+**Root Cause**: Code blocked on any non-"0" error code. NHTSA error code `"1"` means "Check Digit (9th position) incorrect" — a warning only. The vehicle data (make, model, year, engine) is fully decoded. This is extremely common on trucks and older vehicles.
+
+**Fix**: Only treat truly fatal codes as decode failures:
+```python
+FATAL_ERROR_CODES = {"7", "8", "14"}  # undecodable VINs
+if error_code in FATAL_ERROR_CODES or (not fields.get("Make") and not fields.get("Model")):
+    return {"valid": False, ...}
+```
+
+**Rule**: Check if make+model are populated rather than relying solely on error code. Codes 7 (incomplete), 8 (invalid), 14 (unknown make) are the only fatal failures.
+
+---
+
+## Diagnostic Skill Protocol — Three-Layer Enforcement Required
+
+**Symptom**: Claude bypasses `skills/SKILL.md` for automotive diagnoses — skips routing header, categorical assessment levels, SOURCES/DISCLAIMER sections, and manufacturer protocols.
+
+**Root Cause**: No automatic trigger exists to load skill files. Without explicit instruction, Claude defaults to direct API calls and ad-hoc responses rather than the structured 7-phase ASE framework.
+
+**Fix**: Three enforcement layers (all required — each one alone is insufficient):
+
+1. **CLAUDE.md mandatory section** — explicit trigger conditions + required steps loaded every session
+2. **`/diagnose` slash command** — `.claude/commands/diagnose.md` with full protocol steps
+3. **UserPromptSubmit hook** — 4-tier detection (DTC regex / strong keywords / year+make+symptom / multi-symptom) injects skill reminder as `context` into every diagnostic conversation automatically
+
+**Rule**: Use `/diagnose` for all vehicle diagnostic conversations. The hook provides a safety net for implicit diagnostic messages, but the command is the most reliable enforcement path.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*
