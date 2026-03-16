@@ -357,19 +357,12 @@ if error_code in FATAL_ERROR_CODES or (not fields.get("Make") and not fields.get
 
 ---
 
-## AC Diagnostics — TXV Stuck Closed: Static Pressure Split is Definitive
+## Automotive Diagnostic Patterns → Separate File
 
-**Symptom**: AC blows cool briefly then goes warm; low side pulls vacuum while running.
+Confirmed vehicle diagnostic case patterns (AC, engine, transmission, etc.) are stored in:
+`skills/references/case-patterns.md`
 
-**Key Finding**: Static pressures (system OFF) must equalize on both sides. If high side holds normal pressure (~80–110 psi at ambient) while low side reads ≤15 psi after waiting 10+ minutes, a restriction is physically preventing equalization. This is the single most diagnostic gauge reading in AC diagnosis.
-
-**Root Cause — Two possibilities with identical presentation**:
-1. **TXV thermostatic element failure** — valve sticks closed once evaporator chills; works briefly after long soak (ambient temp thaws bulb), fails after minutes of operation
-2. **Moisture-induced ice blockage** — water in refrigerant freezes at TXV orifice when evaporator drops to ~32°F; same intermittent pattern
-
-**Confirmation**: Running low side drops to vacuum = compressor working, zero refrigerant flow through TXV = confirmed TXV restriction.
-
-**Rule**: 110 high / 12 low static split → restricted TXV until proven otherwise. Always replace receiver-drier when opening high side; 45-minute vacuum pull is minimum when moisture is suspected.
+Load that file during `/diagnose` when a current case matches a known pattern. Do NOT add automotive failure patterns here — this file is for code/tool/process errors only.
 
 ---
 

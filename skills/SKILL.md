@@ -621,9 +621,10 @@ Order: easiest first, non-invasive before invasive, highest probability first. I
 **Load as needed based on request type:**
 
 - `references/diagnostic-process.md` - ASE 7-phase systematic methodology
-- `references/anti-hallucination.md` - Source grounding and confidence protocols  
+- `references/anti-hallucination.md` - Source grounding and confidence protocols
 - `references/obd-ii-methodology.md` - OBD-II code interpretation
 - `references/warranty-failures.md` - Known issue database
+- `references/case-patterns.md` - Confirmed real-world diagnostic case patterns (load when current case matches a known pattern)
 - `references/manufacturers/[make]-protocols.md` - Brand-specific procedures
 
 **Available Manufacturers:**
