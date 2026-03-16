@@ -357,4 +357,65 @@ if error_code in FATAL_ERROR_CODES or (not fields.get("Make") and not fields.get
 
 ---
 
+## AC Diagnostics — TXV Stuck Closed: Static Pressure Split is Definitive
+
+**Symptom**: AC blows cool briefly then goes warm; low side pulls vacuum while running.
+
+**Key Finding**: Static pressures (system OFF) must equalize on both sides. If high side holds normal pressure (~80–110 psi at ambient) while low side reads ≤15 psi after waiting 10+ minutes, a restriction is physically preventing equalization. This is the single most diagnostic gauge reading in AC diagnosis.
+
+**Root Cause — Two possibilities with identical presentation**:
+1. **TXV thermostatic element failure** — valve sticks closed once evaporator chills; works briefly after long soak (ambient temp thaws bulb), fails after minutes of operation
+2. **Moisture-induced ice blockage** — water in refrigerant freezes at TXV orifice when evaporator drops to ~32°F; same intermittent pattern
+
+**Confirmation**: Running low side drops to vacuum = compressor working, zero refrigerant flow through TXV = confirmed TXV restriction.
+
+**Rule**: 110 high / 12 low static split → restricted TXV until proven otherwise. Always replace receiver-drier when opening high side; 45-minute vacuum pull is minimum when moisture is suspected.
+
+---
+
+## WSL Headless Chromium Crashes for PDF Generation — Use Node.js Playwright
+
+**Symptom**: `Trace/breakpoint trap (core dumped)` when running Chromium `--headless=new --print-to-pdf` in WSL.
+
+**Root Cause**: The Playwright Chromium binary (installed via `npx playwright install`) crashes in WSL headless mode when called directly via subprocess with `--print-to-pdf`.
+
+**Wrong**:
+```python
+subprocess.run([chromium_path, "--headless=new", "--print-to-pdf=out.pdf", "file://in.html"])
+# ❌ crashes in WSL with Trace/breakpoint trap
+```
+
+**Correct**: Use the Node.js Playwright API instead — it works correctly in WSL:
+```javascript
+// scripts/pdf_from_html.js
+const { chromium } = require('../src/frontend/node_modules/@playwright/test');
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.setContent(html);
+await page.pdf({ path: outputPdf, format: 'Letter', printBackground: true });
+```
+```python
+subprocess.run(["node", "scripts/pdf_from_html.js", input_html, output_pdf])  # ✅
+```
+
+**Rule**: In WSL, always use `node` + Playwright API for HTML→PDF. Never call the Chromium binary directly for PDF generation.
+
+---
+
+## Delegation Hook — Acknowledgment Must Appear in Written Content
+
+**Symptom**: Hook blocks Edit even though the acknowledgment comment exists at the top of the file.
+
+**Root Cause**: The delegation hook reads `tool_input["content"]` (the new content being written in the Edit), not the full file. A comment at the top of the file is not visible to the hook when editing a different section.
+
+**Fix**: Include the acknowledgment in the `new_string` of the specific Edit being blocked:
+```python
+# ✅ Include in the replacement string itself
+"<!-- Checked AGENTS.md - implementing directly because [reason] -->\n"
+```
+
+**Rule**: When the delegation hook blocks an Edit, add the acknowledgment comment directly into the `new_string`, not just at the top of the file.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*
