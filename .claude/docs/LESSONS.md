@@ -357,6 +357,43 @@ if error_code in FATAL_ERROR_CODES or (not fields.get("Make") and not fields.get
 
 ---
 
+## NHTSA Recall Data — Bulk Flat File Blocked, Use Live API
+
+**Symptom**: `https://static.nhtsa.gov/odi/ffdd/rcl/FLAT_RCL_POST_2010.zip` returns 403. `RCL.txt` data dictionary also blocked.
+
+**Root Cause**: NHTSA S3 bucket restricts direct file access from non-browser clients. The bulk `FLAT_RCL.txt` was also deleted from S3 (known issue from prior session).
+
+**Working Alternative**: Live API with User-Agent header:
+```python
+headers = {"User-Agent": "Mozilla/5.0"}
+url = f"https://api.nhtsa.gov/recalls/recallsByVehicle?make={make}&model={model}&modelYear={year}"
+```
+Returns full recall records including `Summary`, `Consequence`, `Remedy`, `Component`, `NHTSACampaignNumber`.
+
+**400 errors are benign**: NHTSA recalls API returns 400 for model years that predate or postdate a model's production run (e.g. Chrysler 200 for 2019 — discontinued 2017), or for sub-model variants from complaints_fts that don't exist in the recalls system (e.g. "CIVIC SEDAN" vs "CIVIC"). Script handles these gracefully and continues.
+
+**Script**: `scripts/import_nhtsa_recalls_api.py` — checkpoint/resume, deduplicates by (campaign_no, make, model), aggregates year_from/year_to.
+
+---
+
+## NHTSA Recall PDFs (RCRIT) — No Public Document Index API
+
+**Symptom**: Cannot programmatically list recall documents for a given campaign number.
+
+**Root Cause**: The document-listing API (`/recalls/{campaignNo}/documents`) returns 403 — requires manufacturer portal auth. No public index exists.
+
+**What Works**: Documents ARE on public S3 at a predictable path:
+```
+https://static.nhtsa.gov/odi/rcl/{YYYY}/RCRIT-{YYV###}-{doc_id}.PDF
+```
+Where `doc_id` is a timestamp-based sequence number (~1000–9999 range). Brute-force scanning ~400 IDs per campaign finds documents. Use S3 `x-amz-meta-doctype` header to identify document type.
+
+**Document types**: `RCRIT` = repair instructions (what mechanics need), `RCLRPT` = Part 573 defect report, `RCMN` = dealer notice, `RCONL` = owner letter.
+
+**Current status**: PDF pipeline deferred — live API `Remedy` text field covers ~80% of use case without PDF complexity.
+
+---
+
 ## Automotive Diagnostic Patterns → Separate File
 
 Confirmed vehicle diagnostic case patterns (AC, engine, transmission, etc.) are stored in:
