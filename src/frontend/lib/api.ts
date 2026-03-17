@@ -454,7 +454,7 @@ export interface DashboardData {
     year: number;
     complaint_count: number;
     tsb_count: number;
-    recall_count: number;
+    recall_count?: number;
     top_components: Array<{ component: string; count: number }>;
     trend: 'increasing' | 'decreasing' | 'stable';
     trend_current_year_count: number;
@@ -589,9 +589,10 @@ export interface VehicleRecallsResponse {
     make: string;
     model: string;
     year: number;
-    results: RecallItem[];
-    total_count: number;
+    recalls: RecallItem[];
+    total: number;
     page: number;
+    page_size: number;
     total_pages: number;
 }
 

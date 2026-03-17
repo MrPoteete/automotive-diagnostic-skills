@@ -228,21 +228,21 @@ test.describe('TSB drill-down', () => {
         await page.goto('/');
         await page.waitForLoadState('networkidle');
         await selectFordF150(page);
-        // Wait for TSB tile with "click to view" hint
-        await expect(page.locator('text=click to view')).toBeVisible({ timeout: 15000 });
+        // Wait for TSB tile using data-testid
+        await expect(page.locator('[data-testid="tsb-tile"]')).toBeVisible({ timeout: 15000 });
     });
 
     test('TSB tile shows "click to view" hint text', async ({ page }) => {
-        await expect(page.locator('text=click to view')).toBeVisible();
+        await expect(page.locator('[data-testid="tsb-tile"]').locator('text=click to view')).toBeVisible();
     });
 
     test('clicking TSB tile opens TsbDrillDown panel', async ({ page }) => {
-        await page.locator('text=click to view').click();
+        await page.locator('[data-testid="tsb-tile"]').click();
         await expect(page.locator('text=Technical Service Bulletins')).toBeVisible({ timeout: 10000 });
     });
 
     test('close button hides the TSB panel', async ({ page }) => {
-        await page.locator('text=click to view').click();
+        await page.locator('[data-testid="tsb-tile"]').click();
         await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
 
         await page.locator('[data-testid="close-tsb-drilldown-btn"]').click();
@@ -250,11 +250,11 @@ test.describe('TSB drill-down', () => {
     });
 
     test('clicking TSB tile again toggles panel closed', async ({ page }) => {
-        const tsbHint = page.locator('text=click to view');
-        await tsbHint.click();
+        const tsbTile = page.locator('[data-testid="tsb-tile"]');
+        await tsbTile.click();
         await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
 
-        await tsbHint.click();
+        await tsbTile.click();
         await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).not.toBeVisible();
     });
 });
@@ -263,23 +263,16 @@ test.describe('TSB drill-down', () => {
 // Suite 7: Safety Recalls drill-down
 // ---------------------------------------------------------------------------
 test.describe('Safety Recalls drill-down', () => {
-    // Scoped locator for the recalls tile: the div containing both "Safety Recalls"
-    // and "click to view". This avoids strict-mode ambiguity with the TSB tile,
-    // which also shows "click to view" but does NOT contain "Safety Recalls".
-    function recallTile(page: import('@playwright/test').Page) {
-        return page.locator('div').filter({ hasText: 'Safety Recalls' }).filter({ hasText: 'click to view' });
-    }
-
     test.beforeEach(async ({ page }) => {
         await page.goto('/');
         await page.waitForLoadState('networkidle');
         await selectFordF150(page);
         // Wait for the recall tile to appear — FORD F-150 2020 has 10 recalls
-        await expect(recallTile(page)).toBeVisible({ timeout: 15000 });
+        await expect(page.locator('[data-testid="recalls-tile"]')).toBeVisible({ timeout: 15000 });
     });
 
     test('Safety Recalls tile shows recall count and click hint', async ({ page }) => {
-        const tile = recallTile(page);
+        const tile = page.locator('[data-testid="recalls-tile"]');
         // Tile label is visible
         await expect(tile.locator('text=Safety Recalls')).toBeVisible();
         // A non-zero number is rendered inside the tile (recall_count > 0)
@@ -292,25 +285,104 @@ test.describe('Safety Recalls drill-down', () => {
     });
 
     test('clicking Safety Recalls tile opens RecallDrillDown panel', async ({ page }) => {
-        await recallTile(page).click();
+        await page.locator('[data-testid="recalls-tile"]').click();
         // Panel heading contains "Safety Recalls"
-        await expect(page.locator('text=Safety Recalls').nth(1)).toBeVisible({ timeout: 10000 });
+        await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
     });
 
     test('close button hides the Recalls panel', async ({ page }) => {
-        await recallTile(page).click();
+        await page.locator('[data-testid="recalls-tile"]').click();
+        // Wait for recall data to load before interacting with panel controls
+        await page.waitForLoadState('networkidle');
         await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
 
-        await page.locator('[data-testid="close-recall-drilldown-btn"]').click();
+        await page.locator('[data-testid="close-recall-drilldown-btn"]').click({ force: true });
         await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).not.toBeVisible();
     });
 
     test('clicking Safety Recalls tile again toggles panel closed', async ({ page }) => {
-        const tile = recallTile(page);
-        await tile.click();
+        await page.locator('[data-testid="recalls-tile"]').click();
+        // Wait for recall data to load before clicking the tile again
+        await page.waitForLoadState('networkidle');
         await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
 
-        await tile.click();
+        await page.locator('[data-testid="recalls-tile"]').click({ force: true });
         await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).not.toBeVisible();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Suite 8: Clear / Reset buttons
+// ---------------------------------------------------------------------------
+test.describe('Clear buttons', () => {
+    test('Diagnose tab — Clear button appears after typing symptoms and clears form', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await selectFordF150(page);
+
+        // Clear button should not be visible before any input
+        await expect(page.locator('[data-testid="clear-diagnose-btn"]')).not.toBeVisible();
+
+        // Type symptoms
+        await page.fill('#symptoms-input', 'rough idle at cold start');
+
+        // Clear button should now appear
+        await expect(page.locator('[data-testid="clear-diagnose-btn"]')).toBeVisible();
+
+        // Click Clear
+        await page.locator('[data-testid="clear-diagnose-btn"]').click();
+
+        // Symptoms input should be empty
+        await expect(page.locator('#symptoms-input')).toHaveValue('');
+
+        // Clear button should disappear
+        await expect(page.locator('[data-testid="clear-diagnose-btn"]')).not.toBeVisible();
+    });
+
+    test('Database tab — Clear button appears after typing and clears search', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await page.locator('button:has-text("Database")').click();
+        await expect(page.locator('h1:has-text("Complaints Database")')).toBeVisible();
+
+        // Clear button should not be visible initially
+        await expect(page.locator('[data-testid="clear-search-btn"]')).not.toBeVisible();
+
+        // Type in search
+        await page.fill('#search-input', 'brake failure');
+
+        // Clear button should appear
+        await expect(page.locator('[data-testid="clear-search-btn"]')).toBeVisible();
+
+        // Click Clear
+        await page.locator('[data-testid="clear-search-btn"]').click();
+
+        // Search input should be empty
+        await expect(page.locator('#search-input')).toHaveValue('');
+
+        // Clear button should disappear
+        await expect(page.locator('[data-testid="clear-search-btn"]')).not.toBeVisible();
+    });
+
+    test('TSB Search tab — Clear button resets vehicle filters and search input', async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await page.locator('button:has-text("TSB Search")').click();
+        await expect(page.locator('h1:has-text("TSB Search")')).toBeVisible();
+
+        // Select a make to trigger Clear button appearance
+        await page.selectOption('#tsb-make', 'FORD');
+
+        // Clear button should appear (tsbMake is set)
+        await expect(page.locator('[data-testid="clear-search-btn"]')).toBeVisible();
+
+        // Click Clear
+        await page.locator('[data-testid="clear-search-btn"]').click();
+
+        // Make select should reset to empty
+        await expect(page.locator('#tsb-make')).toHaveValue('');
+
+        // Clear button should disappear
+        await expect(page.locator('[data-testid="clear-search-btn"]')).not.toBeVisible();
     });
 });

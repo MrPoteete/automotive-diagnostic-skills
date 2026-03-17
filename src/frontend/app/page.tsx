@@ -242,6 +242,25 @@ export default function Home() {
         }
     };
 
+    const handleClearDiagnose = () => {
+        setSymptoms('');
+        setDtcInput('');
+        setMessages([]);
+    };
+
+    const handleClearSearch = () => {
+        setInputText('');
+        setMessages([]);
+        setSearchPage(1);
+        setSearchTotalPages(1);
+        setLastSearchQuery('');
+        if (activeTab === 'tsbsearch') {
+            setTsbMake('');
+            setTsbModel('');
+            setTsbYear('');
+        }
+    };
+
     return (
         <div className="app-shell">
 
@@ -464,10 +483,11 @@ export default function Home() {
                                             <label htmlFor="symptoms-input" className="cds--label">
                                                 Symptoms / Complaint Description
                                             </label>
-                                            <div className="cds--text-area-wrapper">
+                                            <div className="cds--text-area-wrapper" style={{ width: '100%' }}>
                                                 <textarea
                                                     id="symptoms-input"
                                                     className="cds--text-area"
+                                                    style={{ width: '100%' }}
                                                     rows={6}
                                                     value={symptoms}
                                                     onChange={(e) => setSymptoms(e.target.value)}
@@ -482,11 +502,12 @@ export default function Home() {
                                             <label htmlFor="dtc-input" className="cds--label">
                                                 DTC Codes (optional)
                                             </label>
-                                            <div className="cds--text-input-wrapper">
+                                            <div className="cds--text-input-wrapper" style={{ width: '80%' }}>
                                                 <input
                                                     id="dtc-input"
                                                     type="text"
                                                     className="cds--text-input"
+                                                    style={{ width: '100%' }}
                                                     value={dtcInput}
                                                     onChange={(e) => setDtcInput(e.target.value.toUpperCase())}
                                                     placeholder="e.g. P0300, P0301, C0034"
@@ -495,7 +516,7 @@ export default function Home() {
                                             </div>
                                             <p className="cds--form__helper-text">Separate multiple codes with commas</p>
                                         </div>
-                                        <div>
+                                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                             <button
                                                 type="button"
                                                 onClick={handleSubmitDiagnose}
@@ -511,6 +532,17 @@ export default function Home() {
                                                     'Run Diagnostic'
                                                 )}
                                             </button>
+                                            {(symptoms || dtcInput || messages.length > 0) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearDiagnose}
+                                                    disabled={isProcessing}
+                                                    className="cds--btn cds--btn--ghost"
+                                                    data-testid="clear-diagnose-btn"
+                                                >
+                                                    Clear
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -675,7 +707,18 @@ export default function Home() {
                                             />
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', alignItems: 'center' }}>
+                                        {(inputText || messages.length > 0 || lastSearchQuery || tsbMake) && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearSearch}
+                                                disabled={isProcessing}
+                                                className="cds--btn cds--btn--ghost"
+                                                data-testid="clear-search-btn"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => handleSearch()}

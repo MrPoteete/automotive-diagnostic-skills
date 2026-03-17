@@ -152,13 +152,16 @@ async def search_complaints(
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
         if not clean_query:
             clean_query = query
+        # Phrase search for multi-word queries prevents false token-level matches
+        # e.g. "control arm" would otherwise match "control module" + "actuator arm" in same doc
+        fts_query = f'"{clean_query}"' if ' ' in clean_query else clean_query
 
-        logger.info(f"Search p{page}: '{query}' -> '{clean_query}'")
+        logger.info(f"Search p{page}: '{query}' -> '{fts_query}'")
 
         offset = (page - 1) * limit
         cursor.execute(
             "SELECT COUNT(*) FROM complaints_fts WHERE complaints_fts MATCH ?",
-            (clean_query,),
+            (fts_query,),
         )
         total_count: int = cursor.fetchone()[0]
         total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
@@ -167,7 +170,7 @@ async def search_complaints(
             "SELECT make, model, year, component, summary"
             " FROM complaints_fts WHERE complaints_fts MATCH ?"
             " ORDER BY rank LIMIT ? OFFSET ?",
-            (clean_query, limit, offset),
+            (fts_query, limit, offset),
         )
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -212,8 +215,10 @@ async def search_tsbs(
         import re
         clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
         clean_query = re.sub(r'\s+', ' ', clean_query).strip()
+        # Phrase search for multi-word queries prevents false token-level matches
+        fts_query = f'"{clean_query}"' if ' ' in clean_query else clean_query
 
-        logger.info(f"TSB Search p{page}: '{query}' -> '{clean_query}' make={make} model={model} year={year}")
+        logger.info(f"TSB Search p{page}: '{query}' -> '{fts_query}' make={make} model={model} year={year}")
 
         # Graceful degradation if TSB table missing
         cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='tsbs_fts'")
@@ -237,7 +242,7 @@ async def search_tsbs(
         # Case A: keyword + vehicle → FTS MATCH + column filters
         if has_keyword and has_vehicle:
             where_extra = ""
-            params_count: list[Any] = [clean_query]
+            params_count: list[Any] = [fts_query]
             if make:
                 where_extra += " AND make = ?"
                 params_count.append(make)
@@ -262,14 +267,14 @@ async def search_tsbs(
 
         # Case B: keyword only → existing FTS path (unchanged)
         elif has_keyword:
-            cursor.execute("SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?", (clean_query,))
+            cursor.execute("SELECT COUNT(*) FROM tsbs_fts WHERE tsbs_fts MATCH ?", (fts_query,))
             total_count = cursor.fetchone()[0]
             total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
             cursor.execute(
                 "SELECT nhtsa_id, make, model, year, component, summary"
                 " FROM tsbs_fts WHERE tsbs_fts MATCH ?"
                 " ORDER BY rank LIMIT ? OFFSET ?",
-                (clean_query, limit, offset),
+                (fts_query, limit, offset),
             )
 
         # Case C: vehicle only → base table (avoids FTS empty-MATCH error)

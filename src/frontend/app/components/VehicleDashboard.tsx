@@ -145,6 +145,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
 
                 {/* TSB Tile — clickable */}
                 <div
+                    data-testid="tsb-tile"
                     onClick={() => setShowTsbDrillDown(prev => !prev)}
                     style={{
                         flex: '1 1 180px',
@@ -167,12 +168,13 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                 </div>
 
                 {/* Safety Recalls Tile — clickable if count > 0, plain tile if 0 */}
-                {data.recall_count === 0 ? (
+                {(data.recall_count ?? 0) === 0 ? (
                     <StatTile label="Safety Recalls">
                         <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary)' }}>None on record</span>
                     </StatTile>
                 ) : (
                     <div
+                        data-testid="recalls-tile"
                         onClick={() => setShowRecallDrillDown(prev => !prev)}
                         style={{
                             flex: '1 1 180px',
@@ -189,7 +191,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     >
                         <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Safety Recalls</span>
                         <span style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--cds-support-error)', lineHeight: 1 }}>
-                            {data.recall_count.toLocaleString()}
+                            {(data.recall_count ?? 0).toLocaleString()}
                         </span>
                         <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary)' }}>click to view</span>
                     </div>

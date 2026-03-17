@@ -52,8 +52,9 @@ export default function RecallDrillDown({ make, model, year, onClose }: RecallDr
         return () => { cancelled = true; };
     }, [make, model, year, page]);
 
+    const totalPages = data ? Math.ceil(data.total / data.page_size) : 1;
     const handlePrev = () => setPage(p => Math.max(1, p - 1));
-    const handleNext = () => setPage(p => Math.min(data?.total_pages ?? p, p + 1));
+    const handleNext = () => setPage(p => Math.min(totalPages, p + 1));
 
     return (
         <div style={{ background: 'var(--cds-layer-01)', border: '1px solid var(--cds-border-subtle-01)', padding: '1.25rem 1.5rem' }}>
@@ -81,13 +82,13 @@ export default function RecallDrillDown({ make, model, year, onClose }: RecallDr
 
             {!loading && !error && data && (
                 <>
-                    {data.results.length === 0 ? (
+                    {data.recalls.length === 0 ? (
                         <p style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary)', textAlign: 'center', padding: '2rem 0' }}>
                             No safety recalls found for this vehicle.
                         </p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            {data.results.map((item, index) => (
+                            {data.recalls.map((item, index) => (
                                 <div
                                     key={item.campaign_no}
                                     style={{
@@ -182,14 +183,14 @@ export default function RecallDrillDown({ make, model, year, onClose }: RecallDr
                         </div>
                     )}
 
-                    {data.total_pages > 1 && (
+                    {totalPages > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', borderTop: '1px solid var(--cds-border-subtle-01)', paddingTop: '1rem' }}>
                             <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary)' }}>
-                                Page {data.page} of {data.total_pages} ({data.total_count.toLocaleString()} results)
+                                Page {data.page} of {totalPages} ({data.total.toLocaleString()} results)
                             </span>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <Button kind="ghost" size="sm" onClick={handlePrev} disabled={page === 1}>Prev</Button>
-                                <Button kind="ghost" size="sm" onClick={handleNext} disabled={page >= data.total_pages}>Next</Button>
+                                <Button kind="ghost" size="sm" onClick={handleNext} disabled={page >= totalPages}>Next</Button>
                             </div>
                         </div>
                     )}
