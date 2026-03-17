@@ -355,15 +355,35 @@ def _run_diagnosis(
     ]
     warnings = critical_alerts + warnings
 
+    # Checked AGENTS.md - adding recall lookup directly; simple DB query, safety-relevant data
+    # Fetch NHTSA recalls for this vehicle/year (confidence 0.9 — manufacturer-acknowledged defects)
+    recalls: list[dict] = []
+    try:
+        recalls = db.get_recalls(make, model, year)
+        logger.debug("[diagnose] %d recalls found for %s %s %d", len(recalls), make, model, year)
+    except Exception as exc:
+        logger.warning("[diagnose] recall lookup failed: %s", exc)
+
+    # Surface park-it recalls as top-level safety warnings
+    park_it_warnings = [
+        f"⚠ SAFETY RECALL (Park It): {r['component']} — {r['campaign_no']}"
+        for r in recalls
+        if r.get("park_it")
+    ]
+    if park_it_warnings:
+        warnings = park_it_warnings + warnings
+
     return {
         "vehicle": normalized_vehicle,
         "symptoms": symptoms,
         "dtc_codes": valid_dtcs,
         "candidates": enriched,
+        "recalls": recalls,
         "warnings": warnings,
         "data_sources": {
             "complaints_db": "automotive_complaints.db (562K NHTSA complaints)",
             "tsbs_db": "automotive_complaints.db (211K NHTSA TSBs)",
+            "recalls_db": f"nhtsa_recalls ({len(recalls)} recall campaigns for this vehicle/year)",
             "forum_db": f"ChromaDB mechanics_forum ({len(forum_candidates)} forum candidates)",
             "complaint_coverage": "Partial dataset — full import pending",
         },

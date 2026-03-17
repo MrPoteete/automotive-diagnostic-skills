@@ -105,11 +105,26 @@ export interface DiagnosticCandidate {
     samples: unknown[];
 }
 
+export interface RecallItem {
+    campaign_no: string;
+    component: string;
+    summary: string | null;
+    consequence: string | null;
+    remedy: string | null;
+    vehicles_affected: number | null;
+    report_date: string | null;
+    park_it: boolean;
+    park_outside: boolean;
+    year_from: number | null;
+    year_to: number | null;
+}
+
 export interface DiagnoseResponse {
     vehicle: VehicleInfo;
     symptoms: string;
     dtc_codes: string[];
     candidates: DiagnosticCandidate[];
+    recalls: RecallItem[];
     warnings: string[];
     data_sources: Record<string, unknown>;
 }
@@ -281,10 +296,10 @@ class DiagnosticAPI {
      * Format a DiagnoseResponse for terminal display
      */
     formatDiagnosis(response: DiagnoseResponse): string {
-        const { vehicle, symptoms, candidates, warnings } = response;
+        const { vehicle, symptoms, candidates, recalls = [], warnings } = response;
         const vehicleStr = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
 
-        if (candidates.length === 0) {
+        if (candidates.length === 0 && recalls.length === 0) {
             return `[DIAGNOSIS COMPLETE]\nVehicle: ${vehicleStr}\nSymptoms: ${symptoms}\n\nNo diagnostic candidates found. Try adding more symptom detail or DTC codes.`;
         }
 
@@ -317,6 +332,24 @@ class DiagnosticAPI {
 
             out += `\n`;
         });
+
+        if (recalls.length > 0) {
+            const parkItRecalls = recalls.filter(r => r.park_it);
+            out += `━━━ NHTSA RECALLS (${recalls.length} active for this vehicle/year) ━━━\n`;
+            if (parkItRecalls.length > 0) {
+                out += `  🚨 ${parkItRecalls.length} PARK-IT RECALL(S) — DO NOT DRIVE UNTIL REPAIRED\n`;
+            }
+            out += `\n`;
+            recalls.forEach(r => {
+                const parkBadge = r.park_it ? '  🚨 PARK IT  ' : '  ';
+                out += `${parkBadge}[${r.campaign_no}] ${r.component}\n`;
+                if (r.remedy) {
+                    const shortRemedy = r.remedy.length > 110 ? r.remedy.slice(0, 110) + '…' : r.remedy;
+                    out += `    Remedy: ${shortRemedy}\n`;
+                }
+                out += `\n`;
+            });
+        }
 
         return out;
     }
@@ -421,6 +454,7 @@ export interface DashboardData {
     year: number;
     complaint_count: number;
     tsb_count: number;
+    recall_count: number;
     top_components: Array<{ component: string; count: number }>;
     trend: 'increasing' | 'decreasing' | 'stable';
     trend_current_year_count: number;
@@ -536,6 +570,51 @@ export async function fetchVehicleTsbs(
         clearTimeout(timeoutId);
         if (err instanceof Error && err.name !== 'AbortError') {
             console.error('fetchVehicleTsbs error:', err);
+        }
+        return null;
+    }
+}
+
+// --- Recall Drill-Down ---
+
+export interface RecallItem {
+    campaign_no: string;
+    component: string;
+    summary: string;
+    remedy: string;
+    park_it: boolean;
+}
+
+export interface VehicleRecallsResponse {
+    make: string;
+    model: string;
+    year: number;
+    results: RecallItem[];
+    total_count: number;
+    page: number;
+    total_pages: number;
+}
+
+export async function fetchVehicleRecalls(
+    make: string, model: string, year: number, page: number = 1
+): Promise<VehicleRecallsResponse | null> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+    try {
+        const params = new URLSearchParams({
+            make, model, year: year.toString(), page: page.toString(),
+        });
+        const res = await fetch(
+            `/api/vehicle/recalls?${params.toString()}`,
+            { signal: controller.signal, cache: 'no-store' }
+        );
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return (await res.json()) as VehicleRecallsResponse;
+    } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof Error && err.name !== 'AbortError') {
+            console.error('fetchVehicleRecalls error:', err);
         }
         return null;
     }

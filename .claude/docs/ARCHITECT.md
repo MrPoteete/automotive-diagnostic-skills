@@ -13,18 +13,20 @@ User Query (vehicle + symptoms + optional DTC codes)
     ↓
 engine_agent.diagnose()
     ↓
-[Forum Search] ← ChromaDB (24K StackExchange mechanics Q&A) — confidence 0.5
+[Forum Search] ← ChromaDB (553,960 docs: Reddit + mechanics.SE) — confidence 0.5
 [Symptom Match] ← SQLite FTS5 (562K NHTSA complaints) — confidence 0.7–1.0
+[Recall Lookup] ← SQLite nhtsa_recalls (2,711 campaigns) — confidence 0.9
     ↓
 merge candidates (NHTSA primary, forum fills gaps)
     ↓
 Confidence Scoring (source reliability × vehicle match)
     ↓
 Safety Check (brakes/airbag/steering → require ≥ 0.9, else warn)
+Park-It Recalls → top-level WARNINGS
     ↓
 Trend Analysis + TSB Lookup (211K TSBs)
     ↓
-Diagnostic Response {candidates, warnings, data_sources}
+Diagnostic Response {candidates, recalls, warnings, data_sources}
 ```
 
 ## Component Architecture
@@ -32,7 +34,7 @@ Diagnostic Response {candidates, warnings, data_sources}
 | Layer | Component | Files | Responsibility |
 |-------|-----------|-------|----------------|
 | **Server Layer** | RAG Dashboard | `server/rag_dashboard.py` | Web UI for diagnostic queries |
-| | Home Server | `server/home_server.py` | FastAPI: `GET /`, `GET /search`, `GET /search_tsbs`, `GET /vehicles`, `POST /diagnose` |
+| | Home Server | `server/home_server.py` | FastAPI: `GET /`, `GET /search`, `GET /search_tsbs`, `GET /vehicles`, `POST /diagnose`, `GET /vehicle/dashboard`, `GET /vehicle/recalls`, `GET /vehicle/tsbs`, `GET /vehicle/complaints` |
 | | Learning Loop | `server/demo_learning_loop.py` | Feedback integration |
 | **Frontend API Routes** | Diagnose Proxy | `src/frontend/app/api/diagnose/route.ts` | Server-side POST proxy → `/diagnose` (adds API key) |
 | | Search Proxy | `src/frontend/app/api/search/route.ts` | Server-side GET proxy → `/search` |
@@ -40,6 +42,7 @@ Diagnostic Response {candidates, warnings, data_sources}
 | | Vehicles Proxy | `src/frontend/app/api/vehicles/route.ts` | Server-side GET proxy → `/vehicles` |
 | | VIN Proxy | `src/frontend/app/api/vin/route.ts` | Server-side GET proxy → `/vin/decode` (NHTSA vPIC) |
 | | Dashboard Proxy | `src/frontend/app/api/vehicle/dashboard/route.ts` | Server-side GET proxy → `/vehicle/dashboard` |
+| | Recalls Proxy | `src/frontend/app/api/vehicle/recalls/route.ts` | Server-side GET proxy → `/vehicle/recalls` |
 | | Report Proxy | `src/frontend/app/api/vehicle/report/route.ts` | Server-side POST proxy → `/vehicle/report` |
 | | History Proxy | `src/frontend/app/api/history/route.ts` | Server-side GET+POST proxy → `/history` |
 | **Skills Layer** | Router | `skills/router_skill/` | Classifies DTC codes by system |
@@ -75,7 +78,9 @@ Diagnostic Response {candidates, warnings, data_sources}
 - `complaints_fts` (FTS5, 562K rows) — `make, model, year, component, summary`
 - `nhtsa_tsbs` (211K rows) — Technical Service Bulletins
 - `tsbs_fts` (FTS5 mirror of nhtsa_tsbs)
-- Note: `year` column is TEXT — always `CAST(year AS INTEGER)` when filtering
+- `nhtsa_recalls` (2,711 rows) — NHTSA recall campaigns; `UNIQUE(campaign_no, make, model)`; `year_from/year_to` range fields; `park_it` flag for park-it safety recalls
+- `recalls_fts` (FTS5 mirror of nhtsa_recalls)
+- Note: `year` column is TEXT in complaints/tsbs — always `CAST(year AS INTEGER)` when filtering; recalls use `year_from`/`year_to` INTEGER range fields
 
 **automotive_diagnostics.db** (secondary):
 - `vehicles` (792 rows) — make/model/year/engine
@@ -84,7 +89,7 @@ Diagnostic Response {candidates, warnings, data_sources}
 - Other tables (failure_patterns, diagnostic_tests, etc.) exist in schema but are empty
 
 **ChromaDB** (`data/vector_store/chroma/`):
-- Collection: `mechanics_forum` (24,353 documents)
+- Collection: `mechanics_forum` (553,960 documents: 539,277 Reddit + 14,683 mechanics.SE)
 - Embedding: `all-MiniLM-L6-v2` (ONNX, cached at `~/.cache/chroma/`)
 
 See `memory/MEMORY.md` for runtime-verified facts and known discrepancies.
@@ -110,7 +115,7 @@ automotive-diagnostic-skills/
 ├── scripts/               # index_forum_data.py + utilities
 ├── data/
 │   ├── raw_imports/       # ⚠️ NEVER MODIFY - Original sources
-│   ├── vector_store/      # ChromaDB (24K forum docs)
+│   ├── vector_store/      # ChromaDB (553K forum docs: Reddit + mechanics.SE)
 │   └── processed/         # AI-ready documents
 └── docs/                  # Project documentation
 ```

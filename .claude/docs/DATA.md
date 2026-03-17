@@ -55,6 +55,7 @@ data/
 ### Tier 1: Official Data (HIGH confidence)
 - **NHTSA Complaints** (`complaints_fts` table in `automotive_complaints.db`) - 562K records (partial — see note below)
 - **NHTSA TSBs** (`nhtsa_tsbs` / `tsbs_fts` table) - 211K records
+- **NHTSA Recalls** (`nhtsa_recalls` / `recalls_fts` table) - 2,711 records; 1,676 campaigns; 27 makes; 36 park-it safety recalls. Imported via `scripts/import_nhtsa_recalls_api.py` (live API, no key needed). Year range fields: `year_from`/`year_to`. Use `--reset` to wipe and re-import.
 - **EPA Vehicles** (`vehicles` table in `automotive_diagnostics.db`) - 792 records (EPA format)
 - **OBD-II Codes** (`dtc_codes` table) - 270 codes
 
@@ -71,11 +72,13 @@ data/
 **Source**: Professional repair databases, verified manuals
 
 ### Tier 3: Community Data (LOW confidence)
-- **Reddit Posts** (ChromaDB) - Filtered discussions
-- **Stack Exchange** (ChromaDB) - Mechanics Q&A
+- **Reddit Posts** (ChromaDB) - 539,277 docs (r/MechanicAdvice + r/AskMechanics)
+- **mechanics.StackExchange** (ChromaDB) - 14,683 Q&As (2025-03-31 dump); quality-filtered (accepted answer OR score ≥ 3). Import script: `scripts/import_se_dump.py`. Archive: `data/raw_imports/stackexchange_dump/stackexchange_20250331/mechanics.stackexchange.com.7z`
 
 **Confidence**: 0.5 (LOW)
 **Source**: User-generated content, anecdotal
+
+> ⚠️ **SE dump download**: Use `internetarchive` Python package (installed in `.venv`), NOT wget. See LESSONS.md — "archive.org Downloads" entry.
 
 ---
 

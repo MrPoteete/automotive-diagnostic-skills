@@ -9,6 +9,7 @@ import { Document } from '@carbon/icons-react';
 import { fetchDashboard, type DashboardData } from '../../lib/api';
 import ComponentDrillDown from './ComponentDrillDown';
 import TsbDrillDown from './TsbDrillDown';
+import RecallDrillDown from './RecallDrillDown';
 
 interface VehicleDashboardProps {
     make: string;
@@ -85,6 +86,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
     const [error, setError] = useState<string | null>(null);
     const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
     const [showTsbDrillDown, setShowTsbDrillDown] = useState(false);
+    const [showRecallDrillDown, setShowRecallDrillDown] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -93,6 +95,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
         setData(null);
         setSelectedComponent(null);
         setShowTsbDrillDown(false);
+        setShowRecallDrillDown(false);
 
         fetchDashboard(make, model, year).then((result) => {
             if (cancelled) return;
@@ -163,6 +166,35 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary)' }}>click to view</span>
                 </div>
 
+                {/* Safety Recalls Tile — clickable if count > 0, plain tile if 0 */}
+                {data.recall_count === 0 ? (
+                    <StatTile label="Safety Recalls">
+                        <span style={{ fontSize: '0.875rem', color: 'var(--cds-text-secondary)' }}>None on record</span>
+                    </StatTile>
+                ) : (
+                    <div
+                        onClick={() => setShowRecallDrillDown(prev => !prev)}
+                        style={{
+                            flex: '1 1 180px',
+                            background: showRecallDrillDown ? 'var(--cds-layer-selected)' : 'var(--cds-layer-01)',
+                            border: '1px solid var(--cds-border-subtle-01)',
+                            borderLeft: showRecallDrillDown ? '3px solid var(--cds-support-error)' : '1px solid var(--cds-border-subtle-01)',
+                            padding: '1.25rem 1.5rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            transition: 'background 100ms ease-in-out',
+                        }}
+                    >
+                        <span style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Safety Recalls</span>
+                        <span style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--cds-support-error)', lineHeight: 1 }}>
+                            {data.recall_count.toLocaleString()}
+                        </span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--cds-text-secondary)' }}>click to view</span>
+                    </div>
+                )}
+
                 <StatTile label="Year-over-Year Trend">
                     <span style={{ fontSize: '1.25rem', fontWeight: 600, color: trendColor, lineHeight: 1.2 }}>
                         {trendArrow} {diffLabel}
@@ -193,6 +225,16 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     model={model}
                     year={year}
                     onClose={() => setShowTsbDrillDown(false)}
+                />
+            )}
+
+            {/* ── Recall Drill-Down Panel ───────────────────────────── */}
+            {showRecallDrillDown && (
+                <RecallDrillDown
+                    make={make}
+                    model={model}
+                    year={year}
+                    onClose={() => setShowRecallDrillDown(false)}
                 />
             )}
 

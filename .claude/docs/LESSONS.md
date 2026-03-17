@@ -448,4 +448,80 @@ subprocess.run(["node", "scripts/pdf_from_html.js", input_html, output_pdf])  # 
 
 ---
 
+## archive.org Downloads — Use `internetarchive` Package, Not wget
+
+**Symptom**: `wget` downloads a 0-byte file; CDN server returns 404 even though metadata confirms the file exists.
+
+**Root Cause**: archive.org redirects to CDN nodes, but the specific node selected may not have the file cached/available at that moment. Plain `wget` follows the redirect to a 404-returning node.
+
+**Wrong**:
+```bash
+wget -O file.7z "https://archive.org/download/collection_id/file.7z"  # ❌ 404 from CDN
+```
+
+**Correct**: Use the `internetarchive` Python package — it handles node selection and retries internally:
+```python
+import internetarchive as ia
+item = ia.get_item('stackexchange_20250331')
+item.download(
+    files=['stackexchange_20250331/mechanics.stackexchange.com.7z'],  # ← full prefixed name
+    destdir='data/raw_imports/stackexchange_dump/',
+    no_directory=True,
+    verbose=True
+)
+```
+
+**Key**: the `files` list must use the **full prefixed filename** (as returned by `item.files`) — e.g. `stackexchange_20250331/mechanics.stackexchange.com.7z`, not just `mechanics.stackexchange.com.7z`. Download lands in a `stackexchange_20250331/` subdirectory.
+
+**Install**: `.venv/bin/pip install internetarchive`
+
+---
+
+## Import Scripts — `ensure_schema` vs `drop_and_recreate_schema`
+
+**Symptom**: Resume/checkpoint run wipes all previously imported data and only imports the newly-added records.
+
+**Root Cause**: `drop_and_recreate_schema()` called unconditionally at startup — runs before checkpoint loading, so data is destroyed before the checkpoint can prevent re-fetching.
+
+**Fix**: Add a non-destructive `ensure_schema()` that only creates tables if they don't exist, and call it on normal runs; reserve `drop_and_recreate_schema()` for `--reset` only:
+```python
+if reset:
+    drop_and_recreate_schema(conn)
+else:
+    ensure_schema(conn)  # CREATE TABLE IF NOT EXISTS — preserves existing data
+```
+
+**Rule**: Any import script with checkpoint/resume MUST use non-destructive schema creation on normal runs. `DROP TABLE` should only happen on explicit `--reset`.
+
+---
+
+## NHTSA Recalls API — Year Range vs Exact Year
+
+**Symptom**: Dashboard shows 0 recalls for a vehicle year even though recalls exist in the DB.
+
+**Root Cause**: `nhtsa_recalls` uses `year_from`/`year_to` INTEGER range fields (a recall covers multiple years). Querying `WHERE year = ?` (exact match) returns 0 rows because that column doesn't exist. The complaints/TSBs tables use a single `year` TEXT column — different schema.
+
+**Correct query**:
+```sql
+WHERE UPPER(make) = ? AND UPPER(model) = ?
+  AND (year_from IS NULL OR year_from <= ?)
+  AND (year_to IS NULL OR year_to >= ?)
+```
+
+**Rule**: Recall year filtering always requires range logic (`year_from <= target_year AND year_to >= target_year`). Never use exact year match on `nhtsa_recalls`.
+
+---
+
+## NHTSA Recalls API — Sub-Variant Model Names Return 0 Results
+
+**Symptom**: FORD, HONDA, CHEVROLET imported 0 recalls even though data exists.
+
+**Root Cause**: `complaints_fts` stores sub-variant model names ("F-150 REGULAR CAB", "CIVIC SEDAN", "EQUINOX EV") but the NHTSA recalls API only recognises base model names ("F-150", "CIVIC", "EQUINOX"). All API calls for sub-variant names return 0 records.
+
+**Fix**: Normalise model names before querying the recalls API — strip cab designators (REGULAR CAB, CREW CAB, etc.), fuel/powertrain suffixes (GAS, HEV, PHEV, BEV, EV, HYBRID), and body styles (SEDAN, HATCHBACK, COUPE). Use word-boundary regex to avoid stripping substrings (e.g. "abs" in "absolute"). Deduplicate normalised names before querying.
+
+**Rule**: Never pass raw `complaints_fts` model names directly to the NHTSA recalls API. Always call `normalize_model()` first.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*

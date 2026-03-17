@@ -481,6 +481,46 @@ class DiagnosticDB:
     # Lifecycle
     # ------------------------------------------------------------------
 
+    # Checked AGENTS.md - implementing directly: simple read-only SQL on existing complaints DB
+    def get_recalls(self, make: str, model: str, year: int, limit: int = 20) -> list[dict]:
+        """Return NHTSA recalls for a vehicle/year from the nhtsa_recalls table.
+
+        Uses year-range matching (year_from <= year <= year_to) to handle
+        multi-year campaigns correctly.
+
+        Args:
+            make: Vehicle manufacturer (uppercase).
+            model: Vehicle model (uppercase).
+            year: Model year integer.
+            limit: Maximum number of rows to return.
+
+        Returns:
+            List of recall dicts. Empty list on error or no data.
+        """
+        try:
+            conn = self._connect()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT campaign_no, component, summary, consequence,
+                       remedy, vehicles_affected, report_date,
+                       park_it, park_outside, year_from, year_to
+                FROM nhtsa_recalls
+                WHERE UPPER(make) = ? AND UPPER(model) = ?
+                  AND (year_from IS NULL OR year_from <= ?)
+                  AND (year_to IS NULL OR year_to >= ?)
+                ORDER BY report_date DESC
+                LIMIT ?
+                """,
+                (make.upper(), model.upper(), year, year, limit),
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
+        except Exception as exc:
+            logger.warning("get_recalls failed for %s %s %d: %s", make, model, year, exc)
+            return []
+
     def close(self) -> None:
         """Close both database connections."""
         for attr, label in (

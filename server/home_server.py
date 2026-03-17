@@ -627,6 +627,15 @@ async def get_vehicle_dashboard(
         )
         tsb_count: int = cursor.fetchone()[0]
 
+        # 2b. Recall count
+        cursor.execute(
+            "SELECT COUNT(*) FROM nhtsa_recalls"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ?"
+            " AND ((year_from IS NULL OR year_from <= ?) AND (year_to IS NULL OR year_to >= ?))",
+            (make_upper, model_upper, year, year),
+        )
+        recall_count: int = cursor.fetchone()[0]
+
         # 3. Top 5 failure components
         cursor.execute(
             "SELECT component, COUNT(*) AS cnt FROM complaints_fts"
@@ -654,8 +663,8 @@ async def get_vehicle_dashboard(
             trend = "stable"
 
         logger.info(
-            "Dashboard: %s %s %d — complaints=%d tsbs=%d trend=%s",
-            make_upper, model_upper, year, complaint_count, tsb_count, trend,
+            "Dashboard: %s %s %d — complaints=%d tsbs=%d recalls=%d trend=%s",
+            make_upper, model_upper, year, complaint_count, tsb_count, recall_count, trend,
         )
 
         return {
@@ -664,6 +673,7 @@ async def get_vehicle_dashboard(
             "year": year,
             "complaint_count": complaint_count,
             "tsb_count": tsb_count,
+            "recall_count": recall_count,
             "top_components": top_components,
             "trend": trend,
             "trend_current_year_count": complaint_count,
@@ -794,6 +804,86 @@ async def get_vehicle_tsbs(
 
     except Exception as exc:
         logger.error("VehicleTSBs error for %s %s %d: %s", make, model, year, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# Checked AGENTS.md - implementing directly: simple read-only SQL query, no auth changes, no safety logic
+@app.get("/vehicle/recalls")
+async def get_vehicle_recalls(
+    make: str,
+    model: str,
+    year: int = Query(..., ge=1900, le=2030),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Return paginated NHTSA recalls for a vehicle."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        make_upper = make.upper()
+        model_upper = model.upper()
+        offset = (page - 1) * page_size
+
+        cursor.execute(
+            "SELECT COUNT(*) FROM nhtsa_recalls"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ?"
+            " AND ((year_from IS NULL OR year_from <= ?) AND (year_to IS NULL OR year_to >= ?))",
+            (make_upper, model_upper, year, year),
+        )
+        total_count: int = cursor.fetchone()[0]
+
+        cursor.execute(
+            "SELECT campaign_no, component, manufacturer, vehicles_affected,"
+            " report_date, summary, consequence, remedy, park_it, park_outside,"
+            " year_from, year_to"
+            " FROM nhtsa_recalls"
+            " WHERE UPPER(make) = ? AND UPPER(model) = ?"
+            " AND ((year_from IS NULL OR year_from <= ?) AND (year_to IS NULL OR year_to >= ?))"
+            " ORDER BY report_date DESC"
+            " LIMIT ? OFFSET ?",
+            (make_upper, model_upper, year, year, page_size, offset),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+
+        total_pages = math.ceil(total_count / page_size) if total_count > 0 else 1
+
+        logger.info(
+            "VehicleRecalls: %s %s %d — %d results (page %d/%d)",
+            make_upper, model_upper, year, total_count, page, total_pages,
+        )
+
+        return {
+            "make": make_upper,
+            "model": model_upper,
+            "year": year,
+            "total": total_count,
+            "page": page,
+            "page_size": page_size,
+            "recalls": [
+                {
+                    "campaign_no": row["campaign_no"],
+                    "component": row["component"],
+                    "manufacturer": row["manufacturer"],
+                    "vehicles_affected": row["vehicles_affected"],
+                    "report_date": row["report_date"],
+                    "summary": row["summary"],
+                    "consequence": row["consequence"],
+                    "remedy": row["remedy"],
+                    "park_it": bool(row["park_it"]),
+                    "park_outside": bool(row["park_outside"]),
+                    "year_from": row["year_from"],
+                    "year_to": row["year_to"],
+                }
+                for row in rows
+            ],
+        }
+
+    except Exception as exc:
+        logger.error("VehicleRecalls error for %s %s %d: %s", make, model, year, exc, exc_info=True)
         raise HTTPException(status_code=500, detail=str(exc))
 
 

@@ -32,6 +32,7 @@ Deduplication strategy:
 
 import argparse
 import json
+import re
 import sqlite3
 import time
 from datetime import datetime
@@ -134,7 +135,61 @@ ON CONFLICT(campaign_no, make, model) DO UPDATE SET
 ;
 """
 
+# ---------------------------------------------------------------------------
+# Model name normalization
+# ---------------------------------------------------------------------------
 
+# Cab designator suffixes (word-boundary aware)
+_CAB_PATTERN = re.compile(
+    r"\s+\b(?:REGULAR\s+CAB|CREW\s+CAB|SUPER\s+CREW|SUPERCAB|EXTENDED\s+CAB"
+    r"|STANDARD\s+CAB|SUPER\s+CAB|DOUBLE\s+CAB|ACCESS\s+CAB|KING\s+CAB"
+    r"|QUAD\s+CAB|CLUB\s+CAB)\b",
+    re.IGNORECASE,
+)
+
+# Fuel/powertrain suffixes (trailing only)
+_FUEL_PATTERN = re.compile(
+    r"\s+\b(?:GAS|HEV|PHEV|BEV|EV|HYBRID|ENERGI|ELECTRIC|PLUGIN)\b$",
+    re.IGNORECASE,
+)
+
+# Body style suffixes (trailing only)
+_BODY_PATTERN = re.compile(
+    r"\s+\b(?:SEDAN|HATCHBACK|HATCH|COUPE|CONVERTIBLE|WAGON)\b$",
+    re.IGNORECASE,
+)
+
+
+def normalize_model(model: str) -> str:
+    """
+    Strip sub-variant suffixes from a complaints_fts model name so it matches
+    the base model name expected by the NHTSA recalls API.
+
+    Examples:
+        "F-150 REGULAR CAB"  -> "F-150"
+        "CIVIC SEDAN"        -> "CIVIC"
+        "ESCAPE HEV"         -> "ESCAPE"
+        "MUSTANG MACH-E"     -> "MUSTANG MACH-E"  (no matching suffix)
+    """
+    result = model.strip().upper()
+
+    # Strip cab designators (can appear anywhere in the name)
+    result = _CAB_PATTERN.sub("", result).strip()
+
+    # Strip trailing fuel/powertrain suffix
+    result = _FUEL_PATTERN.sub("", result).strip()
+
+    # Strip trailing body style suffix
+    result = _BODY_PATTERN.sub("", result).strip()
+
+    # Guard: never return empty string
+    if not result:
+        return model.strip().upper()
+
+    return result
+
+
+# Checked AGENTS.md - implementing directly because this is a targeted bug fix (2 lines) to an existing script
 def drop_and_recreate_schema(conn: sqlite3.Connection) -> None:
     """Drop existing nhtsa_recalls and recalls_fts tables and recreate with correct schema."""
     print("  Dropping existing nhtsa_recalls and recalls_fts tables...")
@@ -146,6 +201,21 @@ def drop_and_recreate_schema(conn: sqlite3.Connection) -> None:
     conn.execute(DDL_RECALLS_IDX_COMPONENT.strip())
     conn.commit()
     print("  Schema created: nhtsa_recalls (UNIQUE campaign_no, make, model) + recalls_fts (FTS5)")
+
+
+# Checked AGENTS.md - implementing directly because this is a targeted bug fix to an existing data pipeline script
+def ensure_schema(conn: sqlite3.Connection) -> None:
+    """Create schema only if tables don't exist yet (non-destructive resume path)."""
+    cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='nhtsa_recalls'")
+    if cur.fetchone() is None:
+        conn.execute(DDL_NHTSA_RECALLS.strip())
+        conn.execute(DDL_RECALLS_FTS.strip())
+        conn.execute(DDL_RECALLS_IDX_VEHICLE.strip())
+        conn.execute(DDL_RECALLS_IDX_COMPONENT.strip())
+        conn.commit()
+        print("  Schema created: nhtsa_recalls + recalls_fts (FTS5)")
+    else:
+        print("  Schema OK (existing table, resuming)")
 
 
 # ---------------------------------------------------------------------------
@@ -181,8 +251,9 @@ def save_checkpoint(completed: set[str]) -> None:
 def get_vehicle_combos(conn: sqlite3.Connection, make_filter: Optional[str] = None,
                         test_mode: bool = False) -> list[tuple[str, str]]:
     """
-    Return distinct (make, model) tuples from complaints_fts for years 2015-2025.
-    These names are already in NHTSA-format (complaints_fts came from NHTSA's own flat file).
+    Return distinct (make, normalized_model) tuples from complaints_fts for years 2015-2025.
+    Sub-variant suffixes (cab designators, fuel types, body styles) are stripped so the
+    model names match what the NHTSA recalls API expects (e.g. "F-150" not "F-150 CREW CAB").
     """
     sql = """
         SELECT DISTINCT make, model
@@ -199,7 +270,18 @@ def get_vehicle_combos(conn: sqlite3.Connection, make_filter: Optional[str] = No
         params.extend(sorted(TEST_MAKES))
     sql += " ORDER BY make, model"
     cur = conn.execute(sql, params)
-    return [(row[0], row[1]) for row in cur.fetchall()]
+    raw_rows = cur.fetchall()
+
+    # Normalize model names and deduplicate
+    seen: set[tuple[str, str]] = set()
+    result: list[tuple[str, str]] = []
+    for make, model in raw_rows:
+        norm_model = normalize_model(model)
+        key = (make, norm_model)
+        if key not in seen:
+            seen.add(key)
+            result.append(key)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -352,8 +434,12 @@ def run_import(test_mode: bool = True, make_filter: Optional[str] = None,
     conn.execute("PRAGMA cache_size=-32000")
     conn.execute("PRAGMA temp_store=MEMORY")
 
-    # Step 1: rebuild schema (table is empty — safe to drop/recreate)
-    drop_and_recreate_schema(conn)
+    # Checked AGENTS.md - direct fix: only drop table on --reset, otherwise resume safely
+    # Step 1: schema — only drop/recreate on --reset; otherwise preserve existing data
+    if reset:
+        drop_and_recreate_schema(conn)
+    else:
+        ensure_schema(conn)
 
     # Step 2: gather vehicle list
     combos = get_vehicle_combos(conn, make_filter=make_filter, test_mode=test_mode)

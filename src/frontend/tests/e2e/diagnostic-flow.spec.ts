@@ -258,3 +258,59 @@ test.describe('TSB drill-down', () => {
         await expect(page.locator('[data-testid="close-tsb-drilldown-btn"]')).not.toBeVisible();
     });
 });
+
+// ---------------------------------------------------------------------------
+// Suite 7: Safety Recalls drill-down
+// ---------------------------------------------------------------------------
+test.describe('Safety Recalls drill-down', () => {
+    // Scoped locator for the recalls tile: the div containing both "Safety Recalls"
+    // and "click to view". This avoids strict-mode ambiguity with the TSB tile,
+    // which also shows "click to view" but does NOT contain "Safety Recalls".
+    function recallTile(page: import('@playwright/test').Page) {
+        return page.locator('div').filter({ hasText: 'Safety Recalls' }).filter({ hasText: 'click to view' });
+    }
+
+    test.beforeEach(async ({ page }) => {
+        await page.goto('/');
+        await page.waitForLoadState('networkidle');
+        await selectFordF150(page);
+        // Wait for the recall tile to appear — FORD F-150 2020 has 10 recalls
+        await expect(recallTile(page)).toBeVisible({ timeout: 15000 });
+    });
+
+    test('Safety Recalls tile shows recall count and click hint', async ({ page }) => {
+        const tile = recallTile(page);
+        // Tile label is visible
+        await expect(tile.locator('text=Safety Recalls')).toBeVisible();
+        // A non-zero number is rendered inside the tile (recall_count > 0)
+        const countText = await tile.innerText();
+        const digits = countText.match(/\d+/);
+        expect(digits).not.toBeNull();
+        expect(parseInt(digits![0], 10)).toBeGreaterThan(0);
+        // Click hint is present
+        await expect(tile.locator('text=click to view')).toBeVisible();
+    });
+
+    test('clicking Safety Recalls tile opens RecallDrillDown panel', async ({ page }) => {
+        await recallTile(page).click();
+        // Panel heading contains "Safety Recalls"
+        await expect(page.locator('text=Safety Recalls').nth(1)).toBeVisible({ timeout: 10000 });
+    });
+
+    test('close button hides the Recalls panel', async ({ page }) => {
+        await recallTile(page).click();
+        await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await page.locator('[data-testid="close-recall-drilldown-btn"]').click();
+        await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).not.toBeVisible();
+    });
+
+    test('clicking Safety Recalls tile again toggles panel closed', async ({ page }) => {
+        const tile = recallTile(page);
+        await tile.click();
+        await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).toBeVisible({ timeout: 10000 });
+
+        await tile.click();
+        await expect(page.locator('[data-testid="close-recall-drilldown-btn"]')).not.toBeVisible();
+    });
+});
