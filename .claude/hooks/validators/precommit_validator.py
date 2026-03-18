@@ -19,6 +19,9 @@ import sys
 from pathlib import Path
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
 def get_staged_python_files() -> list[str]:
     """Return list of staged .py files (excluding deleted)."""
     try:
@@ -27,6 +30,7 @@ def get_staged_python_files() -> list[str]:
             capture_output=True,
             text=True,
             timeout=10,
+            cwd=PROJECT_ROOT,
         )
         if result.returncode != 0:
             return []
@@ -47,6 +51,7 @@ def run_ruff(files: list[str]) -> str | None:
             capture_output=True,
             text=True,
             timeout=30,
+            cwd=PROJECT_ROOT,
         )
         if result.returncode != 0 and result.stdout.strip():
             return result.stdout.strip()
@@ -65,6 +70,7 @@ def run_mypy(files: list[str]) -> str | None:
             capture_output=True,
             text=True,
             timeout=120,
+            cwd=PROJECT_ROOT,
         )
         if result.returncode != 0 and result.stdout.strip():
             error_lines = [
@@ -82,17 +88,12 @@ def run_mypy(files: list[str]) -> str | None:
 def run_pytest() -> str | None:
     """Run pytest if available and tests exist. Returns error message or None."""
     # Check for test directories or files
-    test_locations = [
-        Path("tests"),
-        Path("test"),
-    ]
-    has_tests = any(loc.exists() for loc in test_locations)
+    has_tests = any((PROJECT_ROOT / d).exists() for d in ("tests", "test"))
     if not has_tests:
         return None
 
     # Prefer venv pytest over system python3 (system python may lack pytest)
-    project_root = Path(__file__).parent.parent.parent.parent
-    venv_pytest = project_root / ".venv" / "bin" / "pytest"
+    venv_pytest = PROJECT_ROOT / ".venv" / "bin" / "pytest"
     pytest_cmd = [str(venv_pytest), "--tb=short", "-q"] if venv_pytest.exists() else ["python3", "-m", "pytest", "--tb=short", "-q"]
 
     try:
@@ -101,6 +102,7 @@ def run_pytest() -> str | None:
             capture_output=True,
             text=True,
             timeout=300,
+            cwd=PROJECT_ROOT,
         )
         if result.returncode != 0:
             output = result.stdout.strip()

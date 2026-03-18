@@ -12,6 +12,40 @@
 
 ---
 
+## ⚠️ MANDATORY: Versioning Protocol (YOLO Mode — Non-Negotiable)
+
+**These rules apply to EVERY task. No exceptions. No shortcuts.**
+
+### Before starting any task
+1. Ensure `main` is clean — commit any pending changes first
+2. Create a feature branch: `git checkout -b feature/<task-name>`
+3. Confirm baseline tests pass (see test commands below)
+
+### While working
+- Work only on the feature branch — **NEVER directly on `main`**
+- Commit at logical checkpoints within the branch
+
+### After completing any task — FULL TEST GATE (must pass ALL three)
+```bash
+.venv/bin/pytest --tb=no -q --ignore=tests/integration   # 280 Python tests must pass
+cd src/frontend && node_modules/.bin/vitest run           # Vitest tests must pass
+cd src/frontend && node_modules/.bin/playwright test      # e2e tests must pass (requires servers)
+```
+**Do NOT merge until all three suites pass.**
+
+### After merging to main
+```bash
+git tag v1.X-<feature-name>   # e.g. v1.1-recall-search
+git push origin main --tags
+```
+
+### Rollback (one command)
+```bash
+git reset --hard v1.X-<last-good-tag>   # or git revert HEAD to preserve history
+```
+
+---
+
 ## Core Context
 
 - **Type**: Automotive Diagnostic AI using RAG (Retrieval-Augmented Generation)
