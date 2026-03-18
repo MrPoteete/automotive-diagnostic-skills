@@ -642,6 +642,13 @@ class ReportRequest(BaseModel):
     no_api: bool = False
 
 
+class ChecklistRequest(BaseModel):
+    make: str
+    model: str
+    year_start: int = Field(..., ge=1900, le=2030)
+    year_end: int = Field(..., ge=1900, le=2030)
+
+
 # Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
 # Runs report_builder.py as subprocess — no safety logic, read-only data access.
 @app.post("/vehicle/report")
@@ -718,6 +725,72 @@ async def generate_vehicle_report(
     finally:
         if output_path.exists():
             output_path.unlink(missing_ok=True)
+
+
+# Checked AGENTS.md - runs generate_checklist.py as subprocess — no safety logic, read-only data access.
+@app.post("/vehicle/checklist")
+async def generate_vehicle_checklist(
+    request: ChecklistRequest,
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Run generate_checklist.py as a subprocess and return generated markdown."""
+    import asyncio  # noqa: PLC0415
+    import time     # noqa: PLC0415
+
+    make = request.make.upper().replace(" ", "_")
+    model = request.model.upper().replace(" ", "_")
+
+    if request.year_start > request.year_end:
+        raise HTTPException(status_code=400, detail="year_start cannot be greater than year_end")
+
+    project_root = pathlib.Path(__file__).resolve().parent.parent
+    python_exe = project_root / ".venv" / "bin" / "python3"
+    script = project_root / "scripts" / "generate_checklist.py"
+
+    args = [
+        str(python_exe), str(script),
+        "--make", make,
+        "--model", model,
+        "--year-start", str(request.year_start),
+        "--year-end", str(request.year_end),
+    ]
+
+    t0 = time.monotonic()
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+
+        if proc.returncode != 0:
+            err_text = stderr.decode().strip()[-500:]
+            logger.error("Checklist failed for %s %s: %s", make, model, err_text)
+            raise HTTPException(status_code=500, detail=f"Checklist generation failed: {err_text}")
+
+        content = stdout.decode()
+        logger.info("Checklist done in %.1fs for %s %s %d-%d", time.monotonic() - t0, make, model, request.year_start, request.year_end)
+        return {
+            "content": content,
+            "filename": f"checklist_{make}_{model}_{request.year_start}_{request.year_end}.md",
+            "make": make,
+            "model": model,
+            "year_start": request.year_start,
+            "year_end": request.year_end,
+        }
+
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+            await proc.wait()
+        raise HTTPException(status_code=504, detail="Checklist generation timed out (30s)")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Checklist error: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.

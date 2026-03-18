@@ -5,11 +5,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@carbon/react';
-import { Document } from '@carbon/icons-react';
+import { Document, Checkmark } from '@carbon/icons-react';
 import { fetchDashboard, type DashboardData } from '../../lib/api';
 import ComponentDrillDown from './ComponentDrillDown';
 import TsbDrillDown from './TsbDrillDown';
 import RecallDrillDown from './RecallDrillDown';
+import ChecklistModal from './ChecklistModal';
 
 interface VehicleDashboardProps {
     make: string;
@@ -87,6 +88,7 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
     const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
     const [showTsbDrillDown, setShowTsbDrillDown] = useState(false);
     const [showRecallDrillDown, setShowRecallDrillDown] = useState(false);
+    const [showChecklistModal, setShowChecklistModal] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -218,6 +220,18 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     </Button>
                 </StatTile>
 
+                <StatTile label="Checklist">
+                    <Button
+                        kind="tertiary"
+                        size="sm"
+                        renderIcon={Checkmark}
+                        iconDescription="Generate pre-purchase checklist"
+                        onClick={() => setShowChecklistModal(true)}
+                    >
+                        Pre-Purchase Checklist
+                    </Button>
+                </StatTile>
+
             </div>
 
             {/* ── TSB Drill-Down Panel ──────────────────────────────── */}
@@ -310,6 +324,15 @@ export default function VehicleDashboard({ make, model, year, onReportClick }: V
                     onClose={() => setSelectedComponent(null)}
                 />
             )}
+
+            {/* ── Checklist Modal ───────────────────────────────────── */}
+            <ChecklistModal
+                make={make}
+                model={model}
+                year={year}
+                isOpen={showChecklistModal}
+                onClose={() => setShowChecklistModal(false)}
+            />
 
         </div>
     );
