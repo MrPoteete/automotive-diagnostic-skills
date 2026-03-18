@@ -17,11 +17,13 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify(body),
             cache: 'no-store',
         });
+        const data: unknown = await res.json().catch(() => null);
         if (!res.ok) {
-            return NextResponse.json({ error: 'Backend error' }, { status: res.status });
+            const detail = (data as { detail?: string } | null)?.detail ?? `HTTP ${res.status}`;
+            return NextResponse.json({ detail }, { status: res.status });
         }
-        return NextResponse.json(await res.json());
+        return NextResponse.json(data);
     } catch {
-        return NextResponse.json({ error: 'Failed to reach backend' }, { status: 500 });
+        return NextResponse.json({ detail: 'Failed to reach backend — is the server running?' }, { status: 500 });
     }
 }
