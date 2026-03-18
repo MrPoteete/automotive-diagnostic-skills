@@ -320,6 +320,128 @@ async def search_tsbs(
         logger.error(f"TSB Search Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
+
+# Checked AGENTS.md - adding recall keyword search endpoint; mirrors TSB search pattern.
+@app.get("/search_recalls")
+async def search_recalls(
+    query: str = Query(default=""),
+    make: str | None = Query(default=None),
+    year: int | None = Query(default=None, ge=1900, le=2030),
+    limit: int = 20,
+    page: int = Query(1, ge=1),
+    api_key: str = Depends(get_api_key),
+) -> dict[str, Any]:
+    """Search NHTSA recalls by keyword and/or vehicle filter."""
+    if not os.path.exists(DB_PATH):
+        raise HTTPException(status_code=500, detail="Database not indexed yet.")
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        import re as _re
+        clean_query = _re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
+        clean_query = _re.sub(r'\s+', ' ', clean_query).strip()
+        fts_query = f'"{clean_query}"' if ' ' in clean_query else clean_query
+
+        logger.info(f"Recall Search p{page}: '{query}' -> '{fts_query}' make={make} year={year}")
+
+        cursor.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='recalls_fts'")
+        if cursor.fetchone()[0] == 0:
+            conn.close()
+            return {"results": [], "total_count": 0, "page": 1, "total_pages": 1,
+                    "message": "Recall data not available yet."}
+
+        has_keyword = bool(clean_query)
+        has_vehicle = bool(make)
+        offset = (page - 1) * limit
+
+        if not has_keyword and not has_vehicle:
+            conn.close()
+            return {"results": [], "total_count": 0, "page": 1, "total_pages": 1,
+                    "message": "Provide a keyword or a vehicle make filter."}
+
+        total_count: int
+
+        if has_keyword and has_vehicle:
+            assert make is not None
+            where_extra = " AND UPPER(make) = ?"
+            params_count: list[Any] = [fts_query, make.upper()]
+            if year is not None:
+                where_extra += " AND year_from <= ? AND year_to >= ?"
+                params_count += [year, year]
+            cursor.execute(
+                f"SELECT COUNT(*) FROM recalls_fts WHERE recalls_fts MATCH ?{where_extra}",
+                params_count,
+            )
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                f"SELECT r.campaign_no, r.make, r.model, r.year_from, r.year_to,"
+                f" r.component, r.summary, r.consequence, r.remedy,"
+                f" r.vehicles_affected, r.report_date, r.park_it, r.park_outside"
+                f" FROM recalls_fts f JOIN nhtsa_recalls r ON f.rowid = r.id"
+                f" WHERE f.recalls_fts MATCH ?{where_extra}"
+                f" ORDER BY f.rank LIMIT ? OFFSET ?",
+                params_count + [limit, offset],
+            )
+        elif has_keyword:
+            cursor.execute("SELECT COUNT(*) FROM recalls_fts WHERE recalls_fts MATCH ?", (fts_query,))
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                "SELECT r.campaign_no, r.make, r.model, r.year_from, r.year_to,"
+                " r.component, r.summary, r.consequence, r.remedy,"
+                " r.vehicles_affected, r.report_date, r.park_it, r.park_outside"
+                " FROM recalls_fts f JOIN nhtsa_recalls r ON f.rowid = r.id"
+                " WHERE f.recalls_fts MATCH ? ORDER BY f.rank LIMIT ? OFFSET ?",
+                (fts_query, limit, offset),
+            )
+        else:
+            # Vehicle-only: query base table with year range logic
+            assert make is not None
+            where_clauses = ["UPPER(make) = ?"]
+            params_base: list[Any] = [make.upper()]
+            if year is not None:
+                where_clauses.append("(year_from IS NULL OR year_from <= ?)")
+                where_clauses.append("(year_to IS NULL OR year_to >= ?)")
+                params_base += [year, year]
+            where_sql = " AND ".join(where_clauses)
+            cursor.execute(f"SELECT COUNT(*) FROM nhtsa_recalls WHERE {where_sql}", params_base)
+            total_count = cursor.fetchone()[0]
+            total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
+            cursor.execute(
+                f"SELECT campaign_no, make, model, year_from, year_to,"
+                f" component, summary, consequence, remedy,"
+                f" vehicles_affected, report_date, park_it, park_outside"
+                f" FROM nhtsa_recalls WHERE {where_sql}"
+                f" ORDER BY report_date DESC LIMIT ? OFFSET ?",
+                params_base + [limit, offset],
+            )
+
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        logger.info(f"Found {total_count} total recalls, page {page}/{total_pages}.")
+
+        return {
+            "query": query,
+            "sanitized_query": clean_query,
+            "results": results,
+            "total_count": total_count,
+            "page": page,
+            "total_pages": total_pages,
+            "make": make,
+            "year": year,
+            "source": "NHTSA Recall Database",
+        }
+
+    except Exception as e:
+        logger.error(f"Recall Search Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+
+
 # --- Pydantic models for /diagnose (generated via Gemini, reviewed by Claude) ---
 
 class VehicleInfo(BaseModel):

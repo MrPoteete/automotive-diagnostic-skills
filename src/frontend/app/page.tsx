@@ -70,7 +70,7 @@ function IconChevronDown() {
     );
 }
 
-type Tab = 'diagnose' | 'database' | 'tsbsearch';
+type Tab = 'diagnose' | 'database' | 'tsbsearch' | 'recallsearch';
 
 interface NavItem {
     key: Tab;
@@ -82,6 +82,7 @@ const NAV_ITEMS: NavItem[] = [
     { key: 'diagnose', label: 'Diagnose', icon: <IconActivity /> },
     { key: 'database', label: 'Database', icon: <IconDatabase /> },
     { key: 'tsbsearch', label: 'TSB Search', icon: <IconDocument /> },
+    { key: 'recallsearch', label: 'Recall Search', icon: <IconWarning /> },
 ];
 
 export default function Home() {
@@ -96,6 +97,8 @@ export default function Home() {
     const [tsbMake, setTsbMake] = useState('');
     const [tsbModel, setTsbModel] = useState('');
     const [tsbYear, setTsbYear] = useState('');
+    const [recallMake, setRecallMake] = useState('');
+    const [recallYear, setRecallYear] = useState('');
     const [selectedVehicle, setSelectedVehicle] = useState<VehicleIdentity | null>(null);
     const [symptoms, setSymptoms] = useState('');
     const [dtcInput, setDtcInput] = useState('');
@@ -190,14 +193,23 @@ export default function Home() {
         setSearchTotalPages(1);
     }, [tsbMake, tsbModel, tsbYear]);
 
-    /** Free-text search for TSB / complaint queries */
+    // Reset pagination when recall filters change
+    useEffect(() => {
+        setSearchPage(1);
+        setSearchTotalPages(1);
+    }, [recallMake, recallYear]);
+
+    /** Free-text search for TSB / complaint / recall queries */
     const handleSearch = async (page: number = 1) => {
         const queryText = page === 1 ? inputText.trim() : lastSearchQuery;
         const isOnTsbTab = activeTab === 'tsbsearch';
-        if (!queryText && !(isOnTsbTab && tsbMake)) return;
+        const isOnRecallTab = activeTab === 'recallsearch';
+        if (!queryText && !(isOnTsbTab && tsbMake) && !(isOnRecallTab && recallMake)) return;
 
         if (page === 1) {
-            const displayText = queryText || `[Vehicle: ${tsbMake}${tsbModel ? ' ' + tsbModel : ''}${tsbYear ? ' ' + tsbYear : ''}]`;
+            const displayText = queryText
+                || (isOnTsbTab ? `[Vehicle: ${tsbMake}${tsbModel ? ' ' + tsbModel : ''}${tsbYear ? ' ' + tsbYear : ''}]` : '')
+                || (isOnRecallTab ? `[Recalls: ${recallMake}${recallYear ? ' ' + recallYear : ''}]` : '');
             setMessages(prev => [...prev, { role: 'user', content: displayText }]);
             setInputText('');
             setLastSearchQuery(queryText);
@@ -206,23 +218,32 @@ export default function Home() {
 
         try {
             let response: string;
-            const isTsb = queryText.toLowerCase().includes('tsb') || queryText.toLowerCase().includes('bulletin');
 
-            if (isTsb || isOnTsbTab) {
-                const make = isOnTsbTab ? (tsbMake || undefined) : undefined;
-                const model = isOnTsbTab ? (tsbModel || undefined) : undefined;
-                const yr = isOnTsbTab && tsbYear ? parseInt(tsbYear, 10) : undefined;
-                const tsbData = await (make
-                    ? api.searchTSBs(queryText, 10, page, make, model, yr)
-                    : api.searchTSBs(queryText, 10, page));
-                setSearchPage(tsbData.page ?? 1);
-                setSearchTotalPages(tsbData.total_pages ?? 1);
-                response = api.formatResults(tsbData);
+            if (isOnRecallTab) {
+                const make = recallMake || undefined;
+                const yr = recallYear ? parseInt(recallYear, 10) : undefined;
+                const recallData = await api.searchRecalls(queryText, 10, page, make, yr);
+                setSearchPage(recallData.page ?? 1);
+                setSearchTotalPages(recallData.total_pages ?? 1);
+                response = api.formatRecallResults(recallData);
             } else {
-                const complaintData = await api.searchComplaints(queryText, 10, page);
-                setSearchPage(complaintData.page ?? 1);
-                setSearchTotalPages(complaintData.total_pages ?? 1);
-                response = api.formatResults(complaintData);
+                const isTsb = queryText.toLowerCase().includes('tsb') || queryText.toLowerCase().includes('bulletin');
+                if (isTsb || isOnTsbTab) {
+                    const make = isOnTsbTab ? (tsbMake || undefined) : undefined;
+                    const model = isOnTsbTab ? (tsbModel || undefined) : undefined;
+                    const yr = isOnTsbTab && tsbYear ? parseInt(tsbYear, 10) : undefined;
+                    const tsbData = await (make
+                        ? api.searchTSBs(queryText, 10, page, make, model, yr)
+                        : api.searchTSBs(queryText, 10, page));
+                    setSearchPage(tsbData.page ?? 1);
+                    setSearchTotalPages(tsbData.total_pages ?? 1);
+                    response = api.formatResults(tsbData);
+                } else {
+                    const complaintData = await api.searchComplaints(queryText, 10, page);
+                    setSearchPage(complaintData.page ?? 1);
+                    setSearchTotalPages(complaintData.total_pages ?? 1);
+                    response = api.formatResults(complaintData);
+                }
             }
 
             setMessages(prev => [...prev, { role: 'system', content: response }]);
@@ -258,6 +279,10 @@ export default function Home() {
             setTsbMake('');
             setTsbModel('');
             setTsbYear('');
+        }
+        if (activeTab === 'recallsearch') {
+            setRecallMake('');
+            setRecallYear('');
         }
     };
 
@@ -582,20 +607,79 @@ export default function Home() {
                         </div>
                     )}
 
-                    {/* ── DATABASE / TSB SEARCH TABS ────────────────────────── */}
-                    {(activeTab === 'database' || activeTab === 'tsbsearch') && (
+                    {/* ── DATABASE / TSB / RECALL SEARCH TABS ──────────────── */}
+                    {(activeTab === 'database' || activeTab === 'tsbsearch' || activeTab === 'recallsearch') && (
                         <div>
                             {/* Page heading */}
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h1 className="cds--productive-heading-04" style={{ marginBottom: '0.5rem' }}>
-                                    {activeTab === 'tsbsearch' ? 'TSB Search' : 'Complaints Database'}
+                                    {activeTab === 'tsbsearch' ? 'TSB Search' : activeTab === 'recallsearch' ? 'Recall Search' : 'Complaints Database'}
                                 </h1>
                                 <p className="cds--body-short-01" style={{ color: 'var(--cds-text-secondary)' }}>
                                     {activeTab === 'tsbsearch'
                                         ? 'Search Technical Service Bulletins by keyword and vehicle.'
+                                        : activeTab === 'recallsearch'
+                                        ? 'Search NHTSA safety recalls by keyword (e.g. "airbag", "fuel pump") and optional vehicle make/year.'
                                         : 'Search NHTSA complaints database for known failure patterns.'}
                                 </p>
                             </div>
+
+                            {/* Recall vehicle filter row */}
+                            {activeTab === 'recallsearch' && (
+                                <div
+                                    style={{
+                                        background: 'var(--cds-layer-01)',
+                                        border: '1px solid var(--cds-border-subtle-01)',
+                                        padding: '1.5rem',
+                                        marginBottom: '1rem',
+                                    }}
+                                >
+                                    <p className="cds--label" style={{ marginBottom: '0.75rem' }}>
+                                        Filter by vehicle (optional)
+                                    </p>
+                                    <div className="form-row">
+                                        {/* RECALL MAKE */}
+                                        <div className="cds--form-item">
+                                            <label htmlFor="recall-make" className="cds--label">Make</label>
+                                            <div className="cds--select">
+                                                <select
+                                                    id="recall-make"
+                                                    aria-label="RECALL MAKE"
+                                                    value={recallMake}
+                                                    onChange={(e) => setRecallMake(e.target.value)}
+                                                    className="cds--select-input"
+                                                >
+                                                    <option value="">All makes</option>
+                                                    {MAKES.map((m) => (
+                                                        <option key={m} value={m}>{m}</option>
+                                                    ))}
+                                                </select>
+                                                <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="cds--select__arrow"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" /></svg>
+                                            </div>
+                                        </div>
+
+                                        {/* RECALL YEAR */}
+                                        <div className="cds--form-item">
+                                            <label htmlFor="recall-year" className="cds--label">Year</label>
+                                            <div className="cds--select">
+                                                <select
+                                                    id="recall-year"
+                                                    aria-label="RECALL YEAR"
+                                                    value={recallYear}
+                                                    onChange={(e) => setRecallYear(e.target.value)}
+                                                    className="cds--select-input"
+                                                >
+                                                    <option value="">All years</option>
+                                                    {YEARS.map((y) => (
+                                                        <option key={y} value={String(y)}>{y}</option>
+                                                    ))}
+                                                </select>
+                                                <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="cds--select__arrow"><path d="M8 11L3 6 3.7 5.3 8 9.6 12.3 5.3 13 6z" /></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* TSB vehicle filter row */}
                             {activeTab === 'tsbsearch' && (
@@ -688,7 +772,7 @@ export default function Home() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                     <div className="cds--form-item">
                                         <label htmlFor="search-input" className="cds--label">
-                                            {activeTab === 'tsbsearch' ? 'Search TSBs' : 'Search complaints'}
+                                            {activeTab === 'tsbsearch' ? 'Search TSBs' : activeTab === 'recallsearch' ? 'Search recalls' : 'Search complaints'}
                                         </label>
                                         <div className="cds--text-area-wrapper">
                                             <textarea
@@ -700,6 +784,8 @@ export default function Home() {
                                                 placeholder={
                                                     activeTab === 'tsbsearch'
                                                         ? 'SEARCH TSBs: e.g. TSB Ford F-150 transmission...'
+                                                        : activeTab === 'recallsearch'
+                                                        ? 'SEARCH RECALLS: e.g. airbag, fuel pump, steering...'
                                                         : 'ENTER COMMAND OR SYMPTOMS...'
                                                 }
                                                 className="cds--text-area"
@@ -708,7 +794,7 @@ export default function Home() {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', alignItems: 'center' }}>
-                                        {(inputText || messages.length > 0 || lastSearchQuery || tsbMake) && (
+                                        {(inputText || messages.length > 0 || lastSearchQuery || tsbMake || recallMake) && (
                                             <button
                                                 type="button"
                                                 onClick={handleClearSearch}

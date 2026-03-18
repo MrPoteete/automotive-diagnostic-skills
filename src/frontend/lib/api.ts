@@ -65,6 +65,35 @@ export interface TSBSearchResponse {
     message?: string;
 }
 
+export interface RecallSearchResult {
+    campaign_no: string;
+    make: string;
+    model: string;
+    year_from: number | null;
+    year_to: number | null;
+    component: string | null;
+    summary: string | null;
+    consequence: string | null;
+    remedy: string | null;
+    vehicles_affected: number | null;
+    report_date: string | null;
+    park_it: number;
+    park_outside: number;
+}
+
+export interface RecallSearchResponse {
+    query: string;
+    sanitized_query: string;
+    results: RecallSearchResult[];
+    total_count: number;
+    page: number;
+    total_pages: number;
+    source: string;
+    make?: string | null;
+    year?: number | null;
+    message?: string;
+}
+
 export interface HealthCheckResponse {
     status: string;
     message: string;
@@ -286,6 +315,22 @@ class DiagnosticAPI {
     }
 
     /**
+     * Search NHTSA recalls by keyword and/or vehicle make/year via GET /search_recalls
+     */
+    async searchRecalls(
+        query: string,
+        limit: number = 20,
+        page: number = 1,
+        make?: string,
+        year?: number,
+    ): Promise<RecallSearchResponse> {
+        const params: Record<string, string> = { query, limit: limit.toString(), page: page.toString() };
+        if (make) params.make = make;
+        if (year !== undefined) params.year = year.toString();
+        return this.fetch<RecallSearchResponse>(`${this.apiBaseURL}/search_recalls`, params);
+    }
+
+    /**
      * Run a full differential diagnosis via POST /diagnose
      */
     async diagnose(request: DiagnoseRequest): Promise<DiagnoseResponse> {
@@ -384,6 +429,35 @@ class DiagnosticAPI {
             output += `\n`;
         });
 
+        return output;
+    }
+
+    formatRecallResults(response: RecallSearchResponse): string {
+        const { query, results, source, total_count, page, total_pages, message } = response;
+        if (message && results.length === 0) {
+            return `[RECALL SEARCH]\nQuery: "${query}"\n\n${message}`;
+        }
+        if (results.length === 0) {
+            return `[RECALL SEARCH]\nQuery: "${query}"\nSource: ${source}\n\nNo matching recalls found.`;
+        }
+        const pageInfo = (total_pages ?? 1) > 1
+            ? `  |  Page ${page} of ${total_pages} (${total_count} total)`
+            : `  |  ${total_count} total`;
+        let output = `[RECALL SEARCH]\nQuery: "${query}"\nSource: ${source}\nShowing: ${results.length} results${pageInfo}\n\n`;
+        results.forEach((r, idx) => {
+            const yearRange = r.year_from && r.year_to
+                ? `${r.year_from}–${r.year_to}`
+                : (r.year_from ?? r.year_to ?? 'N/A');
+            const parkFlag = r.park_it ? ' ⚠️ PARK-IT RECALL' : (r.park_outside ? ' ⚠️ PARK OUTSIDE' : '');
+            output += `━━━ RECALL ${idx + 1}${parkFlag} ━━━\n`;
+            output += `Campaign: ${r.campaign_no}  |  ${r.make} ${r.model} (${yearRange})\n`;
+            output += `Component: ${r.component ?? 'N/A'}\n`;
+            if (r.summary) output += `Summary: ${r.summary}\n`;
+            if (r.consequence) output += `Consequence: ${r.consequence}\n`;
+            if (r.remedy) output += `Remedy: ${r.remedy}\n`;
+            if (r.vehicles_affected) output += `Vehicles affected: ${r.vehicles_affected.toLocaleString()}\n`;
+            output += `\n`;
+        });
         return output;
     }
 
