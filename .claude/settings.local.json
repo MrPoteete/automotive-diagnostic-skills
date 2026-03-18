@@ -132,7 +132,8 @@
       "Bash(wget:*)",
       "WebFetch(domain:archive.org)",
       "Bash(.venv/bin/python3 scripts/report_builder.py --make JEEP --model COMPASS --year-start 2015 --year-end 2019 --no-llm --output /tmp/test_report.md)",
-      "Bash(.venv/bin/python3 scripts/report_builder.py --make JEEP --model COMPASS --year-start 2015 --year-end 2019 --output /tmp/test_report_llm.md)"
+      "Bash(.venv/bin/python3 scripts/report_builder.py --make JEEP --model COMPASS --year-start 2015 --year-end 2019 --output /tmp/test_report_llm.md)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": []
