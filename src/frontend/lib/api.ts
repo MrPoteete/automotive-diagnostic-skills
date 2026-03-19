@@ -821,11 +821,46 @@ export async function generateReport(req: ReportRequest): Promise<ReportResponse
 
 // --- Checklist ---
 
+export interface ChecklistRecall {
+    campaign_no: string;
+    component: string;
+    summary: string;
+    park_it: boolean;
+    year_from: number | null;
+    year_to: number | null;
+}
+
+export interface ChecklistSection {
+    component: string;
+    complaint_count: number;
+    checks: string[];
+}
+
+export interface ChecklistTsb {
+    bulletin_no: string;
+    component: string;
+    summary: string;
+}
+
+export interface ChecklistData {
+    make: string;
+    model: string;
+    year_start: number;
+    year_end: number;
+    generated_at: string;
+    has_park_it: boolean;
+    recalls: ChecklistRecall[];
+    sections: ChecklistSection[];
+    tsbs: ChecklistTsb[];
+    standard_checks: string[];
+}
+
 export interface ChecklistRequest {
     make: string;
     model: string;
     year_start: number;
     year_end: number;
+    generate_pdf?: boolean;
 }
 
 export interface ChecklistResponse {
@@ -835,9 +870,12 @@ export interface ChecklistResponse {
     model: string;
     year_start: number;
     year_end: number;
+    data: ChecklistData;
+    pdf_b64?: string;
+    pdf_filename?: string;
 }
 
-const CHECKLIST_TIMEOUT_MS = 35_000;
+const CHECKLIST_TIMEOUT_MS = 90_000;
 
 export async function generateChecklist(req: ChecklistRequest): Promise<ChecklistResponse> {
     const controller = new AbortController();

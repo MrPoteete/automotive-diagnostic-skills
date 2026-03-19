@@ -9,16 +9,19 @@ inspection checklist based on real NHTSA complaint, recall, and TSB data.
 Run:
   .venv/bin/python3 scripts/generate_checklist.py --make FORD --model F-150 --year-start 2018 --year-end 2022
   .venv/bin/python3 scripts/generate_checklist.py --make HONDA --model CR-V --year-start 2017 --year-end 2020 --output /tmp/checklist.md
+  .venv/bin/python3 scripts/generate_checklist.py --make FORD --model F-150 --year-start 2018 --year-end 2022 --format json
+  .venv/bin/python3 scripts/generate_checklist.py --make FORD --model F-150 --year-start 2018 --year-end 2022 --format html
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
 import textwrap
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -26,6 +29,45 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / "database" / "automotive_complaints.db"
+
+# ---------------------------------------------------------------------------
+# Typed structures
+# ---------------------------------------------------------------------------
+
+
+class ChecklistRecall(TypedDict):
+    campaign_no: str
+    component: str
+    summary: str
+    park_it: bool
+    year_from: int | None
+    year_to: int | None
+
+
+class ChecklistSection(TypedDict):
+    component: str
+    complaint_count: int
+    checks: list[str]
+
+
+class ChecklistTsb(TypedDict):
+    bulletin_no: str
+    component: str
+    summary: str
+
+
+class ChecklistData(TypedDict):
+    make: str
+    model: str
+    year_start: int
+    year_end: int
+    generated_at: str
+    has_park_it: bool
+    recalls: list[ChecklistRecall]
+    sections: list[ChecklistSection]
+    tsbs: list[ChecklistTsb]
+    standard_checks: list[str]
+
 
 # ---------------------------------------------------------------------------
 # Component → Inspection checks mapping
@@ -125,6 +167,19 @@ COMPONENT_CHECKS_MAP: dict[str, list[str]] = {
     ],
 }
 
+STANDARD_CHECKS: list[str] = [
+    "VIN matches title and door jamb sticker",
+    "CarFax/AutoCheck report reviewed for accidents, title issues, odometer rollback",
+    "All recalls verified completed at nhtsa.gov/recalls (search by VIN)",
+    "OBD-II scan: no active DTCs, no pending codes",
+    "Fluid levels and condition: oil, coolant, brake fluid, trans fluid, power steering",
+    "Battery voltage: 12.4V+ at rest · 13.8-14.4V with engine running",
+    "Tire tread depth: >4/32\" recommended · >2/32\" legal minimum",
+    "Brake pad thickness: >3mm front · >2mm rear",
+    "Rust inspection: frame rails, rocker panels, wheel wells, trunk floor, spare tire well",
+    "Test drive: cold start, acceleration, hard braking, highway, tight turns",
+]
+
 STANDARD_CHECKS_MD = """
 ---
 
@@ -135,7 +190,7 @@ STANDARD_CHECKS_MD = """
 - [ ] OBD-II scan: no active DTCs, no pending codes
 - [ ] Fluid levels and condition: oil, coolant, brake fluid, trans fluid, power steering
 - [ ] Battery voltage: 12.4V+ at rest · 13.8-14.4V with engine running
-- [ ] Tire tread depth: >4/32" recommended · >2/32" legal minimum
+- [ ] Tire tread depth: >4/32\" recommended · >2/32\" legal minimum
 - [ ] Brake pad thickness: >3mm front · >2mm rear
 - [ ] Rust inspection: frame rails, rocker panels, wheel wells, trunk floor, spare tire well
 - [ ] Test drive: cold start, acceleration, hard braking, highway, tight turns
@@ -247,34 +302,96 @@ def component_to_checks(component: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Checklist builder
+# Structured data builder (primary — everything else derives from this)
 # ---------------------------------------------------------------------------
 
 
-def build_checklist(make: str, model: str, year_start: int, year_end: int) -> str:
-    """Build the full markdown checklist string."""
+def build_checklist_data(make: str, model: str, year_start: int, year_end: int) -> ChecklistData:
+    """Build structured checklist data dict from SQLite sources."""
     if not DB_PATH.exists():
         raise FileNotFoundError(f"Database not found at {DB_PATH}")
 
     with sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True) as conn:
         representative_year = year_end
         complaints = get_top_complaints(conn, make, model, year_start, year_end)
-        recalls = get_recalls(conn, make, model, representative_year)
-        tsbs = get_tsbs(conn, make, model, representative_year)
+        raw_recalls = get_recalls(conn, make, model, representative_year)
+        raw_tsbs = get_tsbs(conn, make, model, representative_year)
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    recalls: list[ChecklistRecall] = [
+        {
+            "campaign_no": r["campaign_no"],
+            "component": r.get("component") or "N/A",
+            "summary": r.get("summary") or "",
+            "park_it": bool(r.get("park_it")),
+            "year_from": r.get("year_from"),
+            "year_to": r.get("year_to"),
+        }
+        for r in raw_recalls
+    ]
+
+    sections: list[ChecklistSection] = [
+        {
+            "component": component,
+            "complaint_count": count,
+            "checks": component_to_checks(component),
+        }
+        for component, count in complaints[:8]
+    ]
+
+    tsbs: list[ChecklistTsb] = [
+        {
+            "bulletin_no": t["bulletin_no"],
+            "component": t.get("component") or "N/A",
+            "summary": (t.get("summary") or "").replace("\n", " "),
+        }
+        for t in raw_tsbs
+    ]
+
+    return {
+        "make": make.upper(),
+        "model": model.upper(),
+        "year_start": year_start,
+        "year_end": year_end,
+        "generated_at": datetime.now().strftime("%Y-%m-%d"),
+        "has_park_it": any(r["park_it"] for r in recalls),
+        "recalls": recalls,
+        "sections": sections,
+        "tsbs": tsbs,
+        "standard_checks": STANDARD_CHECKS,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Markdown builder (derived from structured data)
+# ---------------------------------------------------------------------------
+
+
+def build_checklist(make: str, model: str, year_start: int, year_end: int) -> str:
+    """Build the full markdown checklist string."""
+    data = build_checklist_data(make, model, year_start, year_end)
+    return _data_to_markdown(data)
+
+
+def _data_to_markdown(data: ChecklistData) -> str:
+    """Render ChecklistData as markdown."""
+    make = data["make"]
+    model = data["model"]
+    year_start = data["year_start"]
+    year_end = data["year_end"]
+    recalls = data["recalls"]
+    sections = data["sections"]
+    tsbs = data["tsbs"]
+
     year_range_str = str(year_start) if year_start == year_end else f"{year_start}–{year_end}"
     parts: list[str] = []
 
-    # ── Header ──────────────────────────────────────────────────────────────
     parts.append("# Pre-Purchase Inspection Checklist\n")
     parts.append(f"## {year_range_str} {make.title()} {model.title()}\n")
     parts.append(
-        f"*Generated {today} | Based on {len(complaints)} complaint categories, "
+        f"*Generated {data['generated_at']} | Based on {len(sections)} complaint categories, "
         f"{len(recalls)} recall(s), {len(tsbs)} TSB(s)*\n"
     )
 
-    # ── Recalls ─────────────────────────────────────────────────────────────
     parts.append("\n---\n\n### ⚠️ ACTIVE RECALLS (VERIFY COMPLETION)\n")
     if not recalls:
         parts.append(
@@ -292,19 +409,17 @@ def build_checklist(make: str, model: str, year_start: int, year_end: int) -> st
             comp = textwrap.shorten(r.get("component") or "N/A", width=30, placeholder="…")
             parts.append(f"| {campaign} | {comp} | {affected} | [ ] Verified Completed |\n")
 
-    # ── Top Inspection Priorities ────────────────────────────────────────────
     parts.append("\n---\n\n### 🔍 TOP INSPECTION PRIORITIES\n")
     parts.append("*Ranked by complaint frequency — focus here first*\n\n")
-    if not complaints:
+    if not sections:
         parts.append("No significant complaint patterns found for this vehicle range.\n")
     else:
-        for i, (component, count) in enumerate(complaints[:8], 1):
-            parts.append(f"**{i}. {component.title()} ({count:,} complaints)**\n")
-            for check in component_to_checks(component):
+        for i, section in enumerate(sections, 1):
+            parts.append(f"**{i}. {section['component'].title()} ({section['complaint_count']:,} complaints)**\n")
+            for check in section["checks"]:
                 parts.append(f"- [ ] {check}\n")
             parts.append("\n")
 
-    # ── TSBs ─────────────────────────────────────────────────────────────────
     parts.append("---\n\n### 📋 TSBs TO PROBE\n")
     if not tsbs:
         parts.append("No specific TSBs found for this model year.\n")
@@ -312,13 +427,215 @@ def build_checklist(make: str, model: str, year_start: int, year_end: int) -> st
         parts.append("| Bulletin | Component | Known Issue |\n")
         parts.append("|----------|-----------|-------------|\n")
         for t in tsbs:
-            summary = (t.get("summary") or "").replace("\n", " ").replace("|", " ")
-            short = textwrap.shorten(summary, width=80, placeholder="…")
-            comp = textwrap.shorten(t.get("component") or "N/A", width=25, placeholder="…")
+            short = textwrap.shorten(t["summary"], width=80, placeholder="…")
+            comp = textwrap.shorten(t["component"], width=25, placeholder="…")
             parts.append(f"| {t['bulletin_no']} | {comp} | {short} |\n")
 
-    # ── Standard Checks ───────────────────────────────────────────────────────
     parts.append(STANDARD_CHECKS_MD)
+    return "".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# HTML builder (for print/PDF — derived from structured data)
+# ---------------------------------------------------------------------------
+
+
+def build_checklist_html(data: ChecklistData) -> str:
+    """Render ChecklistData as print-ready HTML for PDF generation."""
+    make = data["make"]
+    model = data["model"]
+    year_start = data["year_start"]
+    year_end = data["year_end"]
+    year_range_str = str(year_start) if year_start == year_end else f"{year_start}–{year_end}"
+    recalls = data["recalls"]
+    sections = data["sections"]
+    tsbs = data["tsbs"]
+    generated_at = data["generated_at"]
+
+    def esc(s: str) -> str:
+        return (
+            s.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+
+    parts: list[str] = [
+        """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pre-Purchase Checklist</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: 'IBM Plex Sans', Arial, sans-serif;
+    font-size: 10pt;
+    color: #161616;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .page-header {
+    border-bottom: 3px solid #0f62fe;
+    padding: 12px 0 8px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 16pt; font-weight: 700; margin: 0 0 2px; color: #161616; }
+  .subtitle { font-size: 9pt; color: #525252; margin: 0; }
+  h2 {
+    font-size: 10pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0f62fe;
+    margin: 18px 0 8px;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 4px;
+  }
+  .park-it-banner {
+    background: #fff1f1;
+    border: 2px solid #da1e28;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-weight: 700;
+    color: #da1e28;
+    font-size: 10pt;
+  }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt; }
+  th {
+    background: #e0e0e0;
+    text-align: left;
+    padding: 5px 8px;
+    font-weight: 700;
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td { padding: 4px 8px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f4f4f4; }
+  .park-it-row td { background: #fff1f1 !important; font-weight: 600; }
+  .recall-badge {
+    display: inline-block;
+    background: #da1e28;
+    color: #fff;
+    font-size: 7.5pt;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 2px;
+    margin-left: 4px;
+  }
+  .section-title {
+    font-weight: 700;
+    font-size: 10pt;
+    margin: 14px 0 6px;
+    color: #161616;
+  }
+  .section-count { font-weight: 400; color: #525252; font-size: 9pt; }
+  .check-list { list-style: none; margin: 0 0 8px; padding: 0; }
+  .check-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 5px;
+    font-size: 9.5pt;
+    line-height: 1.4;
+  }
+  .check-box {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid #8d8d8d;
+    display: inline-block;
+    margin-top: 2px;
+  }
+  .standard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 24px;
+  }
+  .footer {
+    margin-top: 24px;
+    padding-top: 8px;
+    border-top: 1px solid #e0e0e0;
+    font-size: 8pt;
+    color: #8d8d8d;
+    display: flex;
+    justify-content: space-between;
+  }
+  @media print {
+    body { font-size: 9.5pt; }
+    .page-break { page-break-before: always; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+""",
+    ]
+
+    # Header
+    parts.append(f"""<div class="page-header">
+  <h1>Pre-Purchase Inspection Checklist</h1>
+  <p class="subtitle">{esc(year_range_str)} {esc(make.title())} {esc(model.title())} &nbsp;·&nbsp; Generated {esc(generated_at)} &nbsp;·&nbsp; {len(sections)} complaint categories · {len(recalls)} recall(s) · {len(tsbs)} TSB(s)</p>
+</div>
+""")
+
+    # Park-it banner
+    if data["has_park_it"]:
+        parts.append('<div class="park-it-banner">⛔ DO NOT DRIVE WARNING: One or more park-it safety recalls are active for this vehicle. Verify VIN at nhtsa.gov/recalls before purchase.</div>\n')
+
+    # Recalls
+    parts.append('<h2>⚠️ Active Safety Recalls (Verify Completion)</h2>\n')
+    if not recalls:
+        parts.append('<p style="color:#525252;font-size:9pt">No open recalls found — always verify VIN at <strong>nhtsa.gov/recalls</strong></p>\n')
+    else:
+        parts.append('<table><thead><tr><th>Campaign</th><th>Component</th><th>Years</th><th style="width:120px">Status</th></tr></thead><tbody>\n')
+        for r in recalls:
+            yf, yt = r.get("year_from"), r.get("year_to")
+            affected = str(yf) if yf == yt else (f"{yf}–{yt}" if yf and yt else "Varies")
+            row_cls = ' class="park-it-row"' if r["park_it"] else ""
+            badge = '<span class="recall-badge">DO NOT DRIVE</span>' if r["park_it"] else ""
+            comp = textwrap.shorten(r["component"], width=35, placeholder="…")
+            camp = esc(r["campaign_no"])
+            parts.append(f'<tr{row_cls}><td>{camp}{badge}</td><td>{esc(comp)}</td><td>{esc(affected)}</td><td><span class="check-box"></span> Verified</td></tr>\n')
+        parts.append('</tbody></table>\n')
+
+    # Inspection priorities
+    parts.append('<h2>🔍 Top Inspection Priorities (by Complaint Frequency)</h2>\n')
+    if not sections:
+        parts.append('<p style="color:#525252;font-size:9pt">No significant complaint patterns found for this vehicle range.</p>\n')
+    else:
+        for i, section in enumerate(sections, 1):
+            parts.append(f'<div class="section-title">{i}. {esc(section["component"].title())} <span class="section-count">({section["complaint_count"]:,} complaints)</span></div>\n')
+            parts.append('<ul class="check-list">\n')
+            for check in section["checks"]:
+                parts.append(f'<li><span class="check-box"></span>{esc(check)}</li>\n')
+            parts.append('</ul>\n')
+
+    # TSBs
+    parts.append('<h2>📋 Technical Service Bulletins to Probe</h2>\n')
+    if not tsbs:
+        parts.append('<p style="color:#525252;font-size:9pt">No specific TSBs found for this model year.</p>\n')
+    else:
+        parts.append('<table><thead><tr><th>Bulletin</th><th>Component</th><th>Known Issue</th></tr></thead><tbody>\n')
+        for t in tsbs:
+            short = textwrap.shorten(t["summary"], width=90, placeholder="…")
+            comp = textwrap.shorten(t["component"], width=30, placeholder="…")
+            parts.append(f'<tr><td>{esc(t["bulletin_no"])}</td><td>{esc(comp)}</td><td>{esc(short)}</td></tr>\n')
+        parts.append('</tbody></table>\n')
+
+    # Standard checks
+    parts.append('<h2>✅ Standard Checks (Every Inspection)</h2>\n')
+    parts.append('<div class="standard-grid">\n')
+    parts.append('<ul class="check-list">\n')
+    for check in STANDARD_CHECKS:
+        parts.append(f'<li><span class="check-box"></span>{esc(check)}</li>\n')
+    parts.append('</ul>\n</div>\n')
+
+    # Footer
+    parts.append(f'<div class="footer"><span>ADS Automotive Diagnostic System</span><span>Generated {esc(generated_at)} · nhtsa.gov/recalls for VIN verification</span></div>\n')
+    parts.append('</body>\n</html>\n')
 
     return "".join(parts)
 
@@ -338,6 +655,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--year-start", required=True, type=int, help="Start of model year range")
     parser.add_argument("--year-end", required=True, type=int, help="End of model year range")
     parser.add_argument("--output", default=None, metavar="PATH", help="Save to file (default: stdout)")
+    parser.add_argument(
+        "--format",
+        choices=["md", "json", "html"],
+        default="md",
+        help="Output format: md (markdown), json (structured data), html (print-ready HTML)",
+    )
     return parser.parse_args(argv)
 
 
@@ -349,7 +672,14 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        md = build_checklist(args.make, args.model, args.year_start, args.year_end)
+        if args.format == "json":
+            data = build_checklist_data(args.make, args.model, args.year_start, args.year_end)
+            output = json.dumps(data, indent=2)
+        elif args.format == "html":
+            data = build_checklist_data(args.make, args.model, args.year_start, args.year_end)
+            output = build_checklist_html(data)
+        else:
+            output = build_checklist(args.make, args.model, args.year_start, args.year_end)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -360,10 +690,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(md, encoding="utf-8")
+        out.write_text(output, encoding="utf-8")
         print(f"Checklist saved to: {out.resolve()}")
     else:
-        print(md)
+        print(output)
 
     return 0
 

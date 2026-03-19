@@ -11,6 +11,7 @@ import VehicleIdentification, { type VehicleIdentity } from './components/Vehicl
 import VehicleDashboard from './components/VehicleDashboard';
 import ReportModal from './components/ReportModal';
 import DiagnosisHistory from './components/DiagnosisHistory';
+import ChecklistPanel from './components/ChecklistPanel';
 import { parseDtcInput } from './components/VehicleForm';
 import { api, saveHistory, type VehicleInfo } from '../lib/api';
 
@@ -61,6 +62,15 @@ function IconWarning() {
     );
 }
 
+function IconChecklist() {
+    return (
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M11 14H6a2 2 0 00-2 2v5a2 2 0 002 2h5a2 2 0 002-2v-5a2 2 0 00-2-2zm0 7H6v-5h5zM11 4H6a2 2 0 00-2 2v5a2 2 0 002 2h5a2 2 0 002-2V6a2 2 0 00-2-2zm0 7H6V6h5zM28 6h-2V4h-2v2h-6V4h-2v2h-2v2h2v2h2V8h6v2h2V8h2zM18 14h-2v2h2zM22 14h-2v2h2zM26 14h-2v2h2zM18 18h-2v2h2zM22 18h-2v2h2zM26 18h-2v2h2zM18 22h-2v2h2zM22 22h-2v2h2zM26 22h-2v2h2z" />
+        </svg>
+    );
+}
+
 function IconChevronDown() {
     return (
         <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
@@ -70,7 +80,7 @@ function IconChevronDown() {
     );
 }
 
-type Tab = 'diagnose' | 'database' | 'tsbsearch' | 'recallsearch';
+type Tab = 'diagnose' | 'database' | 'tsbsearch' | 'recallsearch' | 'prepurchase';
 
 interface NavItem {
     key: Tab;
@@ -83,6 +93,7 @@ const NAV_ITEMS: NavItem[] = [
     { key: 'database', label: 'Database', icon: <IconDatabase /> },
     { key: 'tsbsearch', label: 'TSB Search', icon: <IconDocument /> },
     { key: 'recallsearch', label: 'Recall Search', icon: <IconWarning /> },
+    { key: 'prepurchase', label: 'Pre-Purchase', icon: <IconChecklist /> },
 ];
 
 export default function Home() {
@@ -881,6 +892,21 @@ export default function Home() {
 
                                 {isProcessing && <LoadingState />}
                             </div>
+                        </div>
+                    )}
+
+                    {/* ── PRE-PURCHASE TAB ─────────────────────────────── */}
+                    {activeTab === 'prepurchase' && (
+                        <div>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                                <h1 className="cds--productive-heading-04" style={{ marginBottom: '0.5rem' }}>
+                                    Pre-Purchase Inspection
+                                </h1>
+                                <p className="cds--body-short-01" style={{ color: 'var(--cds-text-secondary)' }}>
+                                    Select a vehicle and year range to generate a data-driven inspection checklist based on NHTSA complaints, safety recalls, and TSBs.
+                                </p>
+                            </div>
+                            <ChecklistPanel />
                         </div>
                     )}
 

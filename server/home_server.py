@@ -647,6 +647,7 @@ class ChecklistRequest(BaseModel):
     model: str
     year_start: int = Field(..., ge=1900, le=2030)
     year_end: int = Field(..., ge=1900, le=2030)
+    generate_pdf: bool = False
 
 
 # Checked AGENTS.md - implementing via Gemini delegation per GEMINI_WORKFLOW.md.
@@ -733,8 +734,10 @@ async def generate_vehicle_checklist(
     request: ChecklistRequest,
     api_key: str = Depends(get_api_key),
 ) -> dict[str, object]:
-    """Run generate_checklist.py as a subprocess and return generated markdown."""
+    """Run generate_checklist.py to get structured data, markdown, and optional PDF."""
     import asyncio  # noqa: PLC0415
+    import base64   # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
     import time     # noqa: PLC0415
 
     make = request.make.upper().replace(" ", "_")
@@ -747,7 +750,7 @@ async def generate_vehicle_checklist(
     python_exe = project_root / ".venv" / "bin" / "python3"
     script = project_root / "scripts" / "generate_checklist.py"
 
-    args = [
+    base_args = [
         str(python_exe), str(script),
         "--make", make,
         "--model", model,
@@ -756,36 +759,107 @@ async def generate_vehicle_checklist(
     ]
 
     t0 = time.monotonic()
-    proc = None
-    try:
+
+    async def run_script(extra_args: list[str], timeout: float = 30.0) -> bytes:
         proc = await asyncio.create_subprocess_exec(
-            *args,
+            *base_args, *extra_args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
-
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise HTTPException(status_code=504, detail="Checklist generation timed out (30s)")
         if proc.returncode != 0:
             err_text = stderr.decode().strip()[-500:]
             logger.error("Checklist failed for %s %s: %s", make, model, err_text)
             raise HTTPException(status_code=500, detail=f"Checklist generation failed: {err_text}")
+        return stdout
 
-        content = stdout.decode()
-        logger.info("Checklist done in %.1fs for %s %s %d-%d", time.monotonic() - t0, make, model, request.year_start, request.year_end)
-        return {
-            "content": content,
+    try:
+        # Run both formats in parallel
+        md_task = asyncio.create_task(
+            asyncio.create_subprocess_exec(
+                *base_args, "--format", "md",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            )
+        )
+        json_task = asyncio.create_task(
+            asyncio.create_subprocess_exec(
+                *base_args, "--format", "json",
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            )
+        )
+
+        md_proc, json_proc = await asyncio.gather(md_task, json_task)
+        (md_stdout, md_stderr), (json_stdout, json_stderr) = await asyncio.gather(
+            asyncio.wait_for(md_proc.communicate(), timeout=30.0),
+            asyncio.wait_for(json_proc.communicate(), timeout=30.0),
+        )
+
+        for proc, stderr_bytes in [(md_proc, md_stderr), (json_proc, json_stderr)]:
+            if proc.returncode != 0:
+                err_text = stderr_bytes.decode().strip()[-500:]
+                raise HTTPException(status_code=500, detail=f"Checklist generation failed: {err_text}")
+
+        import json as _json  # noqa: PLC0415
+        content_md = md_stdout.decode()
+        checklist_data: dict[str, object] = _json.loads(json_stdout.decode())
+
+        pdf_b64: str | None = None
+        if request.generate_pdf:
+            # Generate HTML then PDF
+            html_stdout = await run_script(["--format", "html"])
+            html_content = html_stdout.decode()
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp = pathlib.Path(tmpdir)
+                html_path = tmp / "checklist.html"
+                pdf_path = tmp / "checklist.pdf"
+                html_path.write_text(html_content, encoding="utf-8")
+
+                pdf_proc = await asyncio.create_subprocess_exec(
+                    "node",
+                    str(project_root / "scripts" / "pdf_from_html.js"),
+                    str(html_path),
+                    str(pdf_path),
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _pdf_stdout, pdf_stderr = await asyncio.wait_for(pdf_proc.communicate(), timeout=60.0)
+                except asyncio.TimeoutError:
+                    pdf_proc.kill()
+                    await pdf_proc.wait()
+                    raise HTTPException(status_code=504, detail="PDF generation timed out (60s)")
+
+                if pdf_proc.returncode != 0:
+                    err = pdf_stderr.decode().strip()[-300:]
+                    raise HTTPException(status_code=500, detail=f"PDF generation failed: {err}")
+
+                pdf_b64 = base64.b64encode(pdf_path.read_bytes()).decode()
+
+        logger.info(
+            "Checklist done in %.1fs for %s %s %d-%d (pdf=%s)",
+            time.monotonic() - t0, make, model, request.year_start, request.year_end, request.generate_pdf,
+        )
+
+        result: dict[str, object] = {
+            "content": content_md,
             "filename": f"checklist_{make}_{model}_{request.year_start}_{request.year_end}.md",
             "make": make,
             "model": model,
             "year_start": request.year_start,
             "year_end": request.year_end,
+            "data": checklist_data,
         }
+        if pdf_b64 is not None:
+            result["pdf_b64"] = pdf_b64
+            result["pdf_filename"] = f"checklist_{make}_{model}_{request.year_start}_{request.year_end}.pdf"
+        return result
 
-    except asyncio.TimeoutError:
-        if proc:
-            proc.kill()
-            await proc.wait()
-        raise HTTPException(status_code=504, detail="Checklist generation timed out (30s)")
     except HTTPException:
         raise
     except Exception as exc:
