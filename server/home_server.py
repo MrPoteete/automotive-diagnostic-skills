@@ -26,6 +26,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 from src.diagnostic.engine_agent import diagnose as run_diagnosis
+from scripts.nas_output import fleet_reports_dir
 
 load_dotenv()
 
@@ -667,8 +668,7 @@ async def generate_vehicle_report(
     if request.year_start > request.year_end:
         raise HTTPException(status_code=400, detail="year_start cannot be greater than year_end")
 
-    reports_dir = pathlib.Path(__file__).resolve().parent.parent / "reports"
-    reports_dir.mkdir(exist_ok=True)
+    reports_dir = fleet_reports_dir()
     output_path = reports_dir / f"report_{make}_{model}_{request.year_start}_{request.year_end}.md"
     project_root = pathlib.Path(__file__).resolve().parent.parent
     python_exe = project_root / ".venv" / "bin" / "python3"

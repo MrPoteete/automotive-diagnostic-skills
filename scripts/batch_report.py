@@ -32,6 +32,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+from nas_output import fleet_report_path, fleet_reports_dir
+
 # ---------------------------------------------------------------------------
 # Vehicle batch list — top 20 by NHTSA complaint volume (queried 2026-03-13)
 # Year window chosen to capture peak complaint density while giving enough
@@ -63,12 +65,10 @@ BATCH_VEHICLES: list[tuple[str, str, int, int]] = [
 ]
 
 PROJECT_ROOT = Path(__file__).parent.parent
-REPORTS_DIR = PROJECT_ROOT / "reports"
 
 
 def _output_path(make: str, model: str, yr_start: int, yr_end: int) -> Path:
-    slug = f"{make.lower()}_{model.lower().replace(' ', '_').replace('-', '_')}_{yr_start}_{yr_end}"
-    return REPORTS_DIR / f"{slug}.md"
+    return fleet_report_path(make, model, yr_start, yr_end)
 
 
 def generate_one(
@@ -161,7 +161,7 @@ def main() -> None:
     if args.limit:
         vehicles = vehicles[: args.limit]
 
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    fleet_reports_dir()  # ensures NAS or local output dir exists
 
     total = len(vehicles)
     results: list[dict] = []
@@ -212,7 +212,7 @@ def main() -> None:
     err = sum(1 for r in results if r["status"] == "error")
     print(f"Done: {ok} generated · {skp} skipped · {err} errors")
 
-    index_path = REPORTS_DIR / "INDEX.md"
+    index_path = fleet_reports_dir() / "INDEX.md"
     index_path.write_text(build_index(results), encoding="utf-8")
     print(f"Index: {index_path}")
 

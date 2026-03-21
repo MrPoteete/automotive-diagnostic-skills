@@ -19,6 +19,8 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
+from nas_output import customer_report_path, report_location_summary
+
 SCRIPT_DIR = Path(__file__).parent
 NODE_PDF_HELPER = SCRIPT_DIR / "pdf_from_html.js"
 FRONTEND_NODE = SCRIPT_DIR.parent / "src" / "frontend" / "node_modules" / ".bin" / "node"
@@ -425,22 +427,14 @@ def main() -> None:
     if args.output:
         output_path = args.output
     else:
-        reports_dir = Path(__file__).parent.parent / "reports"
-        reports_dir.mkdir(exist_ok=True)
         v = data.get("vehicle", {})
-        slug = "_".join(
-            filter(
-                None,
-                [
-                    str(v.get("year", "")),
-                    v.get("make", "").upper(),
-                    v.get("model", "").upper().replace(" ", "-"),
-                    data.get("ro_number", ""),
-                ],
-            )
-        )
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        output_path = str(reports_dir / f"diag_report_{slug}_{timestamp}.pdf")
+        output_path = str(customer_report_path(
+            year=v.get("year", ""),
+            make=v.get("make", ""),
+            model=v.get("model", ""),
+            ro_number=data.get("ro_number", ""),
+        ))
+        print(f"Output destination: {report_location_summary()}")
 
     print("Generating HTML...")
     html = generate_html(data)
