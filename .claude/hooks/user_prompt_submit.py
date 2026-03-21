@@ -17,6 +17,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.constants import ensure_session_log_dir
+from utils.session_state import (
+    add_dtc_codes,
+    add_symptoms,
+    auto_advance_phase,
+    load_or_create,
+    save_state,
+    update_vehicle,
+    PHASES,
+)
 
 # ---------------------------------------------------------------------------
 # Diagnostic detection patterns
@@ -147,7 +156,7 @@ def _detect_make(lower: str) -> str | None:
     return None
 
 
-def build_skill_context(make: str | None) -> str:
+def build_skill_context(make: str | None, phase: int = 1, violations: list[str] | None = None) -> str:
     """Build the skill reminder context string to inject."""
     protocol_line = ""
     if make and make in _MAKE_TO_PROTOCOL:
@@ -156,8 +165,20 @@ def build_skill_context(make: str | None) -> str:
             f"\n- Also load: skills/references/manufacturers/{proto} (detected make: {make.upper()})"
         )
 
+    phase_name = PHASES.get(phase, "Information Gathering")
+    phase_line = f"Current session phase: {phase} — {phase_name}\n"
+
+    violation_block = ""
+    if violations:
+        violation_block = (
+            "\n⚠️ DIAGNOSTIC QUALITY VIOLATIONS FROM PREVIOUS RESPONSE:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+            + "\nPlease address these violations in your current response.\n"
+        )
+
     return (
         "🔧 DIAGNOSTIC SKILL REMINDER — MANDATORY PROTOCOL\n\n"
+        f"{phase_line}"
         "A vehicle diagnostic request has been detected. Before responding, you MUST:\n\n"
         "1. Read skills/SKILL.md — master protocol and output format\n"
         f"2. Load required reference files from skills/references/{protocol_line}\n"
@@ -166,10 +187,23 @@ def build_skill_context(make: str | None) -> str:
         "   [Request Type: X | Loading: skill.md, ...]\n"
         "5. Apply the full CO-STAR diagnostic framework\n"
         "6. Use categorical assessment levels ONLY (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)\n"
-        "7. Include mandatory 📚 SOURCES and ⚖️ DISCLAIMER sections\n\n"
+        "7. Include mandatory 📚 SOURCES and ⚖️ DISCLAIMER sections\n"
+        "8. Update logs/{session_id}/diagnostic-session.json after each phase\n\n"
         "Shortcut: /diagnose command enforces all of this automatically.\n"
         "Skipping this protocol violates safety standards for this project."
+        + violation_block
     )
+
+
+def _extract_vehicle_year(prompt: str) -> str | None:
+    """Extract a vehicle year from the prompt text."""
+    m = _YEAR_RE.search(prompt)
+    return m.group(1) if m else None
+
+
+def _extract_dtc_codes(prompt: str) -> list[str]:
+    """Extract all DTC codes from the prompt text."""
+    return [m.upper() for m in _DTC_RE.findall(prompt)]
 
 
 # ---------------------------------------------------------------------------
@@ -211,11 +245,53 @@ def main() -> None:
     except Exception:
         pass  # Never block on logging failure
 
-    # ── Diagnostic skill injection ─────────────────────────────────────────
+    # ── Diagnostic skill injection + session state ─────────────────────────
     is_diagnostic, detected_make = detect_diagnostic_request(prompt)
 
     if is_diagnostic:
-        context = build_skill_context(detected_make)
+        # Update session state with any extractable info from the prompt
+        phase = 1
+        violations: list[str] = []
+        try:
+            # Extract vehicle info and DTCs from prompt
+            year = _extract_vehicle_year(prompt)
+            dtcs = _extract_dtc_codes(prompt)
+
+            # Build vehicle kwargs (only include non-None values)
+            vehicle_fields: dict[str, str] = {}
+            if year:
+                vehicle_fields["year"] = year
+            if detected_make:
+                vehicle_fields["make"] = detected_make
+
+            # Update state with extracted info
+            if vehicle_fields:
+                state = update_vehicle(session_id, **vehicle_fields)
+            else:
+                state = load_or_create(session_id)
+
+            if dtcs:
+                state = add_dtc_codes(session_id, dtcs)
+
+            # Extract symptoms from prompt keywords for state tracking
+            lower = prompt.lower()
+            detected_symptoms = [
+                kw for kw in _SYMPTOM_KEYWORDS
+                if kw in lower and len(kw) > 5  # skip very short generic words
+            ]
+            if detected_symptoms:
+                state = add_symptoms(session_id, detected_symptoms[:5])  # cap at 5
+
+            # Auto-advance phase based on updated state
+            state = auto_advance_phase(state)
+            save_state(session_id, state)
+
+            phase = state.get("phase", 1)
+            violations = state.get("violations", [])
+        except Exception:
+            pass  # Never block on state management failure
+
+        context = build_skill_context(detected_make, phase=phase, violations=violations)
         print(json.dumps({"context": context}))
 
     sys.exit(0)
