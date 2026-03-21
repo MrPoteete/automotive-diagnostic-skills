@@ -25,3 +25,15 @@ def ensure_session_log_dir(session_id):
     log_dir = Path(project_dir) / "logs" / session_id
     log_dir.mkdir(parents=True, exist_ok=True)
     return log_dir
+
+
+def get_session_state_path(session_id):
+    """Return the Path to the diagnostic session state file.
+
+    Args:
+        session_id: The Claude Code session identifier.
+
+    Returns:
+        Path object pointing to logs/{session_id}/diagnostic-session.json.
+    """
+    return ensure_session_log_dir(session_id) / "diagnostic-session.json"
