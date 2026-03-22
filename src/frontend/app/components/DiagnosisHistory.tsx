@@ -52,14 +52,18 @@ export default function DiagnosisHistory({ make, model, year, vin }: DiagnosisHi
     };
 
     return (
-        <div style={{
-            background: 'var(--cds-layer-01)',
-            border: '1px solid var(--cds-border-subtle-01)',
-            marginBottom: '1rem',
-        }}>
+        <div
+            data-testid="diagnosis-history-panel"
+            style={{
+                background: 'var(--cds-layer-01)',
+                border: '1px solid var(--cds-border-subtle-01)',
+                marginBottom: '1rem',
+            }}
+        >
             {/* Panel header */}
             <button
                 type="button"
+                data-testid="history-toggle"
                 onClick={() => setPanelOpen((v) => !v)}
                 style={{
                     width: '100%',
@@ -88,10 +92,11 @@ export default function DiagnosisHistory({ make, model, year, vin }: DiagnosisHi
                     {entries.map((entry) => {
                         const isExpanded = expandedIds.has(entry.id);
                         return (
-                            <div key={entry.id} style={{ borderBottom: '1px solid var(--cds-border-subtle-01)' }}>
+                            <div key={entry.id} data-testid="history-entry" style={{ borderBottom: '1px solid var(--cds-border-subtle-01)' }}>
                                 {/* Entry row header */}
                                 <button
                                     type="button"
+                                    data-testid="history-entry-header"
                                     onClick={() => toggleEntry(entry.id)}
                                     style={{
                                         width: '100%',
@@ -126,7 +131,7 @@ export default function DiagnosisHistory({ make, model, year, vin }: DiagnosisHi
 
                                 {/* Expanded findings */}
                                 {isExpanded && (
-                                    <div style={{ padding: '0 1rem 0.75rem 1rem' }}>
+                                    <div data-testid="history-findings" style={{ padding: '0 1rem 0.75rem 1rem' }}>
                                         <p style={{ fontSize: '0.75rem', color: 'var(--cds-text-secondary)', marginBottom: '0.5rem' }}>
                                             {entry.candidate_count} candidate{entry.candidate_count !== 1 ? 's' : ''}
                                             {entry.engine ? ` · ${entry.engine}` : ''}
