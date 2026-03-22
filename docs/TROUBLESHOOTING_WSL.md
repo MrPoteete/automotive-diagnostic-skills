@@ -1,6 +1,10 @@
-# WSL/Windows Hybrid Environment Troubleshooting Guide
+# WSL Environment Guide
 
-**Purpose**: Guide for working in WSL (Windows Subsystem for Linux) environments where processes can run in either Windows or WSL.
+**Current Setup** (as of 2026-03-22): This project runs **natively in WSL2 Ubuntu 24.04**.
+- Project lives at `/home/poteete/projects/automotive-diagnostic-skills` (not on Windows filesystem)
+- All tools (bash, python, git, uv, npm) run as native Linux
+- Windows C: drive is NOT mounted by default in this instance
+- NAS share mounted at `/mnt/z/` → `\\100.99.29.103\claude-code-diag-reports`
 
 ---
 
@@ -9,14 +13,14 @@
 ### Primary Signal: Working Directory Pattern
 
 ```bash
-# WSL: Working directory starts with /mnt/<drive>/
-/mnt/c/Users/potee/Documents/GitHub/...
+# This project — WSL-native (correct):
+/home/poteete/projects/automotive-diagnostic-skills
 
-# Native Linux: Working directory starts with /home/ or /root/
-/home/poteete/...
+# Old Windows-side path (no longer used):
+/mnt/c/Users/potee/Documents/GitHub/...
 ```
 
-**Rule**: If working directory contains `/mnt/c/`, `/mnt/d/`, etc., you are in WSL.
+**Rule**: Project is always at `/home/poteete/...` — use Linux paths everywhere.
 
 ---
 

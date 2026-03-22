@@ -1,6 +1,28 @@
 # Environment Setup Guide
 
-This guide explains how to set up environment variables for the Automotive Diagnostic Skills project.
+**Environment**: WSL2 Ubuntu 24.04 — native Linux, project at `/home/poteete/projects/automotive-diagnostic-skills`
+
+## NAS Mount (Report Output)
+
+Reports are written to the TrueNAS share at `\\100.99.29.103\claude-code-diag-reports`, mounted at `/mnt/z/`.
+
+**Folder structure on NAS:**
+```
+/mnt/z/
+├── Customer/       — customer diagnostic PDFs
+├── Fleet/          — batch/fleet markdown reports
+└── Pre-Purchase/   — pre-purchase inspection reports
+```
+
+**Mount is persistent** via `/etc/fstab`. If it drops, remount with:
+```bash
+sudo mount /mnt/z
+```
+
+Credentials stored at `/etc/samba/nas_credentials` (root-readable only).
+The `scripts/nas_output.py` module auto-detects the NAS and falls back to `reports/` locally if unmounted.
+
+---
 
 ## Quick Start
 
