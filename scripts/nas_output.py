@@ -13,11 +13,13 @@ NAS folder structure (Z:\\ root = share root):
         Fleet/          — batch/fleet comparison reports (batch_report.py, report_builder.py)
 """
 
+import os
 from datetime import datetime
 from pathlib import Path
 
 # ── NAS configuration ─────────────────────────────────────────────────────────
-NAS_MOUNT = Path("/mnt/z")
+# /mnt/z = desktop WSL (Windows SMB mount), /mnt/nas-reports = NAS VM (NFS mount)
+NAS_MOUNT = Path(os.environ.get("NAS_REPORTS_MOUNT", "/mnt/z"))
 NAS_REPORTS_ROOT = NAS_MOUNT  # share root IS the reports root (no subfolder needed)
 
 # Subfolders per report type — sit directly at Z:\ root
