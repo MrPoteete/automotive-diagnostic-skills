@@ -50,10 +50,24 @@ Per SKILL.md Section "REQUEST TYPE CLASSIFICATION":
 - Type 6: Cost/time estimate
 
 ### Step 4 — Load Required References
-Based on type, load from `skills/references/`:
-- Type 1 → `diagnostic-process.md` + `anti-hallucination.md`
+The UserPromptSubmit hook injects **phase-sliced context** automatically — only the references
+relevant to the current diagnostic phase are injected (not the full SKILL.md every time):
+
+| Phase | References injected |
+|-------|-------------------|
+| 1 — Information Gathering | `skills/SKILL.md` (master protocol) |
+| 2 — Safety Assessment | _(none additional — apply from Phase 1)_ |
+| 3 — System Identification | `[make]-protocols.md` if make known |
+| 4 — Differential Diagnosis | `diagnostic-process.md` + `anti-hallucination.md` + `[make]-protocols.md` |
+| 5 — Test Sequence | `diagnostic-process.md` |
+| 6 — Primary Recommendation | `anti-hallucination.md` |
+| 7 — Source Attribution | `anti-hallucination.md` |
+
+For non-full-diagnostic request types, load from `skills/references/`:
+- Type 1 → phase map above
 - Type 2 → `obd-ii-methodology.md`
-- Type 4 → `warranty-failures.md`
+- Type 3 → `diagnostic-process.md`
+- Type 4 → `warranty-failures.md` + `[make]-protocols.md`
 
 ### Step 5 — Query the RAG Backend
 For Type 1 & 4, use the diagnostic API:
