@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.constants import ensure_session_log_dir
+from utils.diagnostic_validator import run_state_invariants
 from utils.phase_context import build_phase_context_block
 from utils.safety_scanner import build_hitl_gate, extract_safety_flags
 from utils.session_state import (
@@ -289,6 +290,11 @@ def main() -> None:
 
             # Auto-advance phase based on updated state
             state = auto_advance_phase(state)
+
+            # Phase 3: Diagnostic Validator — run state-based invariants
+            state_violations = run_state_invariants(state)
+            if state_violations:
+                state["violations"] = state_violations
             save_state(session_id, state)
 
             phase = state.get("phase", 1)
