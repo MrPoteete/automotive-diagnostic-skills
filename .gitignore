@@ -128,3 +128,9 @@ out/
 
 # Root-level node_modules (frontend deps live in src/frontend/node_modules/)
 /node_modules/
+
+# Generated report subdirectories (NAS fallback — not source, not committed)
+# Root-level reports/*.md and *.pdf are committed as examples; subdirs are not.
+reports/Customer/
+reports/Fleet/
+reports/Pre-Purchase/

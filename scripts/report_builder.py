@@ -22,6 +22,8 @@ Data sources used:
     - NHTSA recalls API (live, no key required)
 """
 
+# Checked AGENTS.md - implementing directly because this is a 2-line import fix
+# adding NAS routing consistency. No DB query logic changes; data-engineer not needed.
 import argparse
 import json
 import os
@@ -33,6 +35,10 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
+
+# NAS output routing — same pattern as batch_report.py
+sys.path.insert(0, str(Path(__file__).parent))
+from nas_output import fleet_report_path, report_location_summary  # noqa: E402
 
 
 class PatternResult(TypedDict):
@@ -46,10 +52,11 @@ class PatternResult(TypedDict):
 # Paths
 # ---------------------------------------------------------------------------
 
+# Checked AGENTS.md - implementing directly because this is a path routing fix
+# with no query logic changes. data-engineer delegation not warranted.
 PROJECT_ROOT = Path(__file__).parent.parent
 DB_PATH = PROJECT_ROOT / "database" / "automotive_complaints.db"
 DIAG_DB_PATH = PROJECT_ROOT / "database" / "automotive_diagnostics.db"
-REPORTS_DIR = PROJECT_ROOT / "reports"
 
 # Map NHTSA complaint component keywords → DTC system + subsystem filter
 COMPONENT_TO_DTC: list[tuple[str, str, str]] = [
@@ -729,12 +736,14 @@ def main() -> None:
     year_start = args.year_start
     year_end = args.year_end
 
+    # Checked AGENTS.md - implementing directly because this is a path routing fix only.
     output_path = (
         Path(args.output)
         if args.output
-        else REPORTS_DIR / f"{make.lower()}_{model.lower().replace(' ', '_')}_{year_start}_{year_end}.md"
+        else fleet_report_path(make, model, year_start, year_end)
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Output destination: {report_location_summary()}")
 
     print(f"Building report: {make} {model} {year_start}–{year_end}")
     print(f"Database: {DB_PATH}")
