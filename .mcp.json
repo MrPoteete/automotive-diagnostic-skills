@@ -2,11 +2,11 @@
   "mcpServers": {
     "gemini": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@houtini/gemini-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "${GOOGLE_API_KEY}"
-      }
+      "command": "bash",
+      "args": [
+        "-c",
+        "export GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=gemini-api-key --project=poteete-secrets 2>/dev/null) && npx -y @houtini/gemini-mcp"
+      ]
     }
   }
 }
