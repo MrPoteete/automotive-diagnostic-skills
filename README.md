@@ -1,365 +1,310 @@
-# Automotive Diagnostic Skills
+# Automotive Diagnostic AI
 
-A modular system of Claude skills for automotive fault diagnosis and
-troubleshooting, powered by a comprehensive SQLite database containing **2.1 MILLION+
-real-world vehicle complaints** from NHTSA plus vehicle specifications and diagnostic data.
+AI-powered diagnostic assistant for professional mechanics. Combines 2.1M+ real-world NHTSA complaints, 211K TSBs, safety recalls, and mechanic forum data with a structured 7-phase ASE diagnostic methodology to deliver evidence-based, safety-first diagnostic guidance.
 
-## About
+Built for shop-floor use: works through a web UI, CLI, or Telegram.
 
-This project provides AI-powered automotive diagnostic capabilities through
-Claude Code, combining structured vehicle data with intelligent reasoning to
-deliver fast, accurate diagnostic recommendations.
+---
 
-### Key Features
+## What It Does
 
-- **🔥 NHTSA Complaint Database**: **2,144,604 real-world complaints** from vehicle owners (1995-2025)
-- **Comprehensive Vehicle Database**: 22,800+ vehicles (2005-2025) with engine
-  specifications
-- **SQLite Architecture**: Sub-50ms query performance with full-text search
-- **OBD-II Integration**: Diagnostic trouble code (DTC) interpretation and
-  correlation
-- **Failure Pattern Analysis**: Common failures with confidence ratings
-- **Service Procedures**: Integration with MyFixit repair manuals
-- **Technical Service Bulletins**: **211,000+ Manufacturer Communications** (2005-2025)
-- **Safety-Critical Tracking**: Fire, crash, injury, and death incidents
-- **Diagnostic Skill v3.1**: Progressive disclosure architecture with categorical assessment, anti-hallucination protocols, and source attribution
+A mechanic provides vehicle info + symptoms. The system:
 
-### Current Status
+1. Pulls matching complaints, TSBs, and recalls from the NHTSA database
+2. Searches 553K mechanic forum posts (Reddit + Stack Exchange) for matching cases
+3. Scores each candidate cause by source reliability × vehicle match
+4. Flags safety-critical systems (brakes, airbags, steering) automatically
+5. Returns a ranked differential diagnosis with categorical assessment levels, test sequence, and mandatory source attribution
 
-**Phase 1: Complete** - Database foundation implemented
-- 33 tables with full relational integrity, 28 optimized indexes, FTS5 full-text search
+Outputs include a web dashboard, customer-facing PDF reports, pre-purchase inspection checklists, and fleet trend reports.
 
-**Phase 2: Complete** - Data integration
-- 562K NHTSA complaints indexed (FTS5), 211,640 TSBs, 792 vehicles in diagnostics DB
-- ChromaDB vector store initialized with forum data (Reddit, Stack Exchange)
+---
 
-**Phase 3: Complete** - Diagnostic Engine business logic (2026-02-22)
-- `src/data/db_service.py` — DiagnosticDB wrapper (FTS5 + SQL)
-- `src/diagnostic/confidence_scorer.py` — Confidence scoring (0.5 base + bonuses, capped 1.0)
-- `src/diagnostic/symptom_matcher.py` — Synonym expansion → FTS5 complaint search → ranked components
-- `src/diagnostic/engine_agent.py` — `diagnose()` orchestrator (full pipeline)
-- `src/safety/alert_system.py` — Two-layer safety detection (keyword + narrative scan)
-- `src/analysis/trend_analyzer.py` — Year-over-year trend (INCREASING/DECREASING/STABLE)
-- **269 tests passing** (249 unit + 20 integration against real DB)
+## System Architecture
 
-**Phase 4: Pending** - ChromaDB integration (forum data semantic boost)
+```
+Mechanic → Web UI (Next.js + Carbon)
+                ↓
+         FastAPI Backend
+                ↓
+    ┌───────────────────────┐
+    │   Diagnostic Engine   │
+    │  engine_agent.diagnose()│
+    └───────────────────────┘
+          ↙         ↘
+  SQLite (FTS5)   ChromaDB
+  562K complaints  553K forum docs
+  211K TSBs        (Reddit + SE)
+  2,711 recalls
+          ↘         ↙
+    Confidence Scoring
+    Safety Alert System
+    Trend Analyzer
+          ↓
+    Diagnostic Response
+    (candidates + recalls + warnings)
+```
 
-See [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) for detailed roadmap.
+### Two-Tier AI
+- **Claude** — strategic decisions, safety-critical logic, architecture
+- **Gemini** — routine code generation, docs, batch processing
+
+---
+
+## Data Sources
+
+| Source | Records | Confidence |
+|--------|---------|------------|
+| NHTSA Complaints (FTS5) | 562,000 | 0.7–1.0 |
+| NHTSA TSBs | 211,640 | 0.7–0.9 |
+| NHTSA Recalls | 2,711 campaigns | 0.9 |
+| Transport Canada Recalls | 17,774 | 0.9 |
+| EPA Vehicle Specs | 49,806 configs | — |
+| OBD-II DTC Codes | 3,071 codes | — |
+| Reddit (r/MechanicAdvice + r/AskMechanics) | 539,277 docs | 0.5 |
+| mechanics.StackExchange | 14,683 Q&As | 0.5 |
+
+---
 
 ## Technology Stack
 
-- **Database**: SQLite 3.x (500-600 MB projected size)
-- **Language**: Python 3.8+
-- **AI Framework**: Claude Code (Anthropic)
-- **Platform**: Windows 10/11
-- **Query Performance**: <50ms for complex diagnostic queries
+| Layer | Technology |
+|-------|-----------|
+| Language | Python 3.11+ |
+| Package manager | `uv` |
+| Backend API | FastAPI (port 8000) |
+| Frontend | Next.js 14, TypeScript, IBM Carbon Design System |
+| Primary DB | SQLite (FTS5) — `automotive_complaints.db` (830MB) |
+| Secondary DB | SQLite — `automotive_diagnostics.db` |
+| Vector Store | ChromaDB 1.0.x (Rust backend) |
+| Embeddings | `all-MiniLM-L6-v2` (ONNX) |
+| Environment | WSL2 Ubuntu 24.04 |
+
+---
 
 ## Project Structure
 
 ```
 automotive-diagnostic-skills/
-├── .claude/                # SuperClaude agent framework (15 personas, 18 commands)
-├── skills/                 # Diagnostic skill v3.1 (Claude Desktop skill architecture)
-│   ├── SKILL.md                      # Main skill definition (v3.1)
-│   ├── CHANGELOG_v3.1.md             # Detailed change documentation
-│   ├── references/                   # Loaded by progressive disclosure routing
-│   │   ├── anti-hallucination.md     # Source grounding & confidence protocols (v2.1)
-│   │   └── response-framework.md    # CO-STAR persona & output templates
-│   └── backups/v3.0/                # Previous version backups
-├── database/               # SQLite database and import scripts
-│   ├── schema.sql                    # Complete database schema (33 tables)
-│   ├── schema_nhtsa_complaints.sql   # NHTSA-specific tables
-│   ├── schema_nhtsa_tsbs.sql         # TSB-specific tables
-│   ├── init_database_simple.py       # Database initialization
-│   ├── import_vehicles.py            # Vehicle data importer
-│   ├── import_dtc_codes.py           # DTC code importer
-│   ├── import_failure_data.py        # Failure pattern importer
-│   └── automotive_diagnostics.db     # SQLite database
-├── data/
-│   ├── raw_imports/                  # Original source files (never modify)
-│   ├── service_manuals/              # iFixit repair procedures (JSON)
-│   ├── vector_store/chroma/          # ChromaDB semantic search database
-│   └── processed/                    # AI-ready processed documents
-├── server/                 # RAG API Server & Dashboard
-│   ├── home_server.py                # FastAPI server implementation
-│   ├── rag_dashboard.py              # Streamlit testing dashboard
-│   ├── data_miner.py                 # NHTSA data fetcher
-│   └── start_full_system.bat         # One-click launcher
-├── scripts/                # Utility and exploration scripts
-│   ├── import_nhtsa_complaints.py    # NHTSA complaint importer
-│   ├── import_tsbs.py                # TSB data importer
-│   └── explore_complaints.py         # Interactive data explorer
-├── src/                    # Diagnostic engine (Phase 3 complete)
-│   ├── data/db_service.py            # FTS5/SQL database wrapper
+├── .claude/                    # AI harness + dev tooling
+│   ├── commands/               # 25 slash commands (/diagnose, /report, /status, etc.)
+│   ├── hooks/                  # Quality enforcement hooks
+│   │   ├── user_prompt_submit.py   # Diagnostic detection + phase-sliced injection
+│   │   ├── utils/
+│   │   │   ├── session_state.py    # Persistent JSON session tracking
+│   │   │   ├── phase_context.py    # Phase→references map (ASE 7-phase)
+│   │   │   ├── safety_scanner.py   # 13 safety keyword patterns + HitL gate
+│   │   │   └── diagnostic_validator.py  # 5 protocol invariants
+│   │   └── validators/
+│   │       ├── ruff_validator.py
+│   │       ├── mypy_validator.py
+│   │       └── diagnostic_report_validator.py
+│   └── docs/                   # Internal reference (ARCHITECT, DOMAIN, AGENTS, etc.)
+│
+├── skills/                     # Diagnostic skill v3.1
+│   ├── SKILL.md                # Master protocol (7-phase ASE methodology)
+│   └── references/             # Progressive disclosure refs
+│       ├── diagnostic-process.md
+│       ├── anti-hallucination.md
+│       ├── obd-ii-methodology.md
+│       ├── warranty-failures.md
+│       └── manufacturers/      # Brand-specific protocols (Ford, GM, Toyota, etc.)
+│
+├── server/
+│   └── home_server.py          # FastAPI: /diagnose, /search, /search_tsbs,
+│                               #   /vehicle/dashboard, /vehicle/recalls,
+│                               #   /vehicle/tsbs, /vehicle/complaints,
+│                               #   /vehicle/report, /vehicle/checklist,
+│                               #   /history, /vin/decode
+│
+├── src/
 │   ├── diagnostic/
-│   │   ├── confidence_scorer.py      # Confidence scoring (0.5 base + bonuses)
-│   │   ├── symptom_matcher.py        # Synonym expansion + FTS5 search
-│   │   └── engine_agent.py           # diagnose() orchestrator
-│   ├── safety/alert_system.py        # Two-layer safety detection
-│   └── analysis/trend_analyzer.py   # Year-over-year trend analysis
-├── tests/                  # 269 passing tests (unit + integration)
-├── docs/                   # Comprehensive documentation
-│   ├── archive/                      # Deprecated documentation
-│   ├── PROJECT_STATUS.md             # Current status and roadmap
-│   ├── DATABASE_ARCHITECTURE.md      # Schema design and details
-│   ├── SYSTEM_INTEGRATION_ARCHITECTURE.md  # Agent hierarchy design
-│   ├── NHTSA_INTEGRATION_STRATEGY.md # 7 integration patterns
-│   ├── NHTSA_QUICK_REFERENCE.md      # Copy-paste query commands
-│   └── SETUP_GUIDE.md               # Installation and setup
-└── README.md               # This file
+│   │   ├── engine_agent.py     # diagnose() orchestrator
+│   │   ├── symptom_matcher.py  # Symptom → FTS5 complaint search
+│   │   └── confidence_scorer.py
+│   ├── safety/
+│   │   └── alert_system.py     # Two-layer safety detection
+│   ├── analysis/
+│   │   └── trend_analyzer.py   # YoY complaint trend
+│   ├── data/
+│   │   ├── db_service.py       # DiagnosticDB wrapper
+│   │   └── chroma_service.py   # Forum semantic search
+│   └── frontend/               # Next.js app
+│       ├── app/
+│       │   ├── page.tsx        # Main diagnostic flow (vehicle → symptoms → diagnose)
+│       │   ├── components/     # Carbon UI components
+│       │   │   ├── VehicleIdentification.tsx  (VIN decode + manual selection)
+│       │   │   ├── VehicleDashboard.tsx       (complaints, TSBs, recalls)
+│       │   │   ├── DiagnosisHistory.tsx        (prior sessions panel)
+│       │   │   ├── RecallDrillDown.tsx
+│       │   │   ├── TsbDrillDown.tsx
+│       │   │   └── ChecklistPanel.tsx         (pre-purchase inspection)
+│       │   └── api/            # Server-side proxies (add API key)
+│       └── tests/e2e/          # Playwright tests (55 tests)
+│
+├── scripts/
+│   ├── report_builder.py       # Fleet trend report (MD) — NAS-routed
+│   ├── generate_report.py      # Customer diagnostic PDF — NAS-routed
+│   ├── generate_checklist.py   # Pre-purchase checklist (MD/HTML/PDF)
+│   ├── batch_report.py         # Multi-vehicle batch reports
+│   ├── nas_output.py           # Central NAS path resolver
+│   └── pdf_from_html.js        # HTML→PDF via Node.js Playwright
+│
+├── database/                   # SQLite DBs + import scripts
+│   ├── automotive_complaints.db    # PRIMARY (830MB): complaints, TSBs, recalls
+│   └── automotive_diagnostics.db  # SECONDARY: vehicles, DTCs, diagnosis_history
+│
+├── data/
+│   ├── raw_imports/            # ⚠️ IMMUTABLE — original source files
+│   └── vector_store/chroma/    # ChromaDB (553K docs)
+│
+├── tests/
+│   ├── unit/                   # 280 Python unit tests
+│   └── integration/            # 20 integration tests (real DB)
+│
+└── reports/                    # Example outputs (fleet reports, sample PDFs)
 ```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+ (WSL Ubuntu 24.04 recommended)
-- `uv` package manager
-- 2 GB free disk space
+- WSL2 Ubuntu 24.04
+- Python 3.11+ and `uv`
+- Node.js 18+ and `npm`
+- 2 GB free disk space (databases not included in repo)
 
-### Installation
+### Setup
 
-1. Clone repository:
-   ```bash
-   git clone [repository-url] automotive-diagnostic-skills
-   cd automotive-diagnostic-skills
-   ```
+```bash
+# Clone and install
+git clone git@github.com:MrPoteete/automotive-diagnostic-skills.git
+cd automotive-diagnostic-skills
+bash setup.sh          # Creates .venv, installs Python + Node deps
 
-2. Create virtual environment and install deps:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install fastapi uvicorn sqlite3
-   ```
-
-3. Run tests to verify:
-   ```bash
-   .venv/bin/pytest tests/unit/ -q
-   ```
-
-For detailed installation instructions, see [SETUP_GUIDE.md](docs/SETUP_GUIDE.md).
-
-## 🔥 Using the NHTSA Complaints Database (2.1M+ Records)
-
-### Quick Start - View Your Data
-
-**Easiest way - Run the explorer:**
-```powershell
-python scripts\explore_complaints.py
+# Verify
+.venv/bin/pytest --tb=no -q --ignore=tests/integration   # 280 tests
+cd src/frontend && node_modules/.bin/vitest run           # 142 tests
 ```
 
-This shows you everything: top complaints, safety stats, vehicle breakdowns, and more!
+### Run
 
-### Search for a Specific Vehicle
+```bash
+# Backend (port 8000)
+uv run python server/home_server.py
 
-**Find all complaints for a 2018 Ford F-150:**
-```python
-# Save as search_vehicle.py
-import sqlite3
+# Frontend (port 3000)
+cd src/frontend && npm run dev
 
-conn = sqlite3.connect('database/automotive_diagnostics.db')
-cursor = conn.execute("""
-    SELECT component_description, COUNT(*) as complaints
-    FROM nhtsa_complaints
-    WHERE make = 'FORD' AND model = 'F-150' AND year = 2018
-    GROUP BY component_description
-    ORDER BY complaints DESC
-    LIMIT 10
-""")
-
-print("\nTop 10 Issues for 2018 Ford F-150:\n")
-for row in cursor:
-    print(f"  {row[1]:3d} complaints - {row[0]}")
-
-conn.close()
+# Open http://localhost:3000
 ```
 
-### Search for Technical Service Bulletins (TSBs)
-
-**Find TSBs for a specific issue:**
-```python
-# Save as search_tsbs.py
-import sqlite3
-
-conn = sqlite3.connect('database/automotive_diagnostics.db')
-cursor = conn.execute("""
-    SELECT year, make, model, component, summary
-    FROM nhtsa_tsbs
-    WHERE make = 'CHEVROLET' AND model LIKE 'SILVERADO%' AND summary LIKE '%SHUDDER%'
-    LIMIT 5
-""")
-
-print("\nTop TSBs for Silverado Shudder:\n")
-for row in cursor:
-    print(f"  {row[0]} {row[1]} {row[2]} - {row[4][:100]}...")
-
-conn.close()
-```
-
-### Documentation
-
-- **📋 Quick Reference**: [docs/NHTSA_QUICK_REFERENCE.md](docs/NHTSA_QUICK_REFERENCE.md) - **START HERE!**
-  - Copy/paste commands
-  - Common queries
-  - Usage examples
-
-- **📚 Full Documentation**: [docs/NHTSA_COMPLAINTS_USAGE.md](docs/NHTSA_COMPLAINTS_USAGE.md)
-  - Advanced queries
-  - Full-text search
-  - Integration patterns
-
-### What's In The Database
-
-- **2,144,604 complaints** from real vehicle owners
-- **Decades of data** (1995-2025)
-- **All manufacturers**: Ford, GM, RAM, Chevrolet, Dodge, Toyota, Honda, etc.
-- **Component-level details**: Engine, brakes, transmission, airbags, etc.
-- **Safety incidents**: Fires, crashes, injuries, deaths
-- **Full narratives**: Searchable complaint descriptions
-- **Fast queries**: Full-text search with FTS5
+> Full shop setup: see [SHOP_SETUP.md](SHOP_SETUP.md)
 
 ---
 
-## Database Overview
+## Using the Diagnostic Web UI
 
-### Core Tables
+1. **Identify vehicle** — enter VIN (auto-decodes via NHTSA vPIC) or select make/model/year manually
+2. **Review dashboard** — complaint count, TSB count, top failure systems, active recalls
+3. **Enter symptoms** — free text + optional DTC codes
+4. **Run Diagnostic** — returns ranked differential, test sequence, source citations
+5. **Generate report** — customer-facing PDF or fleet trend report
 
-- **nhtsa_complaints** - 🔥 **2.1M+ real-world complaints** from vehicle owners (ACTIVE)
-- **vehicles** - Vehicle configurations (make, model, year, engine)
-- **dtc_codes** - OBD-II diagnostic trouble codes
-- **failure_patterns** - Common failures with confidence ratings
-- **parts** - Parts catalog for repairs
-- **diagnostic_tests** - Step-by-step diagnostic procedures
-- **service_procedures** - Repair procedures
-- **tsbs** - Technical Service Bulletins
-- **recalls** - NHTSA safety recalls
+### Navigation tabs
 
-### Performance
+| Tab | What it shows |
+|-----|--------------|
+| Diagnose | Vehicle selection + diagnostic flow |
+| Database | NHTSA complaint search |
+| TSB Search | Technical service bulletin lookup |
+| Recall Search | Keyword recall search |
+| Pre-Purchase | Inspection checklist generator |
 
-- **Simple Queries**: 1-5ms (vehicle lookup)
-- **Complex Queries**: 10-50ms (DTC correlation)
-- **Full-Text Search**: 50-200ms (symptom search)
-- **Database Size**: 500-600 MB (full dataset)
+---
 
-For complete schema documentation, see
-[DATABASE_ARCHITECTURE.md](docs/DATABASE_ARCHITECTURE.md).
+## Diagnostic Skill v3.1
 
-## Usage Example
+The `/diagnose` command enforces a full structured diagnostic session:
 
-```python
-import sqlite3
+- **7-phase ASE methodology**: Information Gathering → Safety → System ID → Differential → Test Sequence → Recommendation → Sources
+- **Categorical assessment only**: STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS (no percentages to user)
+- **Mandatory sections**: `🚨 SAFETY`, `📋 DATA ASSESSMENT`, `📚 SOURCES`, `⚖️ DISCLAIMER`
+- **Manufacturer protocols**: Brand-specific procedures for Ford, GM, Stellantis, Toyota, Honda, Nissan, VW/Audi, BMW, Mercedes, Subaru, Hyundai/Kia
+- **Progressive disclosure**: Only loads reference files relevant to the current phase (40–60% token savings)
 
-# Connect to database
-conn = sqlite3.connect('automotive_diagnostics.db')
-conn.row_factory = sqlite3.Row
-conn.execute("PRAGMA foreign_keys = ON")
+---
 
-# Find vehicles by make and model
-cursor = conn.cursor()
-cursor.execute("""
-    SELECT year, model, engine, displacement_liters, cylinders
-    FROM vehicles
-    WHERE make = 'FORD' AND model = 'F-150'
-    ORDER BY year DESC
-""")
+## AI Harness (v1.8+)
 
-for row in cursor.fetchall():
-    print(f"{row['year']} Ford F-150: {row['engine']}")
+The harness wraps every diagnostic conversation with automated quality enforcement:
 
-conn.close()
+| Component | What it does |
+|-----------|-------------|
+| `user_prompt_submit.py` | Detects diagnostic prompts, injects phase-aware context, writes session state |
+| `session_state.py` | Persistent JSON per session: vehicle, phase, DTCs, symptoms, hypotheses, safety flags |
+| `phase_context.py` | Maps ASE phase 1–7 → minimal reference file set (phase-sliced injection) |
+| `safety_scanner.py` | 13 regex patterns → auto-populates `safety_flags`; HitL gate until `/confirm-safety` |
+| `diagnostic_validator.py` | 5 invariants: vehicle-phase coherence, safety gate, hypothesis coverage, required sections, assessment level |
+| `diagnostic_report_validator.py` | PostToolUse hook: blocks `.md` writes that fail content invariants |
+
+---
+
+## Reports
+
+Three report types, all NAS-routed (`/mnt/z/` when available, `reports/` fallback):
+
+| Report | Script | Output | Route |
+|--------|--------|--------|-------|
+| Customer diagnostic PDF | `generate_report.py` | PDF | `Customer/` |
+| Fleet trend report | `report_builder.py` | Markdown | `Fleet/` |
+| Pre-purchase checklist | `generate_checklist.py` | MD/HTML/PDF | `Pre-Purchase/` |
+
+Generate a fleet report:
+```bash
+.venv/bin/python3 scripts/report_builder.py \
+    --make FORD --model F-150 --year-start 2018 --year-end 2022
 ```
 
-## Roadmap
+---
 
-### Phase 1: Database Foundation (Complete)
-- [x] Database schema design (33 tables, 28 indexes)
-- [x] Database initialization scripts
-- [x] Vehicle data importer
-- [x] Full-text search (FTS5) enabled
+## Test Suite
 
-### Phase 2: Data Integration (Complete)
-- [x] Import all vehicle data - 18,607 vehicles (2005-2025)
-- [x] Import OBD-II diagnostic codes (270 codes)
-- [x] Import common failures database (65 patterns, 1,994 vehicle links)
-- [x] Import NHTSA complaints (2,144,604 records)
-- [x] ChromaDB vector store with forum data
-- [x] Architecture documentation (agent hierarchy, NHTSA integration strategy)
+```bash
+# Python unit tests (fast — ~8s)
+.venv/bin/pytest --tb=no -q --ignore=tests/integration
 
-### Phase 3: Diagnostic Engine Business Logic (Complete 2026-02-22)
-- [x] `src/data/db_service.py` — FTS5/SQL database wrapper
-- [x] `src/diagnostic/confidence_scorer.py` — Confidence scoring with DTC/frequency/safety bonuses
-- [x] `src/diagnostic/symptom_matcher.py` — Synonym expansion + FTS5 complaint search
-- [x] `src/diagnostic/engine_agent.py` — Full diagnosis orchestration pipeline
-- [x] `src/safety/alert_system.py` — Two-layer safety detection (keyword + narrative scan)
-- [x] `src/analysis/trend_analyzer.py` — Year-over-year complaint trend analysis
-- [x] 269 tests passing (249 unit + 20 integration)
-- [x] `mypy.ini` configured, ruff + mypy clean
+# Python integration tests (slow — ~2 min, uses real DB)
+.venv/bin/pytest --tb=no -q tests/integration/
 
-### Phase 4: ChromaDB Integration (Next)
-- [ ] Connect forum embeddings to diagnostic pipeline (semantic boost)
-- [ ] Add ChromaDB confidence tier to symptom matcher
-- [ ] Integrate forum results into `engine_agent.py`
+# Frontend unit tests (Vitest)
+cd src/frontend && node_modules/.bin/vitest run
 
-### Phase 5: Output & Interface
-- [ ] Mechanic-facing report formatter
-- [ ] Web-based diagnostic interface (Next.js frontend)
+# e2e tests (Playwright — requires both servers running)
+cd src/frontend && node_modules/.bin/playwright test
+```
 
-### Phase 5: Testing and Deployment
-- [ ] End-to-end testing with real diagnostic scenarios
-- [ ] Performance validation
-- [ ] Shop PC deployment and cloud sync
+| Suite | Count | Notes |
+|-------|-------|-------|
+| Python unit | 280 | Fully mocked |
+| Python integration | 20 | Real SQLite DB |
+| Vitest (frontend) | 142 | React components + API handlers |
+| Playwright (e2e) | 55 | Full browser, requires servers |
 
-## Documentation
+---
 
-- [Project Status](docs/PROJECT_STATUS.md) - Current status, achievements, and
-  next steps
-- [Database Architecture](docs/DATABASE_ARCHITECTURE.md) - Complete schema
-  design and implementation details
-- [System Integration Architecture](docs/SYSTEM_INTEGRATION_ARCHITECTURE.md) -
-  Agent hierarchy and data flow design
-- [NHTSA Integration Strategy](docs/NHTSA_INTEGRATION_STRATEGY.md) - 7
-  integration patterns with code examples
-- [NHTSA Quick Reference](docs/NHTSA_QUICK_REFERENCE.md) - Copy-paste
-  commands for querying complaints
-- [Setup Guide](docs/SETUP_GUIDE.md) - Installation, configuration, and
-  troubleshooting
-- [Skill v3.1 Changelog](skills/CHANGELOG_v3.1.md) - Diagnostic skill
-  changes and improvements
+## Key Rules
 
-## Architecture Decision: SQLite vs JSON
+- `data/raw_imports/` is **immutable** — never modify source files
+- `reports/Customer/`, `reports/Fleet/`, `reports/Pre-Purchase/` are gitignored (NAS fallback output)
+- Safety-critical diagnoses require confidence ≥ 0.9
+- DTC pattern: `^[PCBU][0-3][0-9A-F]{3}$`
+- Recalls use `year_from`/`year_to` range fields — never exact year match
 
-Initially considered JSON-based storage, but analysis revealed:
-
-- **Scale**: 1,142 vehicles for 2005 alone = 22,840 vehicles over 20 years
-- **Performance**: JSON requires scanning ~500 files per query (2-5 seconds)
-- **SQLite**: Indexed queries complete in <50ms (60x faster)
-
-**Hybrid Approach**:
-- SQLite for vehicle data, DTCs, failures (structured queries)
-- JSON retained for service manuals (already optimized)
-
-## Contributing
-
-This project is developed by MrPoteete for use in automotive repair shops.
-
-### Development Principles
-
-This project follows professional software engineering practices:
-
-- **KISS**: Keep solutions simple and maintainable
-- **DRY**: Avoid code duplication
-- **SOLID**: Modular, testable architecture
-- **Security by Design**: Input validation, parameterized queries
-- **Documentation**: Comprehensive inline and API documentation
-
-See [.claude/CLAUDE.md](.claude/CLAUDE.md) for complete development directives.
+---
 
 ## License
 
-Proprietary - For use in automotive repair shop operations.
-
-## Acknowledgments
-
-- Claude Code (Anthropic) for AI-powered diagnostic capabilities
-- SQLite for robust, embedded database functionality
-- Python community for excellent database tools
+Proprietary — for use in automotive repair shop operations.
