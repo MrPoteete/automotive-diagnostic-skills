@@ -48,7 +48,7 @@ CHECKPOINT_PATH = Path("/tmp/nhtsa_recalls_checkpoint.json")
 NHTSA_API = "https://api.nhtsa.gov/recalls/recallsByVehicle"
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (automotive-diagnostic-skills research tool)"}
 RATE_LIMIT_SEC = 0.3
-YEARS_FULL = list(range(2015, 2026))       # 2015–2025 inclusive
+YEARS_FULL = list(range(2000, 2026))       # 2000–2025 inclusive
 YEARS_TEST = list(range(2020, 2023))       # 2020–2022 (3 years for test mode)
 TEST_MAKES = {"HONDA", "FORD", "CHEVROLET"}
 
@@ -258,7 +258,7 @@ def get_vehicle_combos(conn: sqlite3.Connection, make_filter: Optional[str] = No
     sql = """
         SELECT DISTINCT make, model
         FROM complaints_fts
-        WHERE CAST(year AS INTEGER) BETWEEN 2015 AND 2025
+        WHERE CAST(year AS INTEGER) BETWEEN 2000 AND 2025
     """
     params: list = []
     if make_filter:
@@ -301,8 +301,8 @@ def fetch_recalls_for_year(make: str, model: str, year: int,
             headers=REQUEST_HEADERS,
             timeout=15,
         )
-        if resp.status_code == 404:
-            return []          # no data for this combination — normal
+        if resp.status_code in (400, 404):
+            return []          # no data for this combination — normal (400 = outside production run)
         resp.raise_for_status()
         data = resp.json()
         return data.get("results") or []
