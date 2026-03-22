@@ -1,10 +1,13 @@
 """NAS output path resolver for all report types.
 
-All diagnostic reports are written to the NAS at /mnt/z/ (Z:\\ on Windows).
+All diagnostic reports are written to the NAS at /mnt/z/ (Z:\\ on Windows),
+which maps directly to the Claude-Code-Diag-Reports share on the NAS
+(\\\\100.99.29.103\\Claude-Code-Diag-Reports).
+
 If the NAS is not mounted, falls back to the local project reports/ directory.
 
-NAS folder structure:
-    /mnt/z/Diagnostic-Reports/
+NAS folder structure (Z:\\ root = share root):
+    /mnt/z/
         Customer/       — customer-facing diagnostic PDFs (generate_report.py)
         Pre-Purchase/   — pre-purchase inspection checklists
         Fleet/          — batch/fleet comparison reports (batch_report.py, report_builder.py)
@@ -15,12 +18,12 @@ from pathlib import Path
 
 # ── NAS configuration ─────────────────────────────────────────────────────────
 NAS_MOUNT = Path("/mnt/z")
-NAS_REPORTS_ROOT = NAS_MOUNT / "Diagnostic-Reports"
+NAS_REPORTS_ROOT = NAS_MOUNT  # share root IS the reports root (no subfolder needed)
 
-# Subfolders per report type
-NAS_CUSTOMER_DIR = NAS_REPORTS_ROOT / "Customer"
-NAS_PREPURCHASE_DIR = NAS_REPORTS_ROOT / "Pre-Purchase"
-NAS_FLEET_DIR = NAS_REPORTS_ROOT / "Fleet"
+# Subfolders per report type — sit directly at Z:\ root
+NAS_CUSTOMER_DIR = NAS_MOUNT / "Customer"
+NAS_PREPURCHASE_DIR = NAS_MOUNT / "Pre-Purchase"
+NAS_FLEET_DIR = NAS_MOUNT / "Fleet"
 
 # ── Local fallback ─────────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
