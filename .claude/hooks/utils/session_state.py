@@ -63,6 +63,7 @@ def new_session(session_id: str) -> dict[str, Any]:
         "hypotheses": [],
         "tests_completed": [],
         "safety_flags": [],
+        "safety_acknowledged": False,
         "violations": [],
         "created_at": now,
         "updated_at": now,
@@ -293,6 +294,14 @@ def add_safety_flag(session_id: str, flag: str) -> dict[str, Any]:
 def has_safety_flags(state: dict[str, Any]) -> bool:
     """Return True if any safety flags are set."""
     return bool(state.get("safety_flags"))
+
+
+def acknowledge_safety(session_id: str) -> dict[str, Any]:
+    """Mark safety flags as acknowledged by the mechanic. Returns updated state."""
+    state = load_or_create(session_id)
+    state["safety_acknowledged"] = True
+    save_state(session_id, state)
+    return state
 
 
 # ---------------------------------------------------------------------------

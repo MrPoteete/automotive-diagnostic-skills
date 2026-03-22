@@ -18,8 +18,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.constants import ensure_session_log_dir
 from utils.phase_context import build_phase_context_block
+from utils.safety_scanner import build_hitl_gate, extract_safety_flags
 from utils.session_state import (
     add_dtc_codes,
+    add_safety_flag,
     add_symptoms,
     auto_advance_phase,
     load_or_create,
@@ -280,6 +282,11 @@ def main() -> None:
             if detected_symptoms:
                 state = add_symptoms(session_id, detected_symptoms[:5])  # cap at 5
 
+            # Phase 4: Safety Scanner — auto-populate safety_flags from prompt
+            new_flags = extract_safety_flags(prompt)
+            for flag in new_flags:
+                state = add_safety_flag(session_id, flag)
+
             # Auto-advance phase based on updated state
             state = auto_advance_phase(state)
             save_state(session_id, state)
@@ -291,13 +298,27 @@ def main() -> None:
         except Exception:
             pass  # Never block on state management failure
 
+        # Phase 4: HitL gate — inject when safety flags present and unacknowledged
+        hitl_block = ""
+        try:
+            state_now = load_or_create(session_id)
+            active_flags = state_now.get("safety_flags", [])
+            if active_flags and not state_now.get("safety_acknowledged", False):
+                v = state_now.get("vehicle", {})
+                vehicle_desc = " ".join(filter(None, [
+                    str(v.get("year", "")), v.get("make", ""), v.get("model", ""),
+                ])).strip()
+                hitl_block = "\n\n" + build_hitl_gate(active_flags, vehicle_desc)
+        except Exception:
+            pass  # Never block on HitL gate failure
+
         context = build_skill_context(
             detected_make,
             phase=phase,
             violations=violations,
             data_level=data_level,
             confidence_ceiling=confidence_ceiling,
-        )
+        ) + hitl_block
         print(json.dumps({"context": context}))
 
     sys.exit(0)
