@@ -103,8 +103,8 @@ docs/.doctrees/
 .env.local
 .env.*.local
 
-# MCP Server configuration (contains API keys)
-.mcp.json
+# MCP Server configuration (safe to commit — uses ${ENV_VAR} references, no hardcoded keys)
+# .mcp.json
 
 # Compressed files
 *.zip

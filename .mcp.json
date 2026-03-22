@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gemini": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@houtini/gemini-mcp"],
+      "env": {
+        "GEMINI_API_KEY": "${GOOGLE_API_KEY}"
+      }
+    }
+  }
+}
