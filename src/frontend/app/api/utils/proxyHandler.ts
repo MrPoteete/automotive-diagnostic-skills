@@ -93,7 +93,7 @@ export function createProxyHandler(options: ProxyOptions) {
     }
 
     // Security: Prevent resource exhaustion via oversized queries
-    if (query.length > MAX_QUERY_LENGTH) {
+    if (query && query.length > MAX_QUERY_LENGTH) {
       return NextResponse.json(
         { error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` },
         { status: 400 }
