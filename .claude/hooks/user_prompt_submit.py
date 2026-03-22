@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from utils.constants import ensure_session_log_dir
+from utils.phase_context import build_phase_context_block
 from utils.session_state import (
     add_dtc_codes,
     add_symptoms,
@@ -24,7 +25,6 @@ from utils.session_state import (
     load_or_create,
     save_state,
     update_vehicle,
-    PHASES,
 )
 
 # ---------------------------------------------------------------------------
@@ -156,17 +156,20 @@ def _detect_make(lower: str) -> str | None:
     return None
 
 
-def build_skill_context(make: str | None, phase: int = 1, violations: list[str] | None = None) -> str:
-    """Build the skill reminder context string to inject."""
-    protocol_line = ""
-    if make and make in _MAKE_TO_PROTOCOL:
-        proto = _MAKE_TO_PROTOCOL[make]
-        protocol_line = (
-            f"\n- Also load: skills/references/manufacturers/{proto} (detected make: {make.upper()})"
-        )
-
-    phase_name = PHASES.get(phase, "Information Gathering")
-    phase_line = f"Current session phase: {phase} — {phase_name}\n"
+def build_skill_context(
+    make: str | None,
+    phase: int = 1,
+    violations: list[str] | None = None,
+    data_level: str = "MINIMAL",
+    confidence_ceiling: str = "INSUFFICIENT BASIS",
+) -> str:
+    """Build a phase-aware skill reminder context string to inject."""
+    phase_block = build_phase_context_block(
+        phase=phase,
+        make=make or "",
+        data_level=data_level,
+        confidence_ceiling=confidence_ceiling,
+    )
 
     violation_block = ""
     if violations:
@@ -177,20 +180,13 @@ def build_skill_context(make: str | None, phase: int = 1, violations: list[str] 
         )
 
     return (
-        "🔧 DIAGNOSTIC SKILL REMINDER — MANDATORY PROTOCOL\n\n"
-        f"{phase_line}"
-        "A vehicle diagnostic request has been detected. Before responding, you MUST:\n\n"
-        "1. Read skills/SKILL.md — master protocol and output format\n"
-        f"2. Load required reference files from skills/references/{protocol_line}\n"
-        "3. Classify request type (Type 1–6 per SKILL.md)\n"
-        "4. Output routing header as FIRST LINE:\n"
-        "   [Request Type: X | Loading: skill.md, ...]\n"
-        "5. Apply the full CO-STAR diagnostic framework\n"
-        "6. Use categorical assessment levels ONLY (STRONG INDICATION / PROBABLE / POSSIBLE / INSUFFICIENT BASIS)\n"
-        "7. Include mandatory 📚 SOURCES and ⚖️ DISCLAIMER sections\n"
-        "8. Update logs/{session_id}/diagnostic-session.json after each phase\n\n"
-        "Shortcut: /diagnose command enforces all of this automatically.\n"
-        "Skipping this protocol violates safety standards for this project."
+        "🔧 DIAGNOSTIC SKILL REMINDER — PHASE-AWARE INJECTION\n\n"
+        + phase_block
+        + "\n\nMANDATORY:\n"
+        "• Output routing header as FIRST LINE: [Request Type: X | Loading: Y]\n"
+        "• Use categorical assessment levels ONLY (never percentages)\n"
+        "• Include 📚 SOURCES and ⚖️ DISCLAIMER sections\n"
+        "• /diagnose enforces the full protocol automatically."
         + violation_block
     )
 
@@ -252,6 +248,8 @@ def main() -> None:
         # Update session state with any extractable info from the prompt
         phase = 1
         violations: list[str] = []
+        data_level = "MINIMAL"
+        confidence_ceiling = "INSUFFICIENT BASIS"
         try:
             # Extract vehicle info and DTCs from prompt
             year = _extract_vehicle_year(prompt)
@@ -288,10 +286,18 @@ def main() -> None:
 
             phase = state.get("phase", 1)
             violations = state.get("violations", [])
+            data_level = state.get("data_level", "MINIMAL")
+            confidence_ceiling = state.get("confidence_ceiling", "INSUFFICIENT BASIS")
         except Exception:
             pass  # Never block on state management failure
 
-        context = build_skill_context(detected_make, phase=phase, violations=violations)
+        context = build_skill_context(
+            detected_make,
+            phase=phase,
+            violations=violations,
+            data_level=data_level,
+            confidence_ceiling=confidence_ceiling,
+        )
         print(json.dumps({"context": context}))
 
     sys.exit(0)
