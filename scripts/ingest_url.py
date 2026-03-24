@@ -105,10 +105,12 @@ def _weight_for_url(url: str) -> float:
     return DEFAULT_WEIGHT
 
 
+VIDEO_HOSTS = {"youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "rumble.com"}
+
 def _source_type(url: str) -> str:
-    host = urlparse(url).netloc.lower()
-    if "youtube.com" in host or "youtu.be" in host:
-        return "youtube"
+    host = urlparse(url).netloc.lower().lstrip("www.")
+    if any(vh in host for vh in VIDEO_HOSTS):
+        return "youtube"  # treated as video type regardless of platform
     return "web"
 
 
@@ -123,40 +125,77 @@ def _chunk_text(text: str) -> list[str]:
     return [c for c in chunks if len(c.split()) >= 30]
 
 
-# ── YouTube ───────────────────────────────────────────────────────────────────
-def _extract_video_id(url: str) -> Optional[str]:
-    patterns = [
-        r"youtube\.com/watch\?v=([^&]+)",
-        r"youtu\.be/([^?]+)",
-        r"youtube\.com/embed/([^?]+)",
-    ]
-    for pattern in patterns:
-        m = re.search(pattern, url)
-        if m:
-            return m.group(1)
-    return None
+# ── Video (yt-dlp) ────────────────────────────────────────────────────────────
+def _fetch_video(url: str, log: logging.Logger) -> tuple[Optional[str], dict]:
+    """Fetch transcript + metadata for any yt-dlp supported URL.
 
-
-def _fetch_youtube(url: str, log: logging.Logger) -> Optional[str]:
+    Returns (transcript_text, metadata_dict). metadata_dict is empty on failure.
+    """
     try:
-        from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+        import yt_dlp
     except ImportError:
-        log.error("youtube-transcript-api not installed. Run: uv pip install youtube-transcript-api")
-        return None
+        log.error("yt-dlp not installed. Run: uv pip install yt-dlp")
+        return None, {}
 
-    video_id = _extract_video_id(url)
-    if not video_id:
-        log.error(f"Could not extract video ID from: {url}")
-        return None
+    import tempfile, os
 
-    try:
-        fetched = YouTubeTranscriptApi().fetch(video_id, languages=["en"])
-        text = " ".join(snippet.text for snippet in fetched)
-        log.info(f"YouTube transcript: {len(text.split())} words")
-        return text
-    except Exception as exc:
-        log.warning(f"No transcript available for {video_id}: {exc}")
-        return None
+    ydl_opts = {
+        "skip_download": True,
+        "writeautomaticsub": True,
+        "writesubtitles": True,
+        "subtitleslangs": ["en"],
+        "subtitlesformat": "vtt",
+        "outtmpl": "%(id)s",
+        "quiet": True,
+        "no_warnings": True,
+    }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ydl_opts["paths"] = {"home": tmpdir}
+        ydl_opts["outtmpl"] = os.path.join(tmpdir, "%(id)s")
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+        except Exception as exc:
+            log.error(f"yt-dlp extraction failed: {exc}")
+            return None, {}
+
+        meta = {
+            "video_title": info.get("title", ""),
+            "channel": info.get("uploader", info.get("channel", "")),
+            "upload_date": info.get("upload_date", ""),
+            "duration_secs": info.get("duration", 0),
+            "view_count": info.get("view_count", 0),
+        }
+        log.info(f"Video: {meta['video_title']} | {meta['channel']}")
+
+        # Find the downloaded subtitle file
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
+        if not vtt_files:
+            log.warning("No subtitles available for this video")
+            return None, meta
+
+        vtt_path = os.path.join(tmpdir, vtt_files[0])
+        with open(vtt_path, encoding="utf-8") as f:
+            raw = f.read()
+
+    # Parse VTT — strip timestamps and dedup repeated lines
+    lines, seen = [], set()
+    for line in raw.splitlines():
+        line = line.strip()
+        if (not line or "-->" in line or line.startswith("WEBVTT")
+                or re.match(r"^\d+$", line) or re.match(r"^[\d:\.]+$", line)):
+            continue
+        # Strip VTT tags like <00:00:01.000><c>text</c>
+        line = re.sub(r"<[^>]+>", "", line).strip()
+        if line and line not in seen:
+            seen.add(line)
+            lines.append(line)
+
+    text = " ".join(lines)
+    log.info(f"Transcript: {len(text.split())} words")
+    return text, meta
 
 
 # ── Web scraping ──────────────────────────────────────────────────────────────
@@ -226,8 +265,9 @@ def _ingest(url: str, dry_run: bool, log: logging.Logger) -> int:
     weight = _weight_for_url(url)
     log.info(f"URL type: {stype} | weight: {weight}")
 
+    video_meta: dict = {}
     if stype == "youtube":
-        text = _fetch_youtube(url, log)
+        text, video_meta = _fetch_video(url, log)
     else:
         text = _fetch_web(url, log)
 
@@ -240,6 +280,8 @@ def _ingest(url: str, dry_run: bool, log: logging.Logger) -> int:
 
     if dry_run:
         log.info("[DRY-RUN] Would upsert %d chunks. First chunk preview:", len(chunks))
+        if video_meta:
+            log.info(f"  Title: {video_meta.get('video_title')} | Channel: {video_meta.get('channel')}")
         print(textwrap.shorten(chunks[0], width=300, placeholder="..."))
         return len(chunks)
 
@@ -248,16 +290,14 @@ def _ingest(url: str, dry_run: bool, log: logging.Logger) -> int:
     host = urlparse(url).netloc.lower().lstrip("www.")
 
     ids = [f"ingest_{url_hash}_{i}" for i in range(len(chunks))]
-    metadatas = [
-        {
-            "source": host,
-            "source_type": stype,
-            "source_weight": weight,
-            "canonical_url": url,
-            "chunk_index": i,
-        }
-        for i in range(len(chunks))
-    ]
+    base_meta: dict = {
+        "source": host,
+        "source_type": stype,
+        "source_weight": weight,
+        "canonical_url": url,
+        **{k: str(v) for k, v in video_meta.items() if v},  # flatten video metadata
+    }
+    metadatas = [{**base_meta, "chunk_index": i} for i in range(len(chunks))]
 
     collection.upsert(documents=chunks, metadatas=metadatas, ids=ids)
     log.info(f"Upserted {len(chunks)} chunks from {url}")
