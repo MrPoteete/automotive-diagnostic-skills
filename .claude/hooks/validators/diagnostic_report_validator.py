@@ -55,6 +55,25 @@ def main() -> None:
         sys.exit(0)
 
     # ------------------------------------------------------------------
+    # 2b. Skip internal project files — memory, docs, hooks, CLAUDE.md
+    #     These contain automotive keywords but are NOT diagnostic reports.
+    # ------------------------------------------------------------------
+    _EXCLUDED_PATH_FRAGMENTS = (
+        "/memory/",
+        "/.claude/",
+        "/docs/",
+        "/tests/",
+        "CLAUDE.md",
+        "MEMORY.md",
+        "LESSONS.md",
+        "ARCHITECT.md",
+        "DOMAIN.md",
+        "DIAGRAMS.md",
+    )
+    if any(frag in file_path for frag in _EXCLUDED_PATH_FRAGMENTS):
+        sys.exit(0)
+
+    # ------------------------------------------------------------------
     # 3. Get file content
     # ------------------------------------------------------------------
     content: str = tool_input.get("content", "")

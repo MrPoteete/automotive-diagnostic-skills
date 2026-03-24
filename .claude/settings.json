@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/pre_tool_use.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/pre_tool_use.py"
           }
         ]
       },
@@ -14,7 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/delegation_check.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/delegation_check.py"
           }
         ]
       },
@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/precommit_validator.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/precommit_validator.py"
           }
         ]
       }
@@ -34,15 +34,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/ruff_validator.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/ruff_validator.py"
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/mypy_validator.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/mypy_validator.py"
           },
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/diagnostic_report_validator.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/diagnostic_report_validator.py"
           }
         ]
       }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/user_prompt_submit.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/user_prompt_submit.py"
           }
         ]
       }
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/stop_hook.py"
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/stop_hook.py"
           }
         ]
       }
@@ -70,6 +70,6 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/status_line.py"
+    "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/status_line.py"
   }
 }

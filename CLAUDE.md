@@ -6,7 +6,7 @@
 
 1. **Current phase & next step** → Read `memory/MEMORY.md` (auto-loaded, check `## Phase Status` and `## Next Step`)
 2. **Verify baseline** → Run `.venv/bin/pytest --tb=no -q` before making any changes
-3. **Understand the system** → Consult `@.claude/docs/DIAGRAMS.md` for a visual overview
+3. **Understand the system** → Consult `.claude/docs/DIAGRAMS.md` for a visual overview
 
 > `memory/MEMORY.md` is the single source of truth for runtime-verified facts (DB schema, test counts, known bugs). Prefer it over docs that may be outdated.
 
@@ -53,34 +53,31 @@ git reset --hard v1.X-<last-good-tag>   # or git revert HEAD to preserve history
 - **User**: Professional mechanic, non-programmer
 - **Safety Critical**: Incorrect diagnoses can affect vehicle safety
 - **Stack**: Python 3.11+, SQLite (2.1M NHTSA complaints), ChromaDB
-- **Architecture**: See @.claude/docs/ARCHITECT.md
+- **Architecture**: See `.claude/docs/ARCHITECT.md`
 - **AI Architecture**: Two-tier (Claude: strategic/safety-critical, Gemini: tactical/routine)
 
 ## CRITICAL: Progressive Disclosure
 
-**YOU MUST consult reference docs for detailed rules:**
+**Read reference docs on demand — do NOT auto-load:**
 
-- **Visual Architecture**: See @.claude/docs/DIAGRAMS.md (8 mermaid diagrams for quick system understanding)
-- **Architecture & Data Flow**: See @.claude/docs/ARCHITECT.md
-- **Automotive Domain Rules**: See @.claude/docs/DOMAIN.md
-  - OBD-II validation, safety-critical systems, confidence scoring
-- **Available Subagents**: See @.claude/docs/AGENTS.md
-- **Skills Registry**: See @.claude/docs/SKILLS.md
-- **Testing Protocols**: See @.claude/docs/TESTING.md
-- **Data Source Standards**: See @.claude/docs/DATA.md
-- **Hook Infrastructure**: See @.claude/docs/HOOKS.md
-- **Gemini Delegation**: See @.claude/docs/GEMINI_WORKFLOW.md
-  - When to delegate to Gemini vs. keep with Claude, token optimization
-- **Error Playbook**: See @.claude/docs/LESSONS.md
-  - Known errors, root causes, and proven fixes — check this before debugging
+- **Visual Architecture**: `.claude/docs/DIAGRAMS.md` (8 mermaid diagrams)
+- **Architecture & Data Flow**: `.claude/docs/ARCHITECT.md`
+- **Automotive Domain Rules**: `.claude/docs/DOMAIN.md` — OBD-II validation, safety, confidence scoring
+- **Available Subagents**: `.claude/docs/AGENTS.md`
+- **Skills Registry**: `.claude/docs/SKILLS.md`
+- **Testing Protocols**: `.claude/docs/TESTING.md`
+- **Data Source Standards**: `.claude/docs/DATA.md`
+- **Hook Infrastructure**: `.claude/docs/HOOKS.md`
+- **Gemini Delegation**: `.claude/docs/GEMINI_WORKFLOW.md`
+- **Error Playbook**: `.claude/docs/LESSONS.md` — check before debugging
 
 ## Operational Standards
 
 1. **Plan First**: Use Plan Mode (Shift+Tab x2) for non-trivial tasks
-2. **Verify**: Follow @.claude/docs/TESTING.md protocols
-3. **Safety Check**: Consult @.claude/docs/DOMAIN.md for safety-critical systems
-4. **Data Integrity**: Read @.claude/docs/DATA.md before touching data files
-5. **Agent Delegation**: See @.claude/docs/AGENTS.md for specialized subagents
+2. **Verify**: Follow `.claude/docs/TESTING.md` protocols
+3. **Safety Check**: Consult `.claude/docs/DOMAIN.md` for safety-critical systems
+4. **Data Integrity**: Read `.claude/docs/DATA.md` before touching data files
+5. **Agent Delegation**: See `.claude/docs/AGENTS.md` for specialized subagents
 
 ## ⚡ MANDATORY: Automotive Diagnostic Requests
 
@@ -117,7 +114,7 @@ The skill framework exists because incorrect automotive diagnoses affect vehicle
 
 ## Key Rules
 
-1. **NEVER MODIFY**: `data/raw_imports/` (see @.claude/docs/DATA.md)
+1. **NEVER MODIFY**: `data/raw_imports/` (see `.claude/docs/DATA.md`)
 2. **Validate Input**: All DTC codes via regex `^[PCBU][0-3][0-9A-F]{3}$`
 3. **Safety-Critical**: Require confidence >= 0.9, explicit warnings
 4. **Source Attribution**: Cite all diagnostic data (NHTSA/TSB/Forum)
@@ -125,17 +122,17 @@ The skill framework exists because incorrect automotive diagnoses affect vehicle
 
 ## Rule Evolution
 
-**If I correct you**: Update the relevant @.claude/docs/ file immediately.
+**If I correct you**: Update the relevant `.claude/docs/` file immediately.
 
 **Workflow**:
 1. Identify which reference file contains the rule
 2. Edit that file to add/update the rule
-3. Add the error + fix to @.claude/docs/LESSONS.md
+3. Add the error + fix to `.claude/docs/LESSONS.md`
 
 **Examples**:
-- Automotive logic error → Update @.claude/docs/DOMAIN.md + LESSONS.md
-- Testing issue → Update @.claude/docs/TESTING.md + LESSONS.md
-- Data handling mistake → Update @.claude/docs/DATA.md + LESSONS.md
-- Hook/tooling error → Update @.claude/docs/HOOKS.md + LESSONS.md
+- Automotive logic error → Update `.claude/docs/DOMAIN.md` + LESSONS.md
+- Testing issue → Update `.claude/docs/TESTING.md` + LESSONS.md
+- Data handling mistake → Update `.claude/docs/DATA.md` + LESSONS.md
+- Hook/tooling error → Update `.claude/docs/HOOKS.md` + LESSONS.md
 
 **Treat this configuration as code**: Keep it lean, human-readable, and up-to-date.
