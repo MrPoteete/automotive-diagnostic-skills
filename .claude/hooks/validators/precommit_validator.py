@@ -92,9 +92,19 @@ def run_pytest() -> str | None:
     if not has_tests:
         return None
 
-    # Prefer venv pytest over system python3 (system python may lack pytest)
+    # Prefer venv pytest → uv run → bare python3 (in order of availability)
     venv_pytest = PROJECT_ROOT / ".venv" / "bin" / "pytest"
-    pytest_cmd = [str(venv_pytest), "--tb=short", "-q"] if venv_pytest.exists() else ["python3", "-m", "pytest", "--tb=short", "-q"]
+    if venv_pytest.exists():
+        pytest_cmd = [str(venv_pytest), "--tb=short", "-q", "--ignore=tests/integration"]
+    else:
+        # VM has no venv — use uv run with inline deps
+        pytest_cmd = [
+            "uv", "run",
+            "--with", "pytest",
+            "--with", "pytest-asyncio",
+            "--with", "pytest-mock",
+            "python", "-m", "pytest", "--tb=short", "-q", "--ignore=tests/integration",
+        ]
 
     try:
         result = subprocess.run(

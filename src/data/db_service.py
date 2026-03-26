@@ -2,12 +2,12 @@
 Database service layer for automotive diagnostic data.
 
 Wraps both SQLite databases with a clean Python API.
-Primary source: automotive_complaints.db (562K complaints, 211K TSBs)
-Secondary source: automotive_diagnostics.db (792 vehicles)
+Primary source:   automotive_complaints.db  843 MB  (562K complaints FTS5, 211K TSBs, 7,117 recalls, 49,806 EPA vehicles)
+Secondary source: automotive_diagnostics.db 1.1 MB  (3,073 DTC codes, 792 vehicles ⚠️ 2005 only — known gap, see .claude/docs/DIAGRAMS.md)
 
-Checked AGENTS.md - implementing directly because the full schema, SQL
-patterns, and API surface are explicitly specified by the user. No
-open-ended data-engineer design decisions are required here.
+Checked AGENTS.md - implementing directly because this is a one-line docstring
+correction (row counts), not a schema or query change. No data-engineer design
+decisions required.
 """
 
 import logging

@@ -24,6 +24,7 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 import sys
 import textwrap
 from pathlib import Path
@@ -105,6 +106,23 @@ def _weight_for_url(url: str) -> float:
     return DEFAULT_WEIGHT
 
 
+# ── Disk-space guardrail ──────────────────────────────────────────────────────
+MIN_FREE_GB = 5  # refuse to download anything if less than this is free
+
+def _check_disk_space(log: logging.Logger) -> None:
+    """Abort if free disk space is below MIN_FREE_GB."""
+    usage = shutil.disk_usage("/")
+    free_gb = usage.free / (1024 ** 3)
+    pct_used = usage.used / usage.total * 100
+    if free_gb < MIN_FREE_GB:
+        log.error(
+            f"Disk guardrail: only {free_gb:.1f} GB free ({pct_used:.0f}% used). "
+            f"Refusing to download. Free up space or raise MIN_FREE_GB."
+        )
+        sys.exit(1)
+    log.debug(f"Disk OK: {free_gb:.1f} GB free ({pct_used:.0f}% used)")
+
+
 VIDEO_HOSTS = {"youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "rumble.com"}
 
 def _source_type(url: str) -> str:
@@ -126,75 +144,109 @@ def _chunk_text(text: str) -> list[str]:
 
 
 # ── Video (yt-dlp) ────────────────────────────────────────────────────────────
-def _fetch_video(url: str, log: logging.Logger) -> tuple[Optional[str], dict]:
-    """Fetch transcript + metadata for any yt-dlp supported URL.
+# Strategy (disk-safe):
+#   Phase 1 — transcript only (skip_download=True): no video bytes touch disk.
+#   Phase 2 — lowest-quality audio only, only if Phase 1 yields no subtitles.
+#             Video files are deleted immediately after the VTT is read.
+# A disk-space check runs before any download attempt.
 
-    Returns (transcript_text, metadata_dict). metadata_dict is empty on failure.
-    """
-    try:
-        import yt_dlp
-    except ImportError:
-        log.error("yt-dlp not installed. Run: uv pip install yt-dlp")
-        return None, {}
-
-    import tempfile, os
-
-    ydl_opts = {
-        "skip_download": True,
-        "writeautomaticsub": True,
-        "writesubtitles": True,
-        "subtitleslangs": ["en"],
-        "subtitlesformat": "vtt",
-        "outtmpl": "%(id)s",
-        "quiet": True,
-        "no_warnings": True,
-    }
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ydl_opts["paths"] = {"home": tmpdir}
-        ydl_opts["outtmpl"] = os.path.join(tmpdir, "%(id)s")
-
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-        except Exception as exc:
-            log.error(f"yt-dlp extraction failed: {exc}")
-            return None, {}
-
-        meta = {
-            "video_title": info.get("title", ""),
-            "channel": info.get("uploader", info.get("channel", "")),
-            "upload_date": info.get("upload_date", ""),
-            "duration_secs": info.get("duration", 0),
-            "view_count": info.get("view_count", 0),
-        }
-        log.info(f"Video: {meta['video_title']} | {meta['channel']}")
-
-        # Find the downloaded subtitle file
-        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
-        if not vtt_files:
-            log.warning("No subtitles available for this video")
-            return None, meta
-
-        vtt_path = os.path.join(tmpdir, vtt_files[0])
-        with open(vtt_path, encoding="utf-8") as f:
-            raw = f.read()
-
-    # Parse VTT — strip timestamps and dedup repeated lines
+def _parse_vtt(raw: str) -> str:
     lines, seen = [], set()
     for line in raw.splitlines():
         line = line.strip()
         if (not line or "-->" in line or line.startswith("WEBVTT")
                 or re.match(r"^\d+$", line) or re.match(r"^[\d:\.]+$", line)):
             continue
-        # Strip VTT tags like <00:00:01.000><c>text</c>
         line = re.sub(r"<[^>]+>", "", line).strip()
         if line and line not in seen:
             seen.add(line)
             lines.append(line)
+    return " ".join(lines)
 
-    text = " ".join(lines)
-    log.info(f"Transcript: {len(text.split())} words")
+
+def _fetch_video(url: str, log: logging.Logger) -> tuple[Optional[str], dict]:
+    """Fetch transcript + metadata for any yt-dlp supported URL.
+
+    Returns (transcript_text, metadata_dict). metadata_dict is empty on failure.
+    """
+    _check_disk_space(log)
+
+    try:
+        import yt_dlp
+    except ImportError:
+        log.error("yt-dlp not installed. Run: uv pip install yt-dlp")
+        return None, {}
+
+    import tempfile
+
+    # ── Phase 1: transcript only (no video download) ──────────────────────────
+    base_opts = {
+        "writeautomaticsub": True,
+        "writesubtitles": True,
+        "subtitleslangs": ["en"],
+        "subtitlesformat": "vtt",
+        "quiet": True,
+        "no_warnings": True,
+    }
+
+    meta: dict = {}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        opts = {**base_opts, "skip_download": True, "outtmpl": os.path.join(tmpdir, "%(id)s")}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            meta = {
+                "video_title": info.get("title", ""),
+                "channel": info.get("uploader", info.get("channel", "")),
+                "upload_date": info.get("upload_date", ""),
+                "duration_secs": info.get("duration", 0),
+                "view_count": info.get("view_count", 0),
+            }
+            log.info(f"Video: {meta['video_title']} | {meta['channel']}")
+        except Exception as exc:
+            log.error(f"yt-dlp phase-1 failed: {exc}")
+            return None, {}
+
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
+        if vtt_files:
+            with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
+                raw = f.read()
+            text = _parse_vtt(raw)
+            log.info(f"Phase 1 transcript: {len(text.split())} words")
+            return text, meta
+
+    # ── Phase 2: lowest-quality audio download (transcript unavailable) ────────
+    log.warning("No subtitles in phase 1 — falling back to lowest-quality audio download")
+    _check_disk_space(log)  # re-check before actually downloading bytes
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        opts = {
+            **base_opts,
+            "skip_download": False,
+            "format": "worstaudio/worst",        # absolute minimum bytes
+            "postprocessors": [],                 # no conversion, just raw audio
+            "outtmpl": os.path.join(tmpdir, "%(id)s.%(ext)s"),
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.extract_info(url, download=True)
+        except Exception as exc:
+            log.error(f"yt-dlp phase-2 failed: {exc}")
+            return None, meta
+
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
+        if not vtt_files:
+            log.warning("No subtitles after phase-2 download — skipping")
+            # tmpdir context manager removes all downloaded files on exit
+            return None, meta
+
+        with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
+            raw = f.read()
+        # All downloaded files (audio + vtt) are deleted when tmpdir exits here
+
+    text = _parse_vtt(raw)
+    log.info(f"Phase 2 transcript: {len(text.split())} words")
     return text, meta
 
 

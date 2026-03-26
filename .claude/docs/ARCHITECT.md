@@ -74,23 +74,29 @@ Diagnostic Response {candidates, recalls, warnings, data_sources}
 
 ## Database Schema (Runtime-Verified)
 
-**automotive_complaints.db** (primary diagnostic source):
-- `complaints_fts` (FTS5, 562K rows) — `make, model, year, component, summary`
-- `nhtsa_tsbs` (211K rows) — Technical Service Bulletins
+**automotive_complaints.db** (843 MB — primary diagnostic source):
+- `complaints_fts` (FTS5, **562,667 rows**) — `make, model, year, component, summary`
+- `processed_complaints` (**1,564,487 rows**) — raw NHTSA flat file source
+- `nhtsa_tsbs` (**211,640 rows**) — Technical Service Bulletins
 - `tsbs_fts` (FTS5 mirror of nhtsa_tsbs)
-- `nhtsa_recalls` (2,711 rows) — NHTSA recall campaigns; `UNIQUE(campaign_no, make, model)`; `year_from/year_to` range fields; `park_it` flag for park-it safety recalls
+- `nhtsa_recalls` (**7,117 rows**, last import 2026-03-22) — NHTSA recall campaigns; `UNIQUE(campaign_no, make, model)`; `year_from/year_to` range fields; `park_it` flag for park-it safety recalls; 43 makes, years 2000–2025
+- `nhtsa_investigations` (**5,329 rows**) — NHTSA investigations
+- `canada_recalls` (**17,774 rows**) — Transport Canada recalls
+- `epa_vehicles` (**49,806 rows**, 1984–2026, 44 makes) — EPA fuel economy / vehicle specs
 - `recalls_fts` (FTS5 mirror of nhtsa_recalls)
 - Note: `year` column is TEXT in complaints/tsbs — always `CAST(year AS INTEGER)` when filtering; recalls use `year_from`/`year_to` INTEGER range fields
 
-**automotive_diagnostics.db** (secondary):
-- `vehicles` (792 rows) — make/model/year/engine
-- `dtc_codes` (3,071 rows) — OBD-II codes with severity, safety_critical, system, subsystem
-- `diagnosis_history` — auto-created on startup; one row per diagnosis session (vin, year, make, model, symptoms, findings, dtc_codes JSON, candidate_count, has_warnings)
-- Other tables (failure_patterns, diagnostic_tests, etc.) exist in schema but are empty
+**automotive_diagnostics.db** (1.1 MB — secondary):
+- `vehicles` (**792 rows, 2005 ONLY — KNOWN GAP**) — should be ~49K rows 1984–2026; fix with `scripts/import_epa_vehicles.py --full`
+- `dtc_codes` (**3,073 rows**) — OBD-II codes with severity, safety_critical, system, subsystem
+- `diagnosis_history` (**48 rows**) — one row per diagnosis session (vin, year, make, model, symptoms, findings, dtc_codes JSON, candidate_count, has_warnings)
+- `failure_patterns` (**0 rows — KNOWN GAP**) — schema exists, never populated
+- Other junction tables (vehicle_failures, vehicle_recalls, vehicle_tsbs) exist but are empty pending failure_patterns population
 
 **ChromaDB** (`data/vector_store/chroma/`):
-- Collection: `mechanics_forum` (553,960 documents: 539,277 Reddit + 14,683 mechanics.SE)
+- Collection: `mechanics_forum` — **rebuilding after 2026-03 disk crash**; HNSW index was corrupted, SQLite intact; new content being added via `bulk_ingest.py`
 - Embedding: `all-MiniLM-L6-v2` (ONNX, cached at `~/.cache/chroma/`)
+- chromadb version: **1.5.5** (updated 2026-03-26; DB schema migration version 10)
 
 See `memory/MEMORY.md` for runtime-verified facts and known discrepancies.
 

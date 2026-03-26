@@ -8,7 +8,9 @@
 2. **Verify baseline** → Run `.venv/bin/pytest --tb=no -q` before making any changes
 3. **Understand the system** → Consult `.claude/docs/DIAGRAMS.md` for a visual overview
 
-> `memory/MEMORY.md` is the single source of truth for runtime-verified facts (DB schema, test counts, known bugs). Prefer it over docs that may be outdated.
+> **DIAGRAMS.md is the single source of truth for system structure, DB row counts, and known gaps.**
+> It was ground-truthed on 2026-03-26 against live databases. Trust it over code comments or other docs.
+> If you see a number elsewhere that contradicts DIAGRAMS.md, DIAGRAMS.md wins — update the other doc.
 
 ---
 
@@ -49,12 +51,23 @@ git reset --hard v1.X-<last-good-tag>   # or git revert HEAD to preserve history
 ## Core Context
 
 - **Type**: Automotive Diagnostic AI using RAG (Retrieval-Augmented Generation)
-- **Purpose**: Help professional mechanics diagnose Ford/GM/RAM vehicles (2015-2025)
+- **Purpose**: Help professional mechanics diagnose multi-make vehicles (all years supported by data)
 - **User**: Professional mechanic, non-programmer
 - **Safety Critical**: Incorrect diagnoses can affect vehicle safety
-- **Stack**: Python 3.11+, SQLite (2.1M NHTSA complaints), ChromaDB
-- **Architecture**: See `.claude/docs/ARCHITECT.md`
-- **AI Architecture**: Two-tier (Claude: strategic/safety-critical, Gemini: tactical/routine)
+- **Stack**: Python 3.11+, SQLite (two DBs — see below), ChromaDB 1.5.5
+- **Architecture**: See `.claude/docs/DIAGRAMS.md` (ground truth) and `.claude/docs/ARCHITECT.md`
+- **AI Architecture**: Three-tier (Claude Sonnet: standard / Claude Haiku or Gemini: low-effort / Claude Opus: explicit only)
+
+### Database Quick Reference (verified 2026-03-26)
+| Database | Size | Key Contents |
+|---|---|---|
+| `database/automotive_complaints.db` | 843 MB PRIMARY | 562K complaints FTS5, 211K TSBs, 7,117 recalls, 5,329 investigations, 49,806 EPA vehicles, 17,774 Canada recalls |
+| `database/automotive_diagnostics.db` | 1.1 MB SECONDARY | 3,073 DTC codes, 792 vehicles ⚠️ 2005 only, 48 diagnosis history |
+
+### Before ANY import or schema change
+```bash
+uv run python scripts/backup_databases.py   # ALWAYS run first — verifies + rotates
+```
 
 ## CRITICAL: Progressive Disclosure
 

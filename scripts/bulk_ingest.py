@@ -22,6 +22,7 @@ import hashlib
 import logging
 import os
 import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -47,6 +48,23 @@ CHANNELS: dict[str, dict] = {
     "fordtech":  {"url": "https://www.youtube.com/@FordTechMakuloco/videos",    "weight": 0.80},
     "scanner":   {"url": "https://www.youtube.com/@ScannerDanner/videos",       "weight": 0.80},
 }
+
+# ── Disk-space guardrail ──────────────────────────────────────────────────────
+MIN_FREE_GB = 5  # refuse to download if less than this is free
+
+def _check_disk_space(log: logging.Logger) -> None:
+    """Abort if free disk space is below MIN_FREE_GB."""
+    usage = shutil.disk_usage("/")
+    free_gb = usage.free / (1024 ** 3)
+    pct_used = usage.used / usage.total * 100
+    if free_gb < MIN_FREE_GB:
+        log.error(
+            f"Disk guardrail: only {free_gb:.1f} GB free ({pct_used:.0f}% used). "
+            f"Refusing to continue. Free up space or raise MIN_FREE_GB."
+        )
+        sys.exit(1)
+    log.debug(f"Disk OK: {free_gb:.1f} GB free ({pct_used:.0f}% used)")
+
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
 CHUNK_SIZE    = 400
@@ -121,47 +139,7 @@ def _list_channel_videos(channel_url: str, limit: int, min_views: int, log: logg
     return videos
 
 
-def _fetch_transcript(video_url: str, log: logging.Logger) -> tuple[str, dict]:
-    """Download transcript via yt-dlp. Returns (text, metadata)."""
-    try:
-        import yt_dlp
-    except ImportError:
-        return "", {}
-
-    ydl_opts = {
-        "skip_download": True,
-        "writeautomaticsub": True,
-        "writesubtitles": True,
-        "subtitleslangs": ["en"],
-        "subtitlesformat": "vtt",
-        "quiet": True,
-        "no_warnings": True,
-    }
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ydl_opts["outtmpl"] = os.path.join(tmpdir, "%(id)s")
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(video_url, download=True)
-        except Exception as exc:
-            log.warning(f"yt-dlp failed for {video_url}: {exc}")
-            return "", {}
-
-        meta = {
-            "video_title":  info.get("title", ""),
-            "channel":      info.get("uploader", info.get("channel", "")),
-            "upload_date":  info.get("upload_date", ""),
-            "duration_secs": str(info.get("duration", 0)),
-            "view_count":   str(info.get("view_count", 0)),
-        }
-
-        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
-        if not vtt_files:
-            return "", meta
-
-        with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
-            raw = f.read()
-
+def _parse_vtt(raw: str) -> str:
     lines, seen = [], set()
     for line in raw.splitlines():
         line = line.strip()
@@ -172,8 +150,90 @@ def _fetch_transcript(video_url: str, log: logging.Logger) -> tuple[str, dict]:
         if line and line not in seen:
             seen.add(line)
             lines.append(line)
+    return " ".join(lines)
 
-    return " ".join(lines), meta
+
+# Checked AGENTS.md - implementing directly because this is a targeted safety guardrail
+# (disk check + two-phase download strategy) on an existing data pipeline function.
+# No architectural decisions or complex refactoring — refactoring-expert delegation not warranted.
+def _fetch_transcript(video_url: str, log: logging.Logger) -> tuple[str, dict]:
+    """Fetch transcript via yt-dlp using a disk-safe two-phase strategy.
+
+    Phase 1 — transcript only (skip_download=True): zero video bytes on disk.
+    Phase 2 — lowest-quality audio, only if Phase 1 finds no subtitles.
+              All downloaded files are deleted by tempfile.TemporaryDirectory on exit.
+    """
+    _check_disk_space(log)
+
+    try:
+        import yt_dlp
+    except ImportError:
+        log.error("yt-dlp not installed")
+        return "", {}
+
+    base_opts = {
+        "writeautomaticsub": True,
+        "writesubtitles": True,
+        "subtitleslangs": ["en"],
+        "subtitlesformat": "vtt",
+        "quiet": True,
+        "no_warnings": True,
+    }
+
+    meta: dict = {}
+
+    # ── Phase 1: transcript only (no video download) ──────────────────────────
+    with tempfile.TemporaryDirectory() as tmpdir:
+        opts = {**base_opts, "skip_download": True, "outtmpl": os.path.join(tmpdir, "%(id)s")}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(video_url, download=True)
+            meta = {
+                "video_title":   info.get("title", ""),
+                "channel":       info.get("uploader", info.get("channel", "")),
+                "upload_date":   info.get("upload_date", ""),
+                "duration_secs": str(info.get("duration", 0)),
+                "view_count":    str(info.get("view_count", 0)),
+            }
+        except Exception as exc:
+            log.warning(f"yt-dlp phase-1 failed for {video_url}: {exc}")
+            return "", {}
+
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
+        if vtt_files:
+            with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
+                raw = f.read()
+            return _parse_vtt(raw), meta
+
+    # ── Phase 2: lowest-quality audio (transcript unavailable) ────────────────
+    log.warning(f"No subtitles in phase 1 for {video_url} — falling back to lowest-quality audio")
+    _check_disk_space(log)  # re-check before downloading bytes
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        opts = {
+            **base_opts,
+            "skip_download": False,
+            "format": "worstaudio/worst",        # absolute minimum bytes on disk
+            "postprocessors": [],
+            "outtmpl": os.path.join(tmpdir, "%(id)s.%(ext)s"),
+        }
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.extract_info(video_url, download=True)
+        except Exception as exc:
+            log.warning(f"yt-dlp phase-2 failed for {video_url}: {exc}")
+            return "", meta
+
+        vtt_files = [f for f in os.listdir(tmpdir) if f.endswith(".vtt")]
+        if not vtt_files:
+            log.warning(f"No subtitles after phase-2 for {video_url} — skipping")
+            return "", meta  # tmpdir cleanup removes all downloaded files
+
+        with open(os.path.join(tmpdir, vtt_files[0]), encoding="utf-8") as f:
+            raw = f.read()
+        # tmpdir exits here — all downloaded audio + vtt files deleted
+
+    return _parse_vtt(raw), meta
 
 
 def _ingest_video(
@@ -234,6 +294,8 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     log = logging.getLogger("bulk_ingest")
+
+    _check_disk_space(log)  # abort early if disk is already low
 
     targets = {args.channel: CHANNELS[args.channel]} if args.channel else CHANNELS
     collection = _get_collection()
