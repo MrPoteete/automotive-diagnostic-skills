@@ -73,6 +73,7 @@
 - **GitHub SSH**: authenticated as `MrPoteete` ✅
 - **gcloud**: authenticated, project set to `poteete-secrets`, `gemini-api-key` accessible
 - **Claude config**: `~/.claude/` already populated (agents, hooks, settings, load-secrets.sh)
+- **Disk**: VM disk expanded on 2026-03-23 from 59 GB to 300 GB (295 GB usable, /dev/vda2, ext4, mounted at /). As of expansion: ~49 GB used, 247 GB free, 17% full. Expansion was required to support yt-dlp YouTube transcript ingestion without filling the disk.
 
 ---
 

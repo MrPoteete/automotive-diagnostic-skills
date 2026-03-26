@@ -174,7 +174,7 @@ automotive-diagnostic-skills/
 - WSL2 Ubuntu 24.04
 - Python 3.11+ and `uv`
 - Node.js 18+ and `npm`
-- 2 GB free disk space (databases not included in repo)
+- 10 GB free disk space minimum (databases not included in repo; yt-dlp transcript ingestion requires substantially more — the NAS Ubuntu VM runs a 300 GB disk for this purpose)
 
 ### Setup
 
