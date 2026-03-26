@@ -69,6 +69,22 @@ def validate_dtc(code: str):           # ❌ mypy strict will reject
 
 ---
 
+### uv run Has No Access to requirements.txt Without pyproject.toml
+
+**Symptom**: `uv run python scripts/foo.py` fails with `ModuleNotFoundError` for packages in requirements.txt.
+
+**Root Cause**: This project has no `pyproject.toml` or `uv.lock`. `uv run` only resolves deps from pyproject.toml — it ignores requirements.txt entirely.
+
+**Fix**: Use `uv run --with <package>` for one-offs:
+```bash
+uv run --with requests python -u scripts/import_nhtsa_recalls_api.py --full
+```
+Or for scripts with many deps, run them with the system python that has the venv active, or create a pyproject.toml.
+
+**Note**: Always add `-u` flag for unbuffered output when running long jobs to background (`> logfile 2>&1 &`).
+
+---
+
 ## Automotive Domain
 
 ### DTC Regex Pattern

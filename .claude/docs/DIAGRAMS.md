@@ -41,7 +41,7 @@ graph TB
 
     subgraph "Data Layer — VERIFIED COUNTS"
         ComplaintsDB[("automotive_complaints.db\n843 MB PRIMARY\n562K complaints FTS5\n211K TSBs\n7,117 recalls\n5,329 investigations\n49,806 EPA vehicles\n17,774 Canada recalls")]
-        DiagnosticsDB[("automotive_diagnostics.db\n1.1 MB SECONDARY\n792 vehicles ⚠️ 2005 only\n3,073 DTC codes\n48 diagnosis history\n0 failure_patterns ⚠️")]
+        DiagnosticsDB[("automotive_diagnostics.db\n1.1 MB SECONDARY\n34,394 vehicles 1984–2026 145 makes\n3,073 DTC codes\n48 diagnosis history\n0 failure_patterns ⚠️")]
         ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum collection\n⚠️ rebuilding after 2026-03 crash")]
     end
 

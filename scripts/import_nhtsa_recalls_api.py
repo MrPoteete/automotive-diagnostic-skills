@@ -10,7 +10,7 @@ Usage:
     # Test mode — 3 makes, 3 years only (default)
     .venv/bin/python3 scripts/import_nhtsa_recalls_api.py
 
-    # Full run — all 264 make/model combos × 2015-2025
+    # Full run — all 264 make/model combos × 2000-2026
     .venv/bin/python3 scripts/import_nhtsa_recalls_api.py --full
 
     # Single make
@@ -48,7 +48,7 @@ CHECKPOINT_PATH = Path("/tmp/nhtsa_recalls_checkpoint.json")
 NHTSA_API = "https://api.nhtsa.gov/recalls/recallsByVehicle"
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (automotive-diagnostic-skills research tool)"}
 RATE_LIMIT_SEC = 0.3
-YEARS_FULL = list(range(2000, 2026))       # 2000–2025 inclusive
+YEARS_FULL = list(range(2000, 2027))       # 2000–2026 inclusive
 YEARS_TEST = list(range(2020, 2023))       # 2020–2022 (3 years for test mode)
 TEST_MAKES = {"HONDA", "FORD", "CHEVROLET"}
 
