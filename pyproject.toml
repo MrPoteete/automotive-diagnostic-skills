@@ -1,0 +1,26 @@
+[project]
+name = "automotive-diagnostic-skills"
+version = "1.10.0"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.84.0",
+    "beautifulsoup4>=4.12",
+    "chromadb==1.5.5",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.9",
+    "python-dotenv>=1.1",
+    "requests>=2.32",
+    "sentence-transformers>=4.1",
+    "uvicorn>=0.34",
+    "yt-dlp>=2024.1",
+    "markdown2>=2.5",
+    "rich>=14.0",
+    "PyYAML>=6.0",
+]
+
+[tool.uv]
+# Full pinned deps are in requirements.txt — use for exact reproducibility:
+#   uv pip install -r requirements.txt
+# For script runs, uv resolves from the dependencies list above.

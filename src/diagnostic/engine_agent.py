@@ -203,11 +203,12 @@ def _run_diagnosis(
     )
 
     # Step 1a: Forum semantic search (Phase 4 — optional, degrades gracefully)
+    # Skip if no symptoms — make/model alone produces noise with no diagnostic value
     forum_candidates: list[dict] = []
     try:
         from src.data.chroma_service import ChromaService  # type: ignore[attr-defined]
         chroma = ChromaService()
-        if chroma.document_count > 0:
+        if chroma.document_count > 0 and symptoms:
             forum_candidates = chroma.search_for_components(
                 query=f"{make} {model} {symptoms}",
                 n_results=20,

@@ -12,6 +12,7 @@ Never blocks session end — only shows a warning message to the user.
 """
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -87,6 +88,20 @@ def main():
                 }
             )
         )
+
+    # Trigger memory synthesis in background (non-blocking)
+    try:
+        synthesis_script = Path("/home/poteete/projects/automotive-diagnostic-skills/scripts/memory_synthesis.py")
+        if synthesis_script.exists():
+            subprocess.Popen(
+                ["uv", "run", "python", str(synthesis_script), "--hours", "6"],
+                cwd="/home/poteete/projects/automotive-diagnostic-skills",
+                stdout=open("/var/log/memory-synthesis.log", "a"),
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+    except Exception:
+        pass  # Never block session end
 
     # Always allow session to end (exit 0)
     sys.exit(0)
