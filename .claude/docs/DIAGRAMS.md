@@ -42,7 +42,7 @@ graph TB
     subgraph "Data Layer — VERIFIED COUNTS"
         ComplaintsDB[("automotive_complaints.db\n843 MB PRIMARY\n562K complaints FTS5\n211K TSBs\n7,166 recalls\n5,329 investigations\n49,806 EPA vehicles\n17,774 Canada recalls")]
         DiagnosticsDB[("automotive_diagnostics.db\n1.1 MB SECONDARY\n34,394 vehicles 1984–2026 145 makes\n3,073 DTC codes\n48 diagnosis history\n0 failure_patterns ⚠️")]
-        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum collection\n561,254 docs · 18 channels")]
+        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum collection\n~565K docs · 19 channels")]
     end
 
     subgraph "AI Tier"
@@ -113,7 +113,7 @@ graph TB
     end
 
     subgraph "ChromaDB  data/vector_store/chroma/"
-        MF["mechanics_forum collection\n561,254 docs · 18 YT channels\n547 videos ingested 2026-03-27\nbulk_ingest.py"]
+        MF["mechanics_forum collection\n~565K docs · 19 YT channels\n795 videos ingested 2026-03-27\nbulk_ingest.py · manifest: data/ingested_videos_manifest.jsonl"]
     end
 
     subgraph "Backup — database/backups/"
@@ -218,7 +218,7 @@ graph LR
         G4["✅ epa_vehicles\n49,806 rows\n1984–2026 in complaints.db"]
         G5["✅ vehicles table\n34,394 rows · 1984–2026\n145 makes · migrated 2026-03-26"]
         G6["⚠️ failure_patterns\n0 rows · empty\ndiagnostics.db"]
-        G7["✅ ChromaDB\n561,254 docs · 18 channels\n547 videos ingested 2026-03-27"]
+        G7["✅ ChromaDB\n~565K docs · 19 channels\n795 videos ingested 2026-03-27"]
         G8["✅ Weekly cron\nnhtsa-recall-refresh.timer\nSun 03:00 UTC"]
     end
 

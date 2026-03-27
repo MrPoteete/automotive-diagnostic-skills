@@ -81,6 +81,7 @@ tmp/
 
 # Data files (raw import data — root-level only)
 /data/
+!/data/ingested_videos_manifest.jsonl
 *.csv
 *.tsv
 
