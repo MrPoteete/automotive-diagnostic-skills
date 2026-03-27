@@ -28,6 +28,9 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
+import json
+from datetime import datetime
+
 import chromadb
 import requests
 from bs4 import BeautifulSoup
@@ -36,17 +39,38 @@ from bs4 import BeautifulSoup
 PROJECT_ROOT = Path(__file__).parent.parent
 CHROMA_PATH  = PROJECT_ROOT / "data" / "vector_store" / "chroma"
 COLLECTION_NAME = "mechanics_forum"
+MANIFEST_PATH = PROJECT_ROOT / "data" / "ingested_videos_manifest.jsonl"
 
 # ── Curated channel list ───────────────────────────────────────────────────────
 # Keys are short names used with --channel flag.
-# Values are YouTube channel URLs (@handle or /channel/ID both work).
+# weight:     source reliability score injected into ChromaDB metadata (0.0-1.0)
+# limit:      per-channel video limit override (optional; falls back to --limit arg)
+# focus:      "professional" | "diy" — used for metadata tagging
 CHANNELS: dict[str, dict] = {
-    "rainman":   {"url": "https://www.youtube.com/@RainmanRaysRepairs/videos",  "weight": 0.75},
-    "southmain": {"url": "https://www.youtube.com/@SouthMainAuto/videos",       "weight": 0.75},
-    "scotty":    {"url": "https://www.youtube.com/@ScottyKilmer/videos",        "weight": 0.70},
-    "humble":    {"url": "https://www.youtube.com/@HumbleMechanic/videos",      "weight": 0.75},
-    "fordtech":  {"url": "https://www.youtube.com/@FordTechMakuloco/videos",    "weight": 0.80},
-    "scanner":   {"url": "https://www.youtube.com/@ScannerDanner/videos",       "weight": 0.80},
+    # ── Original channels ──────────────────────────────────────────────────
+    "rainman":    {"url": "https://www.youtube.com/@RainmanRaysRepairs/videos",   "weight": 0.75, "focus": "professional"},
+    "southmain":  {"url": "https://www.youtube.com/@SouthMainAuto/videos",        "weight": 0.75, "focus": "professional"},
+    "scotty":     {"url": "https://www.youtube.com/@ScottyKilmer/videos",         "weight": 0.70, "focus": "professional"},
+    "humble":     {"url": "https://www.youtube.com/@HumbleMechanic/videos",       "weight": 0.75, "focus": "professional"},
+    "fordtech":   {"url": "https://www.youtube.com/@FordTechMakuloco/videos",     "weight": 0.80, "focus": "professional"},
+    "scanner":    {"url": "https://www.youtube.com/@ScannerDanner/videos",        "weight": 0.85, "focus": "professional", "limit": 40},
+
+    # ── New channels (2026-03-27) ──────────────────────────────────────────
+    # Royalty Auto Service — "We Test, Not Guess" shop in St. Marys GA;
+    # oscilloscope/scope diagnostics, multi-make; ~310K subs
+    "royalty":    {"url": "https://www.youtube.com/@theroyaltyautoservice/videos", "weight": 0.85, "focus": "professional"},
+
+    # Eric The Car Guy — foundational professional-mechanic channel since 2009;
+    # broad diagnostic walkthroughs, ~1.9M subs
+    "etcg":       {"url": "https://www.youtube.com/@ericthecarguy/videos",        "weight": 0.75, "focus": "professional"},
+
+    # The Car Care Nut — Toyota/Lexus master diagnostic tech (AMD), specialty shop owner;
+    # extremely thorough pre-purchase inspections and diagnostic methodology, ~1.68M subs
+    "carcarenut": {"url": "https://www.youtube.com/@TheCarCareNut/videos",        "weight": 0.80, "focus": "professional"},
+
+    # 1A Auto — step-by-step repair tutorials, 70+ years combined mechanic experience;
+    # DIY-oriented framing but accurate procedures, ~3M subs; lower weight reflects audience
+    "1aauto":     {"url": "https://www.youtube.com/@1aauto/videos",               "weight": 0.65, "focus": "diy"},
 }
 
 # ── Disk-space guardrail ──────────────────────────────────────────────────────
@@ -82,7 +106,43 @@ def _chunk_text(text: str) -> list[str]:
     return [c for c in chunks if len(c.split()) >= 30]
 
 
-def _already_ingested(collection: chromadb.Collection, video_url: str) -> bool:
+def _load_manifest_urls() -> set[str]:
+    """Load set of already-ingested video URLs from manifest file (fast pre-check)."""
+    if not MANIFEST_PATH.exists():
+        return set()
+    urls: set[str] = set()
+    try:
+        for line in MANIFEST_PATH.read_text().splitlines():
+            if line.strip():
+                entry = json.loads(line)
+                urls.add(entry["url"])
+    except Exception:
+        pass
+    return urls
+
+
+def _write_manifest_entry(video: dict, channel_key: str, chunks: int, meta: dict) -> None:
+    """Append an ingested video record to the manifest JSONL file."""
+    entry = {
+        "url": video["url"],
+        "title": video.get("title", ""),
+        "channel_key": channel_key,
+        "channel_name": meta.get("channel", ""),
+        "view_count": video.get("view_count", 0),
+        "upload_date": meta.get("upload_date", ""),
+        "duration_secs": meta.get("duration_secs", ""),
+        "chunks": chunks,
+        "ingested_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(MANIFEST_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def _already_ingested(collection: chromadb.Collection, video_url: str, manifest_urls: set[str]) -> bool:
+    """Check manifest first (fast), fall back to ChromaDB query."""
+    if video_url in manifest_urls:
+        return True
     url_hash = hashlib.md5(video_url.encode()).hexdigest()[:12]
     results = collection.get(ids=[f"bulk_{url_hash}_0"])
     return len(results["ids"]) > 0
@@ -238,16 +298,19 @@ def _fetch_transcript(video_url: str, log: logging.Logger) -> tuple[str, dict]:
 
 def _ingest_video(
     video: dict,
+    channel_key: str,
     weight: float,
+    focus: str,
     collection: chromadb.Collection,
+    manifest_urls: set[str],
     dry_run: bool,
     log: logging.Logger,
 ) -> int:
     url = video["url"]
     log.info(f"  → {video['title'][:70]} ({video['view_count']:,} views)")
 
-    if _already_ingested(collection, url):
-        log.info("    [SKIP] already in ChromaDB")
+    if _already_ingested(collection, url, manifest_urls):
+        log.info("    [SKIP] already ingested")
         return 0
 
     text, meta = _fetch_transcript(url, log)
@@ -270,6 +333,7 @@ def _ingest_video(
         "source": host,
         "source_type": "youtube",
         "source_weight": weight,
+        "channel_focus": focus,
         "canonical_url": url,
         **{k: v for k, v in meta.items() if v},
     }
@@ -279,6 +343,8 @@ def _ingest_video(
         metadatas=[{**base_meta, "chunk_index": i} for i in range(len(chunks))],
         ids=[f"bulk_{url_hash}_{i}" for i in range(len(chunks))],
     )
+    _write_manifest_entry(video, channel_key, len(chunks), meta)
+    manifest_urls.add(url)  # update in-memory set to prevent re-check within same run
     log.info(f"    ✓ {len(chunks)} chunks ingested")
     return len(chunks)
 
@@ -286,7 +352,7 @@ def _ingest_video(
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bulk ingest from curated automotive YouTube channels")
-    parser.add_argument("--channel", choices=list(CHANNELS.keys()), help="Single channel key (default: all)")
+    parser.add_argument("--channel", choices=list(CHANNELS.keys()), help=f"Single channel key (default: all). Options: {', '.join(CHANNELS.keys())}")
     parser.add_argument("--limit", type=int, default=20, help="Max videos per channel (default: 20)")
     parser.add_argument("--min-views", type=int, default=5000, help="Skip videos below this view count (default: 5000)")
     parser.add_argument("--dry-run", action="store_true", help="Preview without writing to ChromaDB")
@@ -299,26 +365,32 @@ def main() -> None:
 
     targets = {args.channel: CHANNELS[args.channel]} if args.channel else CHANNELS
     collection = _get_collection()
+    manifest_urls = _load_manifest_urls()
+    log.info(f"Manifest: {len(manifest_urls)} URLs already ingested (fast pre-check)")
 
     total_chunks = 0
     total_videos = 0
 
     for key, cfg in targets.items():
+        channel_limit = cfg.get("limit", args.limit)  # per-channel override or global default
+        focus = cfg.get("focus", "professional")
         log.info(f"\n{'='*60}")
-        log.info(f"Channel: {key} | weight={cfg['weight']} | limit={args.limit} | min_views={args.min_views:,}")
+        log.info(f"Channel: {key} | weight={cfg['weight']} | focus={focus} | limit={channel_limit} | min_views={args.min_views:,}")
         log.info(f"URL: {cfg['url']}")
 
-        videos = _list_channel_videos(cfg["url"], args.limit, args.min_views, log)
+        videos = _list_channel_videos(cfg["url"], channel_limit, args.min_views, log)
         log.info(f"Found {len(videos)} eligible videos")
 
         for video in videos:
-            n = _ingest_video(video, cfg["weight"], collection, args.dry_run, log)
+            n = _ingest_video(video, key, cfg["weight"], focus, collection, manifest_urls, args.dry_run, log)
             if n:
                 total_chunks += n
                 total_videos += 1
 
     print(f"\n{'[DRY-RUN] ' if args.dry_run else ''}Done — {total_videos} videos, {total_chunks} chunks ingested.")
     print(f"Channels processed: {', '.join(targets.keys())}")
+    if not args.dry_run:
+        print(f"Manifest: {MANIFEST_PATH}")
 
 
 if __name__ == "__main__":
