@@ -71,6 +71,41 @@ CHANNELS: dict[str, dict] = {
     # 1A Auto — step-by-step repair tutorials, 70+ years combined mechanic experience;
     # DIY-oriented framing but accurate procedures, ~3M subs; lower weight reflects audience
     "1aauto":     {"url": "https://www.youtube.com/@1aauto/videos",               "weight": 0.65, "focus": "diy"},
+
+    # ── New channels (2026-03-27 batch 2) ─────────────────────────────────
+    # Pine Hollow Auto Diagnostics — Ivan Temnykh, professional shop in State College PA;
+    # first-principles live diagnostics on customer vehicles, Diagnostic Network top-ranked;
+    # ~266K subs, weekly uploads
+    "pinehollow": {"url": "https://www.youtube.com/@pinehollowautodiagnostics/videos", "weight": 0.85, "focus": "professional"},
+
+    # DiagnoseDan — professional mechanic (Netherlands), European vehicle specialist
+    # (Mercedes, BMW, Mini, Lexus, Jeep); Diagnostic Network recommended; ~210K subs
+    "diagnosedan": {"url": "https://www.youtube.com/@diagnosedan/videos",          "weight": 0.80, "focus": "professional"},
+
+    # WeberAuto (Weber State University) — Professor John Kelly; hybrid/EV high-voltage
+    # systems, automatic transmissions, vibration diagnostics; university-level depth; ~467K subs
+    "weberauto":  {"url": "https://www.youtube.com/@weberauto/videos",             "weight": 0.85, "focus": "professional"},
+
+    # Adept Ape — Josh, CAT Master Truck Technician; Caterpillar diesel / HD equipment
+    # diagnostics; featured on CAT's official blog and podcast; ~250K subs
+    "adeptape":   {"url": "https://www.youtube.com/@AdeptApe/videos",              "weight": 0.80, "focus": "professional"},
+
+    # DieselTechRon — Ron, Ford-certified Diesel Master Tech since 1982; Power Stroke
+    # 6.0/6.4/6.7 diagnostics; dealer-level Ford diesel resource; ~144K subs
+    "dieselron":  {"url": "https://www.youtube.com/@DieselTechRon/videos",         "weight": 0.82, "focus": "professional"},
+
+    # Motor Age Training — Pete Meier ASE Master Tech; "The Trainer" series (100+ episodes),
+    # scan tool interpretation, drivability, ASE prep; oldest automotive trade publication;
+    # ~162K subs
+    "motorage":   {"url": "https://www.youtube.com/@MotorAgeTraining/videos",      "weight": 0.80, "focus": "professional"},
+
+    # Motor Age Magazine (Mastering Diagnostics series) — Brandon Steckler Technical Editor;
+    # Vehicle Service Pros network; Mastering Diagnostics series 30+ episodes; ~100K subs
+    "motoragemag": {"url": "https://www.youtube.com/@MotorAgeMagazine/videos",     "weight": 0.80, "focus": "professional"},
+
+    # Mechanic Mindset — Darren, oscilloscope/PicoScope/CAN bus specialist;
+    # training-first channel, small but extremely high technical density; confirmed active 2026
+    "mechanikmindset": {"url": "https://www.youtube.com/@MechanicMindset/videos",  "weight": 0.82, "focus": "professional"},
 }
 
 # ── Disk-space guardrail ──────────────────────────────────────────────────────
