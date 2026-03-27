@@ -106,6 +106,11 @@ CHANNELS: dict[str, dict] = {
     # Mechanic Mindset — Darren, oscilloscope/PicoScope/CAN bus specialist;
     # training-first channel, small but extremely high technical density; confirmed active 2026
     "mechanikmindset": {"url": "https://www.youtube.com/@MechanicMindset/videos",  "weight": 0.82, "focus": "professional"},
+
+    # GoTech — CAN bus / network communication specialist; 3-part CAN series covering
+    # real-world diagnostic process (network topology → protocols → testing); 225K subs;
+    # "where do I start" approach to modern vehicle network diagnosis
+    "gotech":     {"url": "https://www.youtube.com/channel/UCt2U5SZn_m2dtolft_O3DHQ/videos", "weight": 0.85, "focus": "professional"},
 }
 
 # ── Disk-space guardrail ──────────────────────────────────────────────────────
