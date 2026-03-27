@@ -135,3 +135,5 @@ reports/Customer/
 reports/Fleet/
 reports/Pre-Purchase/
 .harness/plans/*.json
+.harness/plans/
+.harness/generator-prompt.md

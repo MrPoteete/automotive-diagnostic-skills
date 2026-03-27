@@ -40,9 +40,9 @@ graph TB
     end
 
     subgraph "Data Layer — VERIFIED COUNTS"
-        ComplaintsDB[("automotive_complaints.db\n843 MB PRIMARY\n562K complaints FTS5\n211K TSBs\n7,117 recalls\n5,329 investigations\n49,806 EPA vehicles\n17,774 Canada recalls")]
+        ComplaintsDB[("automotive_complaints.db\n843 MB PRIMARY\n562K complaints FTS5\n211K TSBs\n7,166 recalls\n5,329 investigations\n49,806 EPA vehicles\n17,774 Canada recalls")]
         DiagnosticsDB[("automotive_diagnostics.db\n1.1 MB SECONDARY\n34,394 vehicles 1984–2026 145 makes\n3,073 DTC codes\n48 diagnosis history\n0 failure_patterns ⚠️")]
-        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum collection\n⚠️ rebuilding after 2026-03 crash")]
+        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum collection\n561,254 docs · 18 channels")]
     end
 
     subgraph "AI Tier"
@@ -87,7 +87,7 @@ graph TB
         direction TB
         CF["complaints_fts\n562,667 rows FTS5\nmake · model · year\ncomponent · summary"]
         NT["nhtsa_tsbs\n211,640 rows\nbulletin_no · make · model\nyear · component · summary"]
-        NR["nhtsa_recalls\n7,117 rows\ncampaign_no · make · model\nyear_from/to · summary\nremedy · park_it flag"]
+        NR["nhtsa_recalls\n7,166 rows\ncampaign_no · make · model\nyear_from/to · summary\nremedy · park_it flag"]
         NI["nhtsa_investigations\n5,329 rows\naction_no · make · model\ncomponent · summary"]
         CR["canada_recalls\n17,774 rows"]
         EV["epa_vehicles\n49,806 rows\nyears 1984–2026\n44 makes"]
@@ -113,7 +113,7 @@ graph TB
     end
 
     subgraph "ChromaDB  data/vector_store/chroma/"
-        MF["mechanics_forum collection\n⚠️ rebuilding after disk crash\nYouTube transcripts ingested\nbulk_ingest.py adds content"]
+        MF["mechanics_forum collection\n561,254 docs · 18 YT channels\n547 videos ingested 2026-03-27\nbulk_ingest.py"]
     end
 
     subgraph "Backup — database/backups/"
@@ -181,7 +181,7 @@ flowchart LR
     subgraph "Import Scripts — scripts/"
         I1["import_nhtsa_recalls_api.py\n→ automotive_complaints.db\nnhtsa_recalls table\ncheckpoint resume"]
         I2["import_complaints_full.py\n→ automotive_complaints.db\nprocessed_complaints\ncomplaints_fts"]
-        I3["bulk_ingest.py\n→ ChromaDB\nmechanics_forum collection\n6 curated YT channels"]
+        I3["bulk_ingest.py\n→ ChromaDB\nmechanics_forum collection\n18 curated YT channels"]
         I4["import_epa_vehicles.py\n→ automotive_diagnostics.db\nvehicles table\n⚠️ currently only 2005 imported"]
         I5["import_canada_recalls.py\n→ automotive_complaints.db\ncanada_recalls table"]
     end
@@ -211,15 +211,15 @@ flowchart LR
 
 ```mermaid
 graph LR
-    subgraph "CURRENT STATE — 2026-03-26"
-        G1["✅ nhtsa_recalls\n7,117 rows\nlast import: 2026-03-22\n43 makes · 2000–2025"]
+    subgraph "CURRENT STATE — 2026-03-27"
+        G1["✅ nhtsa_recalls\n7,166 rows\nlast import: 2026-03-27\n43 makes · 2000–2026"]
         G2["✅ nhtsa_tsbs\n211,640 rows\nNHTSA flat file import"]
         G3["✅ complaints_fts\n562,667 rows\nNHTSA complaints FTS5"]
         G4["✅ epa_vehicles\n49,806 rows\n1984–2026 in complaints.db"]
-        G5["⚠️ vehicles table\n792 rows · 2005 ONLY\ndiagnostics.db not updated\nfix: run import_epa_vehicles.py --full"]
+        G5["✅ vehicles table\n34,394 rows · 1984–2026\n145 makes · migrated 2026-03-26"]
         G6["⚠️ failure_patterns\n0 rows · empty\ndiagnostics.db"]
-        G7["⚠️ ChromaDB\nrebuilding after 2026-03 crash\nbulk_ingest running for new content"]
-        G8["⚠️ No automation\nall imports are manual\nfix: add weekly cron"]
+        G7["✅ ChromaDB\n561,254 docs · 18 channels\n547 videos ingested 2026-03-27"]
+        G8["✅ Weekly cron\nnhtsa-recall-refresh.timer\nSun 03:00 UTC"]
     end
 
     style G1 fill:#4ecdc4
