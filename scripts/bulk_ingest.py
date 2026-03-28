@@ -111,6 +111,27 @@ CHANNELS: dict[str, dict] = {
     # real-world diagnostic process (network topology → protocols → testing); 225K subs;
     # "where do I start" approach to modern vehicle network diagnosis
     "gotech":     {"url": "https://www.youtube.com/channel/UCt2U5SZn_m2dtolft_O3DHQ/videos", "weight": 0.85, "focus": "professional"},
+
+    # ── AC/HVAC batch (2026-03-28) ────────────────────────────────────────
+    # Waldo's World — European luxury vehicle diagnostics (Land Rover, BMW, Mercedes);
+    # complex HVAC/climate systems; Diagnostic Network top-rated; ~576K subs
+    "waldos":     {"url": "https://www.youtube.com/@waldosworld/videos",              "weight": 0.82, "focus": "professional"},
+
+    # HVAC School (Bryan Orr) — refrigeration theory: manifold reading, superheat/subcool,
+    # leak detection, evacuation; not automotive but skills transfer directly; ~453K subs
+    "hvacschool": {"url": "https://www.youtube.com/@hvacrschool/videos",              "weight": 0.72, "focus": "professional"},
+
+    # AC Service Tech LLC — manifold gauge technique, vacuum procedures, system evacuation,
+    # leak detection; refrigeration fundamentals directly applicable to automotive AC
+    "acservtech": {"url": "https://www.youtube.com/@ACServiceTech/videos",            "weight": 0.72, "focus": "professional"},
+
+    # Ratchets and Wrenches — general automotive repair, AC system work in catalog;
+    # bridges theory and hands-on for shop technicians; ~974K subs
+    "ratchets":   {"url": "https://www.youtube.com/channel/UCT5dv3iwFuy041dbWPB6skg/videos", "weight": 0.73, "focus": "professional"},
+
+    # Super Mario Diagnostics — systematic diagnostic methodology, electrical/oscilloscope;
+    # Diagnostic Network recommended list; ~63K subs
+    "supermario": {"url": "https://www.youtube.com/channel/UCaNH77hSGAZ5vF45hv6FpmQ/videos", "weight": 0.78, "focus": "professional"},
 }
 
 # ── Disk-space guardrail ──────────────────────────────────────────────────────
