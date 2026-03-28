@@ -119,11 +119,11 @@ CHANNELS: dict[str, dict] = {
 
     # HVAC School (Bryan Orr) — refrigeration theory: manifold reading, superheat/subcool,
     # leak detection, evacuation; not automotive but skills transfer directly; ~453K subs
-    "hvacschool": {"url": "https://www.youtube.com/@HVACS",              "weight": 0.72, "focus": "professional"},
+    "hvacschool": {"url": "https://www.youtube.com/@HVACS/videos",              "weight": 0.72, "focus": "professional"},
 
     # AC Service Tech LLC — manifold gauge technique, vacuum procedures, system evacuation,
     # leak detection; refrigeration fundamentals directly applicable to automotive AC
-    "acservtech": {"url": "https://www.youtube.com/@acservicetechchannel",            "weight": 0.72, "focus": "professional"},
+    "acservtech": {"url": "https://www.youtube.com/@acservicetechchannel/videos",            "weight": 0.72, "focus": "professional"},
 
     # Ratchets and Wrenches — general automotive repair, AC system work in catalog;
     # bridges theory and hands-on for shop technicians; ~974K subs
