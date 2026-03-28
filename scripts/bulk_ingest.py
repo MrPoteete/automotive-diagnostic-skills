@@ -123,7 +123,7 @@ CHANNELS: dict[str, dict] = {
 
     # AC Service Tech LLC — manifold gauge technique, vacuum procedures, system evacuation,
     # leak detection; refrigeration fundamentals directly applicable to automotive AC
-    "acservtech": {"url": "https://www.youtube.com/@ACServiceTech",            "weight": 0.72, "focus": "professional"},
+    "acservtech": {"url": "https://www.youtube.com/@acservicetechchannel",            "weight": 0.72, "focus": "professional"},
 
     # Ratchets and Wrenches — general automotive repair, AC system work in catalog;
     # bridges theory and hands-on for shop technicians; ~974K subs
