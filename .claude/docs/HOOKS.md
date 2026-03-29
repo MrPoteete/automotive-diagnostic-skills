@@ -17,7 +17,7 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
 
 | Hook | Matcher | Purpose | Blocks? |
 |------|---------|---------|---------|
-| `pre_tool_use.py` | All tools | Safety gate (rm, raw_imports, .env) | Yes (if dangerous) |
+| `pre_tool_use.py` | All tools | Safety gate (rm, raw_imports, .env, hooks dir) | Yes (if dangerous) |
 | `delegation_check.py` | Write/Edit | Enforce agent/Gemini delegation consideration | Yes (if not acknowledged) |
 | `precommit_validator.py` | Bash only | Validates git commits | Yes (if errors) |
 
@@ -29,6 +29,7 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
 |------|---------|---------|---------|
 | `ruff_validator.py` | Write/Edit on .py | Lint Python files | Yes (if lint errors) |
 | `mypy_validator.py` | Write/Edit on .py | Type check Python files | Yes (if type errors) |
+| `post-tool-defender.py` | Write\|Edit\|mcp__.* | Prompt injection scanning | Yes (if injection detected) |
 
 ### UserPromptSubmit Hook
 
@@ -81,6 +82,14 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
             "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/mypy_validator.py"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [{
+          "type": "command",
+          "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-injection-defender/post-tool-defender.py",
+          "timeout": 5
+        }]
       }
     ],
     "Stop": [{
@@ -92,6 +101,51 @@ Hooks provide **deterministic enforcement** of quality standards. Unlike CLAUDE.
   }
 }
 ```
+
+---
+
+## Prompt Injection Defender (PostToolUse)
+
+**Location**: `.claude/hooks/prompt-injection-defender/post-tool-defender.py`
+**Patterns**: `.claude/hooks/prompt-injection-defender/patterns.yaml`
+
+**Purpose**: Scan tool output for prompt injection before Claude processes it.
+
+**Matchers** (as of 2026-03-29):
+- `Write|Edit` — file write/edit results
+- `mcp__.*` — all MCP tool responses (Telegram, Gmail, Zapier, Figma, Canva, etc.)
+
+The `mcp__.*` matcher was added 2026-03-29. Before that, MCP responses were completely unscanned — a blind spot for any external content arriving through integrations.
+
+**Pattern categories**:
+
+| Category | Patterns | Detects |
+|----------|----------|---------|
+| `injectionPatterns` | Core set | Classic override/ignore instructions |
+| `exfiltrationPatterns` | Core set | Data exfiltration attempts |
+| `fakeToolResponsePatterns` | 5 | Injected content mimicking Claude tool call/response format |
+| `multiLanguagePatterns` | 6 (Spanish) | Spanish-language instruction overrides |
+
+**Important**: All pattern matching uses `re.DOTALL` (added 2026-03-29). Without `DOTALL`, multi-line injection — where the attack splits across newlines — evades every single-line regex match.
+
+---
+
+## Safety Gate (PreToolUse: `pre_tool_use.py`)
+
+**Purpose**: Block dangerous tool calls before execution.
+
+**Protection functions**:
+
+| Function | Blocks |
+|----------|--------|
+| `check_rm_commands()` | `rm -rf` and variants |
+| `check_raw_imports()` | Writes to `data/raw_imports/` |
+| `check_env_file_access()` | Write/Edit to `.env` files AND Bash redirection (echo/printf/tee) writing to `.env` files |
+| `check_hooks_modification()` | Write/Edit to `.claude/hooks/` paths AND Bash commands using chmod/echo/printf/tee/sed -i targeting `.claude/hooks/` |
+
+`check_hooks_modification()` was added 2026-03-29. Hook self-sabotage — using `chmod` to make a hook file writable then overwriting it via Bash — is a confirmed injection bypass vector. The Write/Edit gate alone does not stop it; Bash redirection must also be blocked.
+
+`check_env_file_access()` was enhanced 2026-03-29 to detect Bash redirection, not only Write/Edit tool calls.
 
 ---
 

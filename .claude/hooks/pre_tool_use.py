@@ -97,13 +97,58 @@ def check_raw_imports_modification(tool_name, tool_input):
 
 
 def check_env_file_access(tool_name, tool_input):
-    """Check if the operation writes to .env files."""
+    """Check if the operation writes to .env files.
+
+    Covers both tool-based writes (Write/Edit) and Bash redirection
+    (echo/printf/tee piped or redirected into .env files).
+    """
     if tool_name in ("Write", "Edit"):
         file_path = tool_input.get("file_path", "")
         basename = Path(file_path).name if file_path else ""
         # Block .env and .env.* but allow .env.example (safe template)
         if basename == ".env" or (basename.startswith(".env.") and not basename.endswith(".example")):
             return True
+
+    if tool_name == "Bash":
+        command = tool_input.get("command", "")
+        # Detect write redirection targeting .env files
+        # Matches: echo ... > .env, printf ... >> .env, tee .env, tee -a .env
+        env_target = r'\.env(?:\.[a-zA-Z]+)?\b'
+        write_redirect = r'(?:echo|printf|tee)\b.*(?:>|>>|\|)'
+        if re.search(write_redirect, command) and re.search(env_target, command):
+            # Allow if only targeting .env.example
+            if not re.search(r'\.env\.example', command):
+                return True
+
+    return False
+
+
+def check_hooks_modification(tool_name, tool_input):
+    """Block any attempt to modify .claude/hooks/ files.
+
+    Hook self-sabotage (chmod + overwrite) is a confirmed injection bypass vector.
+    All three write paths must be blocked: Write/Edit tools and Bash redirection.
+    """
+    hooks_pattern = r"\.claude/hooks"
+
+    if tool_name in ("Write", "Edit"):
+        file_path = tool_input.get("file_path", "")
+        if hooks_pattern.replace(r"\.", ".") in file_path:
+            return True
+
+    if tool_name == "Bash":
+        command = tool_input.get("command", "")
+        if re.search(hooks_pattern, command):
+            # Block chmod on hooks files
+            if re.search(r"\bchmod\b", command):
+                return True
+            # Block write redirection into hooks files
+            if re.search(r"\b(echo|printf|tee|cat)\b.*>", command):
+                return True
+            # Block sed -i on hooks files
+            if re.search(r"\bsed\s+.*-i", command):
+                return True
+
     return False
 
 
@@ -144,6 +189,14 @@ def main():
         deny(
             "BLOCKED: Writing to .env files is not allowed via hooks. "
             "Credential files should be managed manually to prevent leaks."
+        )
+
+    # Check hooks directory modification (self-sabotage prevention)
+    if check_hooks_modification(tool_name, tool_input):
+        log_invocation(session_id, tool_name, tool_input, "deny", ".claude/hooks modification blocked")
+        deny(
+            "BLOCKED: Modification of .claude/hooks/ is not allowed. "
+            "Hook files are security infrastructure and must not be altered by automated operations."
         )
 
     # Log allowed invocation

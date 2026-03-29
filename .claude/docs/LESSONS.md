@@ -540,4 +540,56 @@ WHERE UPPER(make) = ? AND UPPER(model) = ?
 
 ---
 
+## Security — 2026-03-29 Audit Findings
+
+### Wildcard Allow Rules Are a Critical Attack Surface
+
+**Root cause**: `settings.local.json` entries like `Bash(sudo sh:*)`, `Bash(curl:*)`, `Bash(chmod:*)` grant unbounded capability to any prompt injection that clears the PreToolUse gate.
+
+**Fix**: Use specific patterns (`Bash(curl:https://api.nhtsa.gov:*)`) or remove the rule entirely. One-off session commands must be removed after use — they accumulate and widen the attack surface with each session.
+
+**Rule**: Audit `settings.local.json` after every session that adds allow rules. No wildcard rules for root shells, network fetch, or file permissions.
+
+---
+
+### Hook Self-Sabotage Bypasses Write/Edit Protection
+
+**Root cause**: `pre_tool_use.py` blocked Write/Edit to `.claude/hooks/` but not Bash commands. An injected `chmod 777 .claude/hooks/pre_tool_use.py && echo "exit 0" > .claude/hooks/pre_tool_use.py` would disable the hook entirely via Bash.
+
+**Fix**: `check_hooks_modification()` now also intercepts Bash commands containing `chmod`, `echo`, `printf`, `tee`, or `sed -i` that target `.claude/hooks/` paths.
+
+**Rule**: Any protection for a file path must cover both Write/Edit tool calls AND Bash write operations (redirection, in-place sed, chmod). Covering only one channel leaves the other open.
+
+---
+
+### MCP Tool Responses Are a Blind Spot for Injection Scanning
+
+**Root cause**: The PostToolUse prompt-injection-defender was registered only for `Write|Edit`. MCP tool responses (Telegram, Gmail, Zapier, Figma, Canva, etc.) returned arbitrary external content that was never scanned.
+
+**Fix**: Added `"matcher": "mcp__.*"` PostToolUse entry in `.claude/settings.json` pointing to `post-tool-defender.py`.
+
+**Rule**: Any new MCP integration is automatically covered by the `mcp__.*` matcher. If the defender is ever moved or renamed, update both the `Write|Edit` and `mcp__.*` entries together.
+
+---
+
+### Multi-Line Injection Evades Single-Line Regex
+
+**Root cause**: Injection patterns split across newlines (e.g. `ignore\nprevious instructions`) bypassed all `re.search()` calls in `post-tool-defender.py` because Python regex does not match `.` across newlines by default.
+
+**Fix**: Added `re.DOTALL` flag to all pattern matching in `post-tool-defender.py`.
+
+**Rule**: All regex used for security scanning must include `re.DOTALL`. Single-line mode is the wrong default when scanning multi-line tool output from external sources.
+
+---
+
+### Hardcoded Key Fallbacks Defeat Key Rotation
+
+**Root cause**: `process.env.API_KEY ?? 'mechanic-secret-key-123'` in 10 API proxy routes meant rotating the `.env` key had no effect — the old key remained active in the fallback.
+
+**Fix**: All fallbacks changed to `?? ''`. A missing `API_KEY` now causes requests to fail with 401 rather than silently using a known-bad key.
+
+**Rule**: Fallback values for secrets must always be `''` or equivalent failure-mode values, never a default key string. A 401 failure is visible and fixable; a silently accepted insecure key is not.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*

@@ -45,6 +45,26 @@
             "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/validators/diagnostic_report_validator.py"
           }
         ]
+      },
+      {
+        "matcher": "Read|WebFetch|Bash|Grep|Glob|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-injection-defender/post-tool-defender.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/poteete/.local/bin/uv run $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-injection-defender/post-tool-defender.py",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
