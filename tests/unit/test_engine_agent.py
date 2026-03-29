@@ -162,6 +162,15 @@ class TestValidateDtcCodes:
 class TestDiagnose:
     """Tests for diagnose(vehicle, symptoms, dtc_codes, db) -> dict."""
 
+    @pytest.fixture(autouse=True)
+    def mock_chroma(self) -> MagicMock:
+        """Patch ChromaService so tests never touch the real ChromaDB Rust ext."""
+        with patch("src.data.chroma_service.ChromaService") as mock_cls:
+            instance = MagicMock()
+            instance.document_count = 0
+            mock_cls.return_value = instance
+            yield mock_cls
+
     @pytest.fixture
     def vehicle(self) -> dict:
         return {"make": "FORD", "model": "F-150", "year": 2019}

@@ -389,6 +389,65 @@ def build_report(args):
         ]))
 
     # -----------------------------------------------------------------------
+    # KBB MARKET VALUE (optional — only rendered if values provided)
+    # -----------------------------------------------------------------------
+    if any([args.kbb_trade_in, args.kbb_private_party, args.kbb_retail]):
+        story.append(section_block("KELLEY BLUE BOOK MARKET VALUE", styles,
+                                   color=colors.HexColor("#1a6e35")))
+        story.append(Spacer(1, 6))
+
+        kbb_condition_note = f"Condition: {args.kbb_condition}  |  Mileage: {args.mileage:,} miles  |  Source: Kelley Blue Book (kbb.com)"
+        story.append(Paragraph(kbb_condition_note, styles["small"]))
+        story.append(Spacer(1, 6))
+
+        kbb_data = []
+        if args.kbb_trade_in:
+            kbb_data.append(["Trade-In Value", args.kbb_trade_in,
+                             "Dealer offer when trading in — typically lowest figure"])
+        if args.kbb_private_party:
+            kbb_data.append(["Private Party Sale", args.kbb_private_party,
+                             "Selling directly to another individual — fair market value"])
+        if args.kbb_retail:
+            kbb_data.append(["Dealer Retail / Listed Price", args.kbb_retail,
+                             "What a dealer would list it for — highest figure"])
+
+        val_header = [
+            Paragraph("Value Type", styles["label"]),
+            Paragraph("KBB Range", styles["label"]),
+            Paragraph("Notes", styles["label"]),
+        ]
+        val_rows = [val_header]
+        for row in kbb_data:
+            val_rows.append([
+                Paragraph(row[0], styles["body_bold"]),
+                Paragraph(row[1], ParagraphStyle(
+                    "kbb_val", fontSize=10, fontName="Helvetica-Bold",
+                    textColor=colors.HexColor("#1a6e35"), leading=14)),
+                Paragraph(row[2], styles["small"]),
+            ])
+
+        val_table = Table(val_rows, colWidths=[1.7 * inch, 1.8 * inch, 3.5 * inch])
+        val_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), DARK_NAVY),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#edf7ef"), WHITE]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#b2d8b8")),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        story.append(val_table)
+        story.append(Spacer(1, 5))
+        story.append(Paragraph(
+            "KBB values are national averages and may vary ±$500–$1,500 by region, exact trim, "
+            "options, and color. Verify current values at kbb.com before making an offer.",
+            styles["disclaimer"],
+        ))
+        story.append(Spacer(1, 10))
+
+    # -----------------------------------------------------------------------
     # SAFETY ASSESSMENT
     # -----------------------------------------------------------------------
     story.append(section_block("SAFETY ASSESSMENT", styles))
@@ -784,6 +843,8 @@ def build_report(args):
         ["[TOYOTA-PROT]", "Toyota Motor Corporation Service Protocols v1.0 (January 2026)"],
         ["[VIN-DECODE]", "WMI 3MY = Mazda Motor Manufacturing de Mexico S.A. de C.V., Salamanca"],
     ]
+    if any([args.kbb_trade_in, args.kbb_private_party, args.kbb_retail]):
+        sources.append(["[KBB]", f"Kelley Blue Book (kbb.com) — {args.year} {args.make.title()} {args.model.title()}, {args.kbb_condition} condition, {args.mileage:,} miles"])
     src_table = Table(sources, colWidths=[1.3 * inch, 5.7 * inch])
     src_table.setStyle(TableStyle([
         ("ROWBACKGROUNDS", (0, 0), (-1, -1), [LIGHT_GRAY, WHITE]),
@@ -838,6 +899,14 @@ def main():
     parser.add_argument("--trim", default="")
     parser.add_argument("--mileage", type=int, default=0)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--kbb-trade-in", default="", dest="kbb_trade_in",
+                        help="KBB trade-in value, e.g. '$7,800 – $8,200'")
+    parser.add_argument("--kbb-private-party", default="", dest="kbb_private_party",
+                        help="KBB private party value, e.g. '$11,000 – $11,500'")
+    parser.add_argument("--kbb-retail", default="", dest="kbb_retail",
+                        help="KBB suggested retail/dealer value, e.g. '$12,000 – $12,800'")
+    parser.add_argument("--kbb-condition", default="Good", dest="kbb_condition",
+                        help="Condition used for KBB lookup (default: Good)")
     args = parser.parse_args()
 
     print(f"Building pre-purchase report for {args.year} {args.make} {args.model}...")
