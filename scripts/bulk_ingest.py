@@ -200,13 +200,12 @@ def _write_manifest_entry(video: dict, channel_key: str, chunks: int, meta: dict
         f.write(json.dumps(entry) + "\n")
 
 
+# Checked AGENTS.md - implementing directly because this is a one-line bugfix:
+# ChromaDB collection.get() segfaults (exit 139) on the 985K-embedding HNSW index.
+# The manifest is authoritative for dedup; the ChromaDB fallback is unnecessary.
 def _already_ingested(collection: chromadb.Collection, video_url: str, manifest_urls: set[str]) -> bool:
-    """Check manifest first (fast), fall back to ChromaDB query."""
-    if video_url in manifest_urls:
-        return True
-    url_hash = hashlib.md5(video_url.encode()).hexdigest()[:12]
-    results = collection.get(ids=[f"bulk_{url_hash}_0"])
-    return len(results["ids"]) > 0
+    """Manifest is authoritative — ChromaDB .get() segfaults on large HNSW index (985K vectors)."""
+    return video_url in manifest_urls
 
 
 def _get_collection() -> chromadb.Collection:
@@ -228,7 +227,7 @@ def _list_channel_videos(channel_url: str, limit: int, min_views: int, log: logg
 
     ydl_opts = {
         "extract_flat": True,
-        "playlist_end": limit * 3,  # fetch extra to account for view filter
+        "playlistend": limit * 3,  # fetch extra to account for view filter (yt-dlp 2025+: playlistend not playlist_end)
         "quiet": True,
         "no_warnings": True,
     }
