@@ -132,6 +132,23 @@ CHANNELS: dict[str, dict] = {
     # Super Mario Diagnostics — systematic diagnostic methodology, electrical/oscilloscope;
     # Diagnostic Network recommended list; ~63K subs
     "supermario": {"url": "https://www.youtube.com/channel/UCaNH77hSGAZ5vF45hv6FpmQ/videos", "weight": 0.78, "focus": "professional"},
+
+    # ── Suspension / Drivetrain batch (2026-04-01) ────────────────────────────
+    # NoNonsenseKnowHow — Chris Brown, ASE Master Tech; systematic diagnostics across
+    # domestic/Asian/European platforms; suspension, axle, and transmission depth; ~790K subs
+    "nononsense": {"url": "https://www.youtube.com/@nononsenseknowhow/videos",       "weight": 0.82, "focus": "professional"},
+
+    # speedkar99 — reverse-engineering teardowns of automotive components; suspension
+    # geometry, CV axles, wheel bearings, transmission internals; failure-mode depth; ~487K subs
+    "speedkar99": {"url": "https://www.youtube.com/@speedkar99/videos",               "weight": 0.80, "focus": "professional"},
+
+    # Car Wizard (Omega Auto Clinic) — David Long, Master Mechanic; real shop, European/luxury
+    # drivetrain, transmission (incl. CVT), and suspension diagnostics; ~1.1M subs
+    "carwizard":  {"url": "https://www.youtube.com/@carwizard/videos",                "weight": 0.78, "focus": "professional"},
+
+    # Zip Ties N Bias Plies — transfer cases, 4WD systems, axles, driveshafts on high-mileage
+    # trucks; WrenchWay technician-endorsed; genuine shop-floor drivetrain content; ~470K subs
+    "zipties":    {"url": "https://www.youtube.com/@ziptiesnbiasplies/videos",        "weight": 0.75, "focus": "professional"},
 }
 
 # ── Disk-space guardrail ──────────────────────────────────────────────────────
