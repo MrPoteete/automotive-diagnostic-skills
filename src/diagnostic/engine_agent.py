@@ -152,6 +152,7 @@ def diagnose(
     symptoms: str,
     dtc_codes: list[str] | None = None,
     db: DiagnosticDB | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Run a complete differential diagnosis for a vehicle and symptoms.
@@ -161,6 +162,10 @@ def diagnose(
         symptoms: Free-text symptom description from the mechanic
         dtc_codes: Optional list of OBD-II DTC codes (e.g. ['P0300', 'P0301'])
         db: Optional DiagnosticDB instance (creates one if not provided)
+        session_id: Optional session ID.  When provided, the engine loads the
+            existing session (or creates a new one), advances the turn counter,
+            checks the budget, and persists the updated session before returning.
+            The session_id is included in the returned dict for the caller.
 
     Returns:
         Diagnostic result dict:
@@ -190,6 +195,40 @@ def diagnose(
     symptoms = _coerce_symptoms(symptoms)
     dtc_list = _coerce_dtc_codes(dtc_codes)
 
+    # ── Session working memory (optional) ────────────────────────────────────
+    session = None
+    if session_id is not None:
+        try:
+            from src.diagnostic.session_state import DiagnosticSession
+            from src.diagnostic.session_store import SessionStore
+            _store = SessionStore()
+            session = _store.load(session_id)
+            if session is None:
+                session = DiagnosticSession.create(vehicle, symptoms, session_id=session_id)
+                logger.debug("[diagnose] created new session %s", session_id)
+            else:
+                logger.debug("[diagnose] loaded session %s (turn %d)", session_id, session.turn_count)
+            # Check turn budget before running
+            budget = check_turn_budget(session.turn_count, session.phase)
+            if budget["budget_exceeded"]:
+                logger.warning("[diagnose] session %s hit turn budget (%d turns)", session_id, session.turn_count)
+                return {
+                    "session_id": session_id,
+                    "budget_exceeded": True,
+                    "escalate_reason": budget["escalate_reason"],
+                    "message": (
+                        f"Diagnostic session has reached the maximum of {MAX_HYPOTHESIS_TURNS} "
+                        "hypothesis turns without resolution. Escalating to human expert review."
+                    ),
+                    "vehicle": vehicle,
+                    "symptoms": symptoms,
+                    "candidates": [],
+                    "warnings": [f"Turn budget exceeded after {session.turn_count} turns — escalation required"],
+                }
+        except Exception as exc:
+            logger.warning("[diagnose] session init failed (%s) — proceeding stateless", exc)
+            session = None
+
     _owns_db = db is None
     if _owns_db:
         try:
@@ -201,10 +240,26 @@ def diagnose(
         owned_db = db  # type: ignore[assignment]
 
     try:
-        return _run_diagnosis(vehicle, symptoms, dtc_list, owned_db)
+        result = _run_diagnosis(vehicle, symptoms, dtc_list, owned_db)
     finally:
         if _owns_db:
             owned_db.close()
+
+    # ── Persist session turn ──────────────────────────────────────────────────
+    if session is not None:
+        try:
+            session.advance_turn(
+                new_phase="HYPOTHESIS_GENERATION",
+                message={"role": "assistant", "content": str(result.get("candidates", []))[:500]},
+            )
+            _store.save(session)
+            result["session_id"] = session_id
+            result["session_turn"] = session.turn_count
+            result["turns_remaining"] = max(0, MAX_HYPOTHESIS_TURNS - session.turn_count)
+        except Exception as exc:
+            logger.warning("[diagnose] session persist failed: %s", exc)
+
+    return result
 
 
 def _run_diagnosis(
