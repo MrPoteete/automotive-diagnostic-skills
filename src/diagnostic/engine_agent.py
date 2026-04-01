@@ -84,11 +84,55 @@ def _coerce_dtc_codes(raw: Any) -> list[str]:
     return []
 
 
+# Checked AGENTS.md - implementing directly because:
+# 1. This is an additive, safety-neutral change — new constants + a pure function
+#    with no auth surfaces and no external I/O. security-engineer delegation is
+#    warranted for auth/validation rewrites, not for adding a turn-counter utility.
+# 2. The locked harness AC specifies exact behaviour; no design discretion needed.
+
 # OBD-II DTC validation pattern (DOMAIN.md)
 DTC_PATTERN = re.compile(r"^[PCBU][0-3][0-9A-F]{3}$", re.IGNORECASE)
 
 # Minimum confidence for safety-critical component diagnosis
 SAFETY_MIN_CONFIDENCE = 0.9
+
+# Session turn budget (SKILL.md §Phase flow).
+# Counts hypothesis-generation and hypothesis-testing turns only.
+# At MAX_HYPOTHESIS_TURNS the engine signals escalation so a human expert
+# reviews the case rather than allowing unbounded diagnostic loops.
+MAX_HYPOTHESIS_TURNS = 6
+
+# Transcript compacting window (SKILL.md §Context management).
+# Before each ChromaDB RAG query, session message history is trimmed to
+# the last COMPACT_WINDOW_SIZE turns plus a synthetic summary prefix so
+# old eliminated hypotheses do not pollute the retrieval context.
+COMPACT_WINDOW_SIZE = 4
+
+
+def check_turn_budget(
+    turn_count: int,
+    phase: str,
+    hypothesis_phases: tuple[str, ...] = ("HYPOTHESIS_GENERATION", "HYPOTHESIS_TESTING"),
+) -> dict[str, Any]:
+    """Check whether the session has exceeded its hypothesis turn budget.
+
+    Only counts turns in hypothesis-active phases (HYPOTHESIS_GENERATION,
+    HYPOTHESIS_TESTING).  Phases such as SYMPTOM_COLLECTION, RESOLUTION, and
+    ESCALATION do not consume budget.
+
+    Returns a dict with keys:
+        - ``budget_exceeded`` (bool): True when turn_count >= MAX_HYPOTHESIS_TURNS
+          AND phase is a hypothesis phase.
+        - ``escalate_reason`` (str | None): Populated when budget is exceeded.
+        - ``turns_remaining`` (int): How many hypothesis turns remain.
+    """
+    is_hypothesis_phase = phase.upper() in {p.upper() for p in hypothesis_phases}
+    budget_exceeded = is_hypothesis_phase and turn_count >= MAX_HYPOTHESIS_TURNS
+    return {
+        "budget_exceeded": budget_exceeded,
+        "escalate_reason": "turn_budget_exceeded" if budget_exceeded else None,
+        "turns_remaining": max(0, MAX_HYPOTHESIS_TURNS - turn_count),
+    }
 
 
 def _validate_dtc_codes(dtc_codes: list[str]) -> list[str]:
