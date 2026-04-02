@@ -163,6 +163,15 @@ class TestDiagnose:
     """Tests for diagnose(vehicle, symptoms, dtc_codes, db) -> dict."""
 
     @pytest.fixture(autouse=True)
+    def mock_session_store(self) -> MagicMock:
+        """Patch SessionStore so tests never touch the filesystem."""
+        with patch("src.diagnostic.engine_agent.SessionStore") as mock_cls:
+            instance = MagicMock()
+            instance.load.return_value = None  # default: no existing session
+            mock_cls.return_value = instance
+            yield instance
+
+    @pytest.fixture(autouse=True)
     def mock_chroma(self) -> MagicMock:
         """Patch ChromaService so tests never touch the real ChromaDB Rust ext."""
         with patch("src.data.chroma_service.ChromaService") as mock_cls:
@@ -485,3 +494,54 @@ class TestDiagnose:
             brake = brake_candidates[0]
             if not brake["confidence_sufficient"]:
                 assert len(confidence_warnings) > 0 or brake["safety_alert"] is not None
+
+    # -- Session persistence ---------------------------------------------------
+
+    @pytest.mark.unit
+    def test_result_has_session_id_key(self, vehicle, full_mock_db):
+        """diagnose() must always return a 'session_id' string in the result."""
+        result = diagnose(vehicle, "engine misfires", db=full_mock_db)
+        assert "session_id" in result
+        assert isinstance(result["session_id"], str)
+        assert len(result["session_id"]) > 0
+
+    @pytest.mark.unit
+    def test_session_saved_after_successful_diagnosis(self, vehicle, full_mock_db, mock_session_store):
+        """SessionStore.save() must be called once after a successful diagnosis."""
+        diagnose(vehicle, "engine misfires", db=full_mock_db)
+        mock_session_store.save.assert_called_once()
+
+    @pytest.mark.unit
+    def test_error_result_includes_session_id(self, full_mock_db):
+        """Even error results (bad vehicle) must include 'session_id'."""
+        result = diagnose({}, "misfire", db=full_mock_db)
+        assert "session_id" in result
+
+    @pytest.mark.unit
+    def test_resume_existing_session_by_id(self, vehicle, full_mock_db, mock_session_store):
+        """When session_id matches a stored session, that session must be loaded and reused."""
+        from src.diagnostic.session_state import DiagnosticSession
+        existing = DiagnosticSession.create(vehicle=vehicle, symptoms="engine misfires")
+        mock_session_store.load.return_value = existing
+
+        result = diagnose(vehicle, "still misfiring", session_id=existing.session_id, db=full_mock_db)
+
+        mock_session_store.load.assert_called_once_with(existing.session_id)
+        assert result["session_id"] == existing.session_id
+
+    @pytest.mark.unit
+    def test_unknown_session_id_creates_new_session(self, vehicle, full_mock_db, mock_session_store):
+        """When session_id is not found, diagnose must silently create a fresh session."""
+        mock_session_store.load.return_value = None  # not found
+
+        result = diagnose(vehicle, "misfire", session_id="nonexistent-id", db=full_mock_db)
+
+        mock_session_store.load.assert_called_once_with("nonexistent-id")
+        assert "session_id" in result
+
+    @pytest.mark.unit
+    def test_repair_order_passed_to_new_session(self, vehicle, full_mock_db, mock_session_store):
+        """repair_order must be stored on the newly-created session."""
+        diagnose(vehicle, "misfire", repair_order="RO-9999", db=full_mock_db)
+        saved_session = mock_session_store.save.call_args[0][0]
+        assert saved_session.repair_order == "RO-9999"

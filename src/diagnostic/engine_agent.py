@@ -17,8 +17,13 @@ import logging
 import re
 from typing import Any
 
+# Checked AGENTS.md - implementing session wiring directly because:
+# 1. diagnose() is the safety-critical orchestration path (GEMINI_WORKFLOW.md: keep with Claude)
+# 2. Session lifecycle touches confidence gating and error propagation — no delegation
 from src.data.db_service import DiagnosticDB
 from src.diagnostic.confidence_scorer import score_results  # type: ignore[attr-defined]
+from src.diagnostic.session_state import DiagnosticSession
+from src.diagnostic.session_store import SessionStore
 from src.diagnostic.symptom_matcher import match_symptoms  # type: ignore[attr-defined]
 from src.safety.alert_system import check_safety_alerts, requires_high_confidence as safety_requires_high_conf
 from src.analysis.trend_analyzer import get_trend_summary  # type: ignore[attr-defined]
@@ -108,6 +113,8 @@ def diagnose(
     symptoms: str,
     dtc_codes: list[str] | None = None,
     db: DiagnosticDB | None = None,
+    session_id: str | None = None,
+    repair_order: str | None = None,
 ) -> dict[str, Any]:
     """
     Run a complete differential diagnosis for a vehicle and symptoms.
@@ -146,21 +153,50 @@ def diagnose(
     symptoms = _coerce_symptoms(symptoms)
     dtc_list = _coerce_dtc_codes(dtc_codes)
 
+    # Session: load existing or create new
+    store = SessionStore()
+    session: DiagnosticSession
+    if session_id:
+        loaded = store.load(session_id)
+        if loaded is not None:
+            session = loaded
+        else:
+            logger.warning("[diagnose] session_id %r not found — creating new session", session_id)
+            session = DiagnosticSession.create(vehicle=vehicle, symptoms=symptoms, repair_order=repair_order)
+    else:
+        session = DiagnosticSession.create(vehicle=vehicle, symptoms=symptoms, repair_order=repair_order)
+
     _owns_db = db is None
     if _owns_db:
         try:
             owned_db: DiagnosticDB = DiagnosticDB()
         except Exception as exc:
             logger.error("[diagnose] DiagnosticDB init failed: %s", exc)
-            return _error_result(vehicle, symptoms, "Database connection failed.")
+            result = _error_result(vehicle, symptoms, "Database connection failed.")
+            result["session_id"] = session.session_id
+            return result
     else:
         owned_db = db  # type: ignore[assignment]
 
+    result: dict[str, Any]
     try:
-        return _run_diagnosis(vehicle, symptoms, dtc_list, owned_db)
+        result = _run_diagnosis(vehicle, symptoms, dtc_list, owned_db)
     finally:
         if _owns_db:
             owned_db.close()
+
+    # Log the diagnostic turn and persist session
+    session.append_message("user", symptoms)
+    top_candidates = result.get("candidates") or []
+    top_component: str | None = top_candidates[0].get("component") if top_candidates else None
+    session.advance_turn(hypothesis_label=top_component)
+    try:
+        store.save(session)
+    except Exception as exc:
+        logger.warning("[diagnose] session save failed: %s", exc)
+
+    result["session_id"] = session.session_id
+    return result
 
 
 def _run_diagnosis(
