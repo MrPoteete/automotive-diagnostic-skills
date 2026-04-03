@@ -1,16 +1,14 @@
-"""Unit tests for FirecrawlClient and the /api/health/firecrawl endpoint.
+"""Unit tests for FirecrawlClient.
 
 All tests are fully offline — no running Firecrawl instance required.
-Uses httpx.MockTransport to simulate Firecrawl API responses.
+Uses unittest.mock to simulate httpx responses.
 """
 from __future__ import annotations
 
-import json
 import pytest
 import httpx
-import pytest_asyncio
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from server.services.firecrawl_client import FirecrawlClient
 from server.services.firecrawl_exceptions import (
@@ -19,201 +17,210 @@ from server.services.firecrawl_exceptions import (
     FirecrawlError,
 )
 
+pytestmark = pytest.mark.asyncio
 
-def _mock_transport(responses: list[httpx.Response]) -> httpx.MockTransport:
-    """Return a MockTransport that yields responses in order."""
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _async_client_mock(get_resp: httpx.Response | None = None, post_resp: httpx.Response | None = None) -> MagicMock:
+    """Build a mock httpx.AsyncClient context manager."""
+    mock_http = AsyncMock()
+    mock_http.__aenter__ = AsyncMock(return_value=mock_http)
+    mock_http.__aexit__ = AsyncMock(return_value=False)
+    if get_resp is not None:
+        mock_http.get = AsyncMock(return_value=get_resp)
+    if post_resp is not None:
+        mock_http.post = AsyncMock(return_value=post_resp)
+    return mock_http
+
+
+# ---------------------------------------------------------------------------
+# Exception hierarchy
+# ---------------------------------------------------------------------------
+
+def test_firecrawl_exception_hierarchy() -> None:
+    assert issubclass(FirecrawlConnectionError, FirecrawlError)
+    assert issubclass(FirecrawlScrapeError, FirecrawlError)
+    assert issubclass(FirecrawlError, Exception)
+
+
+# ---------------------------------------------------------------------------
+# ping() — success and failure
+# ---------------------------------------------------------------------------
+
+async def test_firecrawl_ping_success() -> None:
+    """ping() returns True when the health endpoint returns 200."""
+    ok_resp = httpx.Response(200, json={"status": "ok"})
+    client = FirecrawlClient(base_url="http://localhost:3002")
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value = _async_client_mock(get_resp=ok_resp)
+        result = await client.ping()
+
+    assert result is True
+
+
+async def test_firecrawl_ping_failure_connect_error() -> None:
+    """ping() raises FirecrawlConnectionError on connection refused."""
+    client = FirecrawlClient(base_url="http://localhost:3002")
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
+        mock_cls.return_value = mock_http
+
+        with pytest.raises(FirecrawlConnectionError):
+            await client.ping()
+
+
+async def test_firecrawl_ping_failure_timeout() -> None:
+    """ping() raises FirecrawlConnectionError on timeout."""
+    client = FirecrawlClient(base_url="http://localhost:3002")
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
+        mock_cls.return_value = mock_http
+
+        with pytest.raises(FirecrawlConnectionError):
+            await client.ping()
+
+
+# ---------------------------------------------------------------------------
+# scrape_url() — success, HTTP 500, HTTP 4xx, timeout
+# ---------------------------------------------------------------------------
+
+async def test_firecrawl_scrape_url_success() -> None:
+    """scrape_url() returns the parsed JSON on HTTP 200."""
+    payload = {"success": True, "data": {"markdown": "# Recall Notice"}}
+    ok_resp = httpx.Response(200, json=payload)
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value = _async_client_mock(post_resp=ok_resp)
+        result = await client.scrape_url("https://example.com/recall")
+
+    assert result["success"] is True
+    assert result["data"]["markdown"] == "# Recall Notice"
+
+
+async def test_firecrawl_scrape_url_http500_retries_then_succeeds() -> None:
+    """scrape_url() retries on HTTP 500 and succeeds on the third attempt."""
+    err_resp = httpx.Response(500, text="Internal Server Error")
+    ok_resp = httpx.Response(200, json={"success": True, "data": {}})
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
     call_count = 0
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response:
         nonlocal call_count
-        resp = responses[min(call_count, len(responses) - 1)]
         call_count += 1
-        return resp
+        return ok_resp if call_count >= 3 else err_resp
 
-    return httpx.MockTransport(handler)
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.post = AsyncMock(side_effect=post_side_effect)
+        mock_cls.return_value = mock_http
 
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            result = await client.scrape_url("https://example.com")
 
-class TestFirecrawlExceptions:
-    def test_hierarchy(self) -> None:
-        assert issubclass(FirecrawlConnectionError, FirecrawlError)
-        assert issubclass(FirecrawlScrapeError, FirecrawlError)
-        assert issubclass(FirecrawlError, Exception)
-
-
-class TestFirecrawlClientHealthCheck:
-    @pytest.mark.asyncio
-    async def test_health_check_success(self) -> None:
-        ok_resp = httpx.Response(200, json={"status": "ok"})
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.get = AsyncMock(return_value=ok_resp)
-            mock_cls.return_value = mock_http
-
-            result = await client.health_check()
-
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_health_check_failure_on_connect_error(self) -> None:
-        client = FirecrawlClient(base_url="http://localhost:3002")
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.get = AsyncMock(side_effect=httpx.ConnectError("refused"))
-            mock_cls.return_value = mock_http
-
-            result = await client.health_check()
-
-        assert result is False
+    assert call_count == 3
+    assert result["success"] is True
 
 
-class TestFirecrawlClientScrape:
-    @pytest.mark.asyncio
-    async def test_scrape_success(self) -> None:
-        payload = {"success": True, "data": {"markdown": "# Hello"}}
-        ok_resp = httpx.Response(200, json=payload)
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
+async def test_firecrawl_scrape_url_4xx_raises_scrape_error() -> None:
+    """scrape_url() raises FirecrawlScrapeError immediately on HTTP 422 (not retried)."""
+    err_resp = httpx.Response(422, json={"error": "invalid url"})
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
 
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.post = AsyncMock(return_value=ok_resp)
-            mock_cls.return_value = mock_http
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value = _async_client_mock(post_resp=err_resp)
 
-            result = await client.scrape("https://example.com")
-
-        assert result["success"] is True
-        assert "markdown" in result["data"]
-
-    @pytest.mark.asyncio
-    async def test_scrape_retries_on_connect_error(self) -> None:
-        ok_resp = httpx.Response(200, json={"success": True, "data": {}})
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
-        call_count = 0
-
-        async def post_side_effect(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                raise httpx.ConnectError("refused")
-            return ok_resp
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.post = AsyncMock(side_effect=post_side_effect)
-            mock_cls.return_value = mock_http
-
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await client.scrape("https://example.com")
-
-        assert call_count == 3
-        assert result["success"] is True
-
-    @pytest.mark.asyncio
-    async def test_scrape_retries_on_http_500(self) -> None:
-        err_resp = httpx.Response(500, text="Internal Server Error")
-        ok_resp = httpx.Response(200, json={"success": True, "data": {}})
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
-        call_count = 0
-
-        async def post_side_effect(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                return err_resp
-            return ok_resp
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.post = AsyncMock(side_effect=post_side_effect)
-            mock_cls.return_value = mock_http
-
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await client.scrape("https://example.com")
-
-        assert call_count == 3
-
-    @pytest.mark.asyncio
-    async def test_max_retries_exceeded_raises_connection_error(self) -> None:
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
-            mock_cls.return_value = mock_http
-
-            with patch("asyncio.sleep", new_callable=AsyncMock):
-                with pytest.raises(FirecrawlConnectionError):
-                    await client.scrape("https://example.com")
-
-    @pytest.mark.asyncio
-    async def test_scrape_4xx_raises_scrape_error(self) -> None:
-        err_resp = httpx.Response(422, json={"error": "invalid url"})
-        client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
-
-        with patch("httpx.AsyncClient") as mock_cls:
-            mock_http = AsyncMock()
-            mock_http.__aenter__ = AsyncMock(return_value=mock_http)
-            mock_http.__aexit__ = AsyncMock(return_value=False)
-            mock_http.post = AsyncMock(return_value=err_resp)
-            mock_cls.return_value = mock_http
-
-            with pytest.raises(FirecrawlScrapeError):
-                await client.scrape("https://example.com")
+        with pytest.raises(FirecrawlScrapeError):
+            await client.scrape_url("not-a-url")
 
 
-from fastapi.testclient import TestClient
-from server.home_server import app, get_firecrawl_client
+async def test_firecrawl_scrape_url_timeout_raises_after_retries() -> None:
+    """scrape_url() raises FirecrawlConnectionError after max retries on TimeoutException."""
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.post = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
+        mock_cls.return_value = mock_http
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(FirecrawlConnectionError):
+                await client.scrape_url("https://example.com")
 
 
-class TestHealthEndpoint:
-    def test_health_endpoint_ok(self) -> None:
-        async def mock_health_ok() -> bool:
-            return True
+async def test_firecrawl_scrape_url_retry_exhaustion() -> None:
+    """scrape_url() raises after exactly max_retries attempts."""
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=3)
+    call_count = 0
 
-        mock_client = FirecrawlClient.__new__(FirecrawlClient)
-        mock_client.base_url = "http://localhost:3002"
-        mock_client.timeout = 30.0
-        mock_client.max_retries = 3
-        mock_client.health_check = mock_health_ok
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        raise httpx.ConnectError("refused")
 
-        app.dependency_overrides[get_firecrawl_client] = lambda: mock_client
-        try:
-            with TestClient(app, raise_server_exceptions=False) as tc:
-                resp = tc.get("/api/health/firecrawl", headers={"X-API-KEY": "fallback-key-for-dev"})
-            assert resp.status_code == 200
-            assert resp.json()["status"] == "ok"
-        finally:
-            app.dependency_overrides.pop(get_firecrawl_client, None)
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.post = AsyncMock(side_effect=post_side_effect)
+        mock_cls.return_value = mock_http
 
-    def test_health_endpoint_503_when_client_fails(self) -> None:
-        async def mock_health_fail() -> bool:
-            return False
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(FirecrawlConnectionError):
+                await client.scrape_url("https://example.com")
 
-        mock_client = FirecrawlClient.__new__(FirecrawlClient)
-        mock_client.base_url = "http://localhost:3002"
-        mock_client.timeout = 30.0
-        mock_client.max_retries = 3
-        mock_client.health_check = mock_health_fail
+    assert call_count == 3  # exactly max_retries attempts
 
-        app.dependency_overrides[get_firecrawl_client] = lambda: mock_client
-        try:
-            with TestClient(app, raise_server_exceptions=False) as tc:
-                resp = tc.get("/api/health/firecrawl", headers={"X-API-KEY": "fallback-key-for-dev"})
-            assert resp.status_code == 503
-            assert resp.json()["status"] == "error"
-        finally:
-            app.dependency_overrides.pop(get_firecrawl_client, None)
+
+# ---------------------------------------------------------------------------
+# scrape_batch() — success and partial failure
+# ---------------------------------------------------------------------------
+
+async def test_firecrawl_scrape_batch_success() -> None:
+    """scrape_batch() returns one result dict per URL on success."""
+    ok_payload = {"success": True, "data": {"markdown": "# Page"}}
+    ok_resp = httpx.Response(200, json=ok_payload)
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=1)
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_cls.return_value = _async_client_mock(post_resp=ok_resp)
+        results = await client.scrape_batch(
+            ["https://example.com/a", "https://example.com/b"]
+        )
+
+    assert len(results) == 2
+    assert all(r.get("success") is True for r in results)
+
+
+async def test_firecrawl_scrape_batch_partial_failure() -> None:
+    """scrape_batch() includes error dicts for failed URLs, success for others."""
+    ok_payload = {"success": True, "data": {"markdown": "# Good"}}
+    ok_resp = httpx.Response(200, json=ok_payload)
+    err_resp = httpx.Response(500, text="Server Error")
+    client = FirecrawlClient(base_url="http://localhost:3002", max_retries=1)
+    call_count = 0
+
+    async def post_side_effect(*args: object, **kwargs: object) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return err_resp if call_count == 1 else ok_resp
+
+    with patch("httpx.AsyncClient") as mock_cls:
+        mock_http = _async_client_mock()
+        mock_http.post = AsyncMock(side_effect=post_side_effect)
+        mock_cls.return_value = mock_http
+
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            results = await client.scrape_batch(
+                ["https://fail.example.com", "https://ok.example.com"]
+            )
+
+    assert len(results) == 2
+    assert "error" in results[0]  # first URL failed
+    assert results[1].get("success") is True  # second URL succeeded

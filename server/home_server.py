@@ -1300,6 +1300,40 @@ async def health_firecrawl(
         )
 
 
+@app.get("/api/firecrawl/health")
+async def firecrawl_health(
+    api_key: str = Depends(get_api_key),
+) -> dict[str, object]:
+    """Verify that the local Firecrawl scraping service is reachable.
+
+    Returns HTTP 200 with ``{"status": "ok"}`` when Firecrawl responds,
+    or HTTP 503 with ``{"status": "unavailable", "detail": ...}`` when not.
+    """
+    import pathlib as _pl  # noqa: PLC0415
+    import sys as _sys  # noqa: PLC0415
+
+    # Ensure project root is on sys.path so server.services resolves correctly
+    _root = str(_pl.Path(__file__).resolve().parent.parent)
+    if _root not in _sys.path:
+        _sys.path.insert(0, _root)
+
+    from server.services.firecrawl_client import FirecrawlClient  # noqa: PLC0415
+    from server.services.firecrawl_exceptions import FirecrawlConnectionError  # noqa: PLC0415
+    from server.config import settings  # noqa: PLC0415
+
+    client = FirecrawlClient(base_url=settings.firecrawl_api_url)
+    try:
+        await client.ping()
+        logger.info("Firecrawl health check: OK (%s)", settings.firecrawl_api_url)
+        return {"status": "ok", "url": settings.firecrawl_api_url}
+    except FirecrawlConnectionError as exc:
+        logger.warning("Firecrawl health check: UNAVAILABLE — %s", exc)
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "unavailable", "detail": str(exc)},
+        )
+
+
 if __name__ == "__main__":
     # Host on 0.0.0.0 for Tailscale remote access
     import socket
