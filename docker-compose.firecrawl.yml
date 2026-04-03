@@ -1,0 +1,80 @@
+version: "3.8"
+
+networks:
+  firecrawl-net:
+    driver: bridge
+
+services:
+  redis:
+    image: redis:7.2.4-alpine
+    networks:
+      - firecrawl-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  firecrawl-playwright:
+    image: mendableai/firecrawl-playwright:1.4.0
+    networks:
+      - firecrawl-net
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    environment:
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl-playwright:3000
+    expose:
+      - "3000"
+
+  firecrawl-worker:
+    image: mendableai/firecrawl:1.4.0
+    networks:
+      - firecrawl-net
+    restart: unless-stopped
+    command: ["pnpm", "run", "workers"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl-playwright:3000
+      - USE_DB_AUTHENTICATION=false
+      - PORT=3002
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  firecrawl-api:
+    image: mendableai/firecrawl:1.4.0
+    networks:
+      - firecrawl-net
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PLAYWRIGHT_MICROSERVICE_URL=http://firecrawl-playwright:3000
+      - USE_DB_AUTHENTICATION=false
+      - PORT=3002
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s

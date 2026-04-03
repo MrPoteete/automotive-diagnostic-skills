@@ -1275,6 +1275,31 @@ async def get_history(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+from server.services.firecrawl_client import FirecrawlClient
+from server.services.firecrawl_exceptions import FirecrawlConnectionError
+
+
+def get_firecrawl_client() -> FirecrawlClient:
+    return FirecrawlClient()
+
+
+@app.get("/api/health/firecrawl")
+async def health_firecrawl(
+    client: FirecrawlClient = Depends(get_firecrawl_client),
+) -> dict:
+    try:
+        ok = await client.health_check()
+        if ok:
+            return {"status": "ok", "url": client.base_url}
+        raise FirecrawlConnectionError("health_check returned False")
+    except FirecrawlConnectionError as exc:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "detail": str(exc)},
+        )
+
+
 if __name__ == "__main__":
     # Host on 0.0.0.0 for Tailscale remote access
     import socket
