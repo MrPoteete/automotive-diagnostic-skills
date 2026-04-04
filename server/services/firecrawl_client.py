@@ -221,7 +221,7 @@ class FirecrawlClient:
         FirecrawlConnectionError
             If the service is unreachable or returns an error.
         """
-        url = f"{self.base_url}/health"
+        url = f"{self.base_url}/"
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.get(url)

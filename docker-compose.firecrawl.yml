@@ -21,7 +21,7 @@ services:
       retries: 5
 
   firecrawl-playwright:
-    image: mendableai/firecrawl-playwright:1.4.0
+    image: ghcr.io/mendableai/firecrawl-playwright:1.4.0
     networks:
       - firecrawl-net
     restart: unless-stopped
@@ -35,7 +35,7 @@ services:
       - "3000"
 
   firecrawl-worker:
-    image: mendableai/firecrawl:1.4.0
+    image: ghcr.io/mendableai/firecrawl:1.4.0
     networks:
       - firecrawl-net
     restart: unless-stopped
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
 
   firecrawl-api:
-    image: mendableai/firecrawl:1.4.0
+    image: ghcr.io/mendableai/firecrawl:1.4.0
     networks:
       - firecrawl-net
     restart: unless-stopped
