@@ -56,7 +56,7 @@ git reset --hard v1.X-<last-good-tag>   # or git revert HEAD to preserve history
 - **Safety Critical**: Incorrect diagnoses can affect vehicle safety
 - **Stack**: Python 3.11+, SQLite (two DBs — see below), ChromaDB 1.5.5
 - **Architecture**: See `.claude/docs/DIAGRAMS.md` (ground truth) and `.claude/docs/ARCHITECT.md`
-- **AI Architecture**: Three-tier (Claude Sonnet: standard / Claude Haiku or Gemini: low-effort / Claude Opus: explicit only)
+- **AI Architecture**: Three-tier (Claude Sonnet: standard / Claude Haiku: low-effort / Claude Opus: explicit only)
 
 ### Database Quick Reference (verified 2026-03-26)
 | Database | Size | Key Contents |
@@ -81,7 +81,7 @@ uv run python scripts/backup_databases.py   # ALWAYS run first — verifies + ro
 - **Testing Protocols**: `.claude/docs/TESTING.md`
 - **Data Source Standards**: `.claude/docs/DATA.md`
 - **Hook Infrastructure**: `.claude/docs/HOOKS.md`
-- **Gemini Delegation**: `.claude/docs/GEMINI_WORKFLOW.md`
+- **Haiku Delegation**: `.claude/docs/HAIKU_DELEGATION.md`
 - **Error Playbook**: `.claude/docs/LESSONS.md` — check before debugging
 
 ## Operational Standards
