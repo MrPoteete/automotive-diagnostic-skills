@@ -26,11 +26,11 @@ Outputs include a web dashboard, customer-facing PDF reports, pre-purchase inspe
 Mechanic → Web UI (Next.js + Carbon)
                 ↓
          FastAPI Backend
-                ↓
-    ┌───────────────────────┐
-    │   Diagnostic Engine   │
-    │  engine_agent.diagnose()│
-    └───────────────────────┘
+          ↓           ↓
+    ┌───────────────────────┐   ┌───────────────┐
+    │   Diagnostic Engine   │   │ Firecrawl     │
+    │  engine_agent.diagnose()│   │ (Web Scraper) │
+    └───────────────────────┘   └───────────────┘
           ↙         ↘
   SQLite (FTS5)   ChromaDB
   562K complaints  553K forum docs
@@ -76,6 +76,7 @@ Mechanic → Web UI (Next.js + Carbon)
 | Frontend | Next.js 14, TypeScript, IBM Carbon Design System |
 | Primary DB | SQLite (FTS5) — `automotive_complaints.db` (830MB) |
 | Secondary DB | SQLite — `automotive_diagnostics.db` |
+| Web Scraping | Firecrawl (Docker Compose, Node.js, Playwright) |
 | Vector Store | ChromaDB 1.0.x (Rust backend) |
 | Embeddings | `all-MiniLM-L6-v2` (ONNX) |
 | Environment | WSL2 Ubuntu 24.04 |

@@ -333,7 +333,7 @@ def run_generator(plan: dict, boilerplate: dict[str, str], dry_run: bool) -> str
     print(f"Invoking Claude Code (model: {MODEL_GENERATOR})...")
     print("─" * 40)
     subprocess.run(
-        ["claude", "--model", MODEL_GENERATOR, "--print", generator_prompt],
+        ["claude", "--model", MODEL_GENERATOR, "--dangerously-skip-permissions", "--print", generator_prompt],
         cwd=PROJECT_ROOT
     )
     return branch
@@ -647,7 +647,7 @@ def main() -> None:
                          f"\n\nCritical issues:\n{issues}\n\n"
                          f"Fix these, re-run tests, commit.")
             print(f"\n↩ Sending feedback to generator (attempt {iteration+1})...")
-            subprocess.run(["claude", "--model", MODEL_GENERATOR, "--print", fb_prompt],
+            subprocess.run(["claude", "--model", MODEL_GENERATOR, "--dangerously-skip-permissions", "--print", fb_prompt],
                            cwd=PROJECT_ROOT)
         else:
             _notify_telegram(f"❌ Harness FAILED after {MAX_EVAL_ITERATIONS} iterations\n"
