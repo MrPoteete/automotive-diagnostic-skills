@@ -1,3 +1,7 @@
+Why I Built This
+I’ve been a mechanic for over 20 years and have watched the industry transform. About a year ago I saw something on the horizon — something powerful enough to change everything.
+I started testing frontier AI models on real diagnostic problems. The results weren’t good. Not because the AI lacked understanding of the underlying systems, but because it lacked the framework to perform methodical diagnostics. It was making confident guesses instead of following a process. Any experienced tech knows those are completely different things.
+So I started studying. First prompting, then structured AI frameworks, then RAG. This project has evolved as the underlying AI systems have, and it will continue to. Now when I ask my assistant for diagnostic help, it returns something actually usable.
 # Automotive Diagnostic AI
 
 AI-powered diagnostic assistant for professional mechanics. Combines 2.1M+ real-world NHTSA complaints, 211K TSBs, safety recalls, and mechanic forum data with a structured 7-phase ASE diagnostic methodology to deliver evidence-based, safety-first diagnostic guidance.
