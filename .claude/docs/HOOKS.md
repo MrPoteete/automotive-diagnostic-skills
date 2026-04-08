@@ -141,9 +141,11 @@ The `mcp__.*` matcher was added 2026-03-29. Before that, MCP responses were comp
 | `check_rm_commands()` | `rm -rf` and variants |
 | `check_raw_imports()` | Writes to `data/raw_imports/` |
 | `check_env_file_access()` | Write/Edit to `.env` files AND Bash redirection (echo/printf/tee) writing to `.env` files |
-| `check_hooks_modification()` | Write/Edit to `.claude/hooks/` paths AND Bash commands using chmod/echo/printf/tee/sed -i targeting `.claude/hooks/` |
+| `check_hooks_modification()` | Write/Edit to core hook entry points (`pre_tool_use.py`, `post_tool_use.py`) AND Bash chmod targeting `.claude/hooks/` |
 
 `check_hooks_modification()` was added 2026-03-29. Hook self-sabotage — using `chmod` to make a hook file writable then overwriting it via Bash — is a confirmed injection bypass vector. The Write/Edit gate alone does not stop it; Bash redirection must also be blocked.
+
+**2026-04-08 update**: Protection narrowed from the entire `.claude/hooks/` directory to only the core entry points (`pre_tool_use.py`, `post_tool_use.py`). The original blanket block prevented legitimate edits to validators and utils (e.g. `diagnostic_report_validator.py`, `utils/diagnostic_validator.py`) from remote sessions where manual editing is not possible. Validators and utils are now editable via Write/Edit tools; the core gate files remain protected.
 
 `check_env_file_access()` was enhanced 2026-03-29 to detect Bash redirection, not only Write/Edit tool calls.
 

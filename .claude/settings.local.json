@@ -85,17 +85,20 @@
       "WebFetch(domain:arxiv.org)",
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:publicapi.dev)",
-      "mcp__gemini__gemini_list_models",
-      "mcp__gemini__gemini_chat",
-      "mcp__gemini__gemini_deep_research",
-      "Skill(claude-md-management:revise-claude-md)"
+      "Skill(claude-md-management:revise-claude-md)",
+      "Bash(docker --version)",
+      "Bash(cp /home/poteete/.claude/memory/*.md ~/.claude/memory-vault/global/)",
+      "Bash(cp /home/poteete/.claude/projects/-home-poteete-projects-automotive-diagnostic-skills/memory/*.md ~/.claude/memory-vault/projects/automotive-diagnostic-skills/)",
+      "mcp__plugin_telegram_telegram__reply",
+      "Bash(chmod +x ~/.claude/memory-vault/snapshot.sh)",
+      "Bash(bash ~/.claude/memory-vault/snapshot.sh)",
+      "Bash(crontab -l)",
+      "Bash(chmod +x ~/.claude/memory-vault/memory_supersession_hook.sh)"
     ],
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": [
-    "gemini"
-  ],
+  "enabledMcpjsonServers": [],
   "remote": {
     "defaultEnvironmentId": "env_01SeSGVEpA4kPpsTzjdcYHU3"
   }

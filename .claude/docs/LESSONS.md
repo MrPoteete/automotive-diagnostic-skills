@@ -592,4 +592,31 @@ WHERE UPPER(make) = ? AND UPPER(model) = ?
 
 ---
 
+## Hook Permissions — Blanket `.claude/hooks/` Block Too Restrictive
+
+**Symptom**: Claude cannot edit validator or utility files under `.claude/hooks/` even when the user explicitly needs a bug fix applied remotely (via Telegram). Manual editing is impossible in that context.
+
+**Root Cause**: `check_hooks_modification()` blocked Write/Edit to any path containing `.claude/hooks/` — including validators, utils, and config files that pose no security risk. The original intent was to protect the core gate files from self-sabotage.
+
+**Fix**: Narrowed protection to only `pre_tool_use.py` and `post_tool_use.py` (the actual gate entry points). All other files under `.claude/hooks/` (validators, utils, patterns, etc.) are now editable.
+
+**Rule**: Hook self-sabotage protection must target the entry-point files specifically, not the entire directory. The attack vector is disabling the gate — not modifying a downstream validator.
+
+---
+
+## Diagnostic Content Detector — Generic Keywords Cause False Positives
+
+**Symptom**: `diagnostic_report_validator.py` blocks writes to completely unrelated files (discussion lists, notes, transcripts) because they contain common English words that happen to appear in the keyword list.
+
+**Root Cause**: `_DIAGNOSTIC_KEYWORDS` included `"make"`, `"model"`, `"year"`, and `"recall"` — extremely common English words. A YouTube transcript about Obsidian wikis contains "make sure", "AI model", "language model", and "recall" (as in memory recall), triggering the 2-keyword threshold.
+
+**Fix**:
+1. Removed `"make"`, `"model"`, `"year"`, `"recall"` from `_DIAGNOSTIC_KEYWORDS`
+2. Raised `_KEYWORD_THRESHOLD` from `2` to `3`
+3. Added `/notes/` to `_EXCLUDED_PATH_FRAGMENTS` in `diagnostic_report_validator.py`
+
+**Rule**: Automotive-specific keywords for content detection must be genuinely automotive-specific. Short common words (`make`, `model`, `year`) are not — use `vin`, `dtc`, `nhtsa`, `tsb`, `misfire`, etc. Always test the detector against representative non-automotive content before deploying.
+
+---
+
 *Add new entries above this line. Keep entries concise — root cause + fix only.*

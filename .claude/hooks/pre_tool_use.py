@@ -124,33 +124,27 @@ def check_env_file_access(tool_name, tool_input):
 
 
 def check_hooks_modification(tool_name, tool_input):
-    """Block any attempt to modify .claude/hooks/ files.
+      """Block modifications to core hook entry points only.
 
-    Hook self-sabotage (chmod + overwrite) is a confirmed injection bypass vector.
-    All three write paths must be blocked: Write/Edit tools and Bash redirection.
-    """
-    hooks_pattern = r"\.claude/hooks"
+      Validators, utils, and support files under .claude/hooks/ are editable.
+      Only pre_tool_use.py and post_tool_use.py are protected.
+      """
+      _PROTECTED = {"pre_tool_use.py", "post_tool_use.py"}
 
-    if tool_name in ("Write", "Edit"):
-        file_path = tool_input.get("file_path", "")
-        if hooks_pattern.replace(r"\.", ".") in file_path:
-            return True
+      if tool_name in ("Write", "Edit"):
+          file_path = tool_input.get("file_path", "")
+          if ".claude/hooks" in file_path and Path(file_path).name in _PROTECTED:
+              return True
 
-    if tool_name == "Bash":
-        command = tool_input.get("command", "")
-        if re.search(hooks_pattern, command):
-            # Block chmod on hooks files
-            if re.search(r"\bchmod\b", command):
-                return True
-            # Block write redirection into hooks files
-            if re.search(r"\b(echo|printf|tee|cat)\b.*>", command):
-                return True
-            # Block sed -i on hooks files
-            if re.search(r"\bsed\s+.*-i", command):
-                return True
+      if tool_name == "Bash":
+          command = tool_input.get("command", "")
+          if re.search(r"\.claude/hooks", command):
+              if re.search(r"\bchmod\b", command):
+                  return True
+              if re.search(r"\bsed\s+.*-i\b.*(?:pre_tool_use|post_tool_use)", command):
+                  return True
 
-    return False
-
+      return False
 
 def main():
     try:

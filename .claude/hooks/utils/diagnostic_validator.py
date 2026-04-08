@@ -153,18 +153,18 @@ def run_content_invariants(content: str) -> list[str]:
 _DTC_PATTERN: re.Pattern[str] = re.compile(r"\b[PCBU][0-3][0-9A-Fa-f]{3}\b")
 
 _DIAGNOSTIC_KEYWORDS: list[str] = [
-    # Vehicle identification signals
-    "make", "model", "year", "vin",
+    # Vehicle identification signals (vin only — make/model/year are too generic)
+    "vin",
     # Symptom signals
     "symptom", "misfire", "stall", "surge", "shudder", "hesitation",
     "check engine", "dtc", "obd", "scan tool", "live data",
     # Diagnostic output signals
-    "tsb", "recall", "nhtsa", "diagnosis", "diagnostic",
+    "tsb", "nhtsa", "diagnosis", "diagnostic",
     "STRONG INDICATION", "PROBABLE", "POSSIBLE", "INSUFFICIENT BASIS",
     "📚 SOURCES", "⚖️ DISCLAIMER",
 ]
 
-_KEYWORD_THRESHOLD = 2
+_KEYWORD_THRESHOLD = 3
 
 
 def is_diagnostic_content(content: str) -> bool:
