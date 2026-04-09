@@ -5,43 +5,34 @@
 **New session? Orient yourself in 3 steps:**
 
 1. **Current phase & next step** → Read `memory/MEMORY.md` (auto-loaded, check `## Phase Status` and `## Next Step`)
-2. **Verify baseline** → Run `.venv/bin/pytest --tb=no -q` before making any changes
-3. **Understand the system** → Consult `.claude/docs/DIAGRAMS.md` for a visual overview
-
-> **DIAGRAMS.md is the single source of truth for system structure, DB row counts, and known gaps.**
-> It was ground-truthed on 2026-03-26 against live databases. Trust it over code comments or other docs.
-> If you see a number elsewhere that contradicts DIAGRAMS.md, DIAGRAMS.md wins — update the other doc.
+2. **Verify baseline** → Run `uv run pytest --tb=no -q --ignore=tests/integration` before making any changes
+3. **Understand the system** → Consult `.claude/docs/DIAGRAMS.md` (ground truth for structure, DB counts, gaps)
 
 ---
 
 ## ⚠️ MANDATORY: Versioning Protocol (YOLO Mode — Non-Negotiable)
 
-**These rules apply to EVERY task. No exceptions. No shortcuts.**
-
 ### Before starting any task
 1. Ensure `main` is clean — commit any pending changes first
 2. Create a feature branch: `git checkout -b feature/<task-name>`
-3. Confirm baseline tests pass (see test commands below)
-
-### While working
-- Work only on the feature branch — **NEVER directly on `main`**
-- Commit at logical checkpoints within the branch
+3. Confirm baseline tests pass
+4. Work only on the feature branch — **NEVER directly on `main`**
 
 ### After completing any task — FULL TEST GATE (must pass ALL three)
 ```bash
-.venv/bin/pytest --tb=no -q --ignore=tests/integration   # 280 Python tests must pass
-cd src/frontend && node_modules/.bin/vitest run           # Vitest tests must pass
-cd src/frontend && node_modules/.bin/playwright test      # e2e tests must pass (requires servers)
+uv run pytest --tb=no -q --ignore=tests/integration   # 345 Python tests
+cd src/frontend && node_modules/.bin/vitest run        # 142 Vitest
+cd src/frontend && node_modules/.bin/playwright test   # 42 Playwright (requires servers)
 ```
 **Do NOT merge until all three suites pass.**
 
 ### After merging to main
 ```bash
-git tag v1.X-<feature-name>   # e.g. v1.1-recall-search
+git tag v1.X-<feature-name>
 git push origin main --tags
 ```
 
-### Rollback (one command)
+### Rollback
 ```bash
 git reset --hard v1.X-<last-good-tag>   # or git revert HEAD to preserve history
 ```
@@ -83,14 +74,8 @@ uv run python scripts/backup_databases.py   # ALWAYS run first — verifies + ro
 - **Hook Infrastructure**: `.claude/docs/HOOKS.md`
 - **Haiku Delegation**: `.claude/docs/HAIKU_DELEGATION.md`
 - **Error Playbook**: `.claude/docs/LESSONS.md` — check before debugging
-
-## Operational Standards
-
-1. **Plan First**: Use Plan Mode (Shift+Tab x2) for non-trivial tasks
-2. **Verify**: Follow `.claude/docs/TESTING.md` protocols
-3. **Safety Check**: Consult `.claude/docs/DOMAIN.md` for safety-critical systems
-4. **Data Integrity**: Read `.claude/docs/DATA.md` before touching data files
-5. **Agent Delegation**: See `.claude/docs/AGENTS.md` for specialized subagents
+- **RAG Channel Registry**: `.claude/docs/CHANNELS.md` — all 33 curated YouTube channels, weights, rationale
+- **yt-dlp Setup**: `.claude/docs/YTDLP_SETUP.md` — transcript ingestion strategy, CLI usage, disk-safe two-phase approach
 
 ## ⚡ MANDATORY: Automotive Diagnostic Requests
 
@@ -120,9 +105,6 @@ uv run python scripts/backup_databases.py   # ALWAYS run first — verifies + ro
 ### Shortcut
 `/diagnose` slash command auto-loads all context and enforces the full protocol.
 
-### Why This Is Non-Negotiable
-The skill framework exists because incorrect automotive diagnoses affect vehicle safety. The SOURCES and DISCLAIMER sections exist because ASE technicians need to know the evidence quality behind each recommendation. Skipping the protocol means skipping safety infrastructure.
-
 ---
 
 ## Key Rules
@@ -135,17 +117,6 @@ The skill framework exists because incorrect automotive diagnoses affect vehicle
 
 ## Rule Evolution
 
-**If I correct you**: Update the relevant `.claude/docs/` file immediately.
-
-**Workflow**:
-1. Identify which reference file contains the rule
-2. Edit that file to add/update the rule
-3. Add the error + fix to `.claude/docs/LESSONS.md`
-
-**Examples**:
-- Automotive logic error → Update `.claude/docs/DOMAIN.md` + LESSONS.md
-- Testing issue → Update `.claude/docs/TESTING.md` + LESSONS.md
-- Data handling mistake → Update `.claude/docs/DATA.md` + LESSONS.md
-- Hook/tooling error → Update `.claude/docs/HOOKS.md` + LESSONS.md
+**If I correct you**: Update the relevant `.claude/docs/` file immediately, then add the error + fix to `.claude/docs/LESSONS.md`. Match the error type to its doc file.
 
 **Treat this configuration as code**: Keep it lean, human-readable, and up-to-date.
