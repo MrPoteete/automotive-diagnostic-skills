@@ -1,0 +1,127 @@
+{
+  "task": "Install and configure local Firecrawl instance via Docker Compose with Python client helper",
+  "branch": "feature/firecrawl-local-setup",
+  "spec": "Add a self-hosted Firecrawl instance to the project infrastructure for JS-rendered web scraping of automotive forums, TSBs, and OEM recall pages. A new docker-compose.firecrawl.yml will define the Firecrawl service stack (firecrawl-api, firecrawl-worker, playwright service, Redis for job queuing) with appropriate resource limits, health checks, and a dedicated Docker network. The compose file must be standalone (not merged into any existing compose) so it can be started/stopped independently.\n\nA new environment variable FIRECRAWL_API_URL (default http://localhost:3002) will be added to .env.local and .env.example with documentation comments. A Python helper module server/services/firecrawl_client.py will provide a FirecrawlClient class that wraps HTTP calls to the local Firecrawl REST API. The client must support: (1) single-URL scrape with configurable wait-for-selector and timeout, (2) batch scrape of multiple URLs, (3) health-check/ping endpoint verification, and (4) proper error handling with retries (exponential backoff, max 3 attempts). The client reads FIRECRAWL_API_URL from environment/settings and exposes an async interface compatible with the existing FastAPI async patterns in home_server.py.\n\nA /api/firecrawl/health FastAPI endpoint will be added to home_server.py that calls the Firecrawl ping and returns status, enabling the frontend and ops tooling to verify the scraping backend is reachable. All new code must have full type annotations, docstrings, and corresponding unit tests with mocked HTTP responses (no live Firecrawl dependency in CI). A startup script scripts/start_firecrawl.sh will wrap docker compose -f docker-compose.firecrawl.yml up -d with pre-flight checks.",
+  "subtasks": [
+    {
+      "step": "Create docker-compose.firecrawl.yml with firecrawl-api, firecrawl-worker, playwright, and redis services including health checks, resource limits, restart policies, and a dedicated network",
+      "type": "complex"
+    },
+    {
+      "step": "Add FIRECRAWL_API_URL to .env.example and .env.local with descriptive comments and default value http://localhost:3002",
+      "type": "boilerplate"
+    },
+    {
+      "step": "Create server/services/firecrawl_client.py with async FirecrawlClient class implementing scrape_url(), scrape_batch(), ping(), and retry logic with exponential backoff",
+      "type": "complex"
+    },
+    {
+      "step": "Register FIRECRAWL_API_URL in the project settings/config module (server/config.py or equivalent) with pydantic BaseSettings validation",
+      "type": "boilerplate"
+    },
+    {
+      "step": "Add GET /api/firecrawl/health endpoint to server/home_server.py that calls FirecrawlClient.ping() and returns JSON status",
+      "type": "complex"
+    },
+    {
+      "step": "Create scripts/start_firecrawl.sh with pre-flight checks (Docker running, port available, compose file exists) and docker compose up -d",
+      "type": "boilerplate"
+    },
+    {
+      "step": "Write unit tests for FirecrawlClient (mocked httpx responses) covering scrape, batch, ping, retry, timeout, and error scenarios",
+      "type": "safety-critical"
+    },
+    {
+      "step": "Write integration test for /api/firecrawl/health endpoint with mocked FirecrawlClient dependency injection",
+      "type": "complex"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "docker-compose.firecrawl.yml exists at project root, is valid YAML, defines at minimum services 'firecrawl-api' and 'redis', exposes port 3002 for the API, includes healthcheck on firecrawl-api, and defines a named network",
+      "how_to_verify": "Run: python -c \"import yaml; d=yaml.safe_load(open('docker-compose.firecrawl.yml')); svcs=d['services']; assert 'firecrawl-api' in svcs; assert 'redis' in svcs; assert 'healthcheck' in svcs['firecrawl-api']; assert any('3002' in str(p) for p in svcs['firecrawl-api'].get('ports',[])); assert 'networks' in d; print('PASS')\"",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-2",
+      "description": "FIRECRAWL_API_URL is present in .env.example with default http://localhost:3002 and a comment explaining its purpose",
+      "how_to_verify": "Run: grep -q 'FIRECRAWL_API_URL=http://localhost:3002' .env.example && grep -B1 'FIRECRAWL_API_URL' .env.example | grep -qi 'firecrawl' && echo 'PASS'",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-3",
+      "description": "server/services/firecrawl_client.py exports a FirecrawlClient class with async methods scrape_url(), scrape_batch(), and ping(). All methods have type annotations and docstrings. The class accepts a base_url parameter.",
+      "how_to_verify": "Run: python -c \"import ast, inspect; tree=ast.parse(open('server/services/firecrawl_client.py').read()); cls=[n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name=='FirecrawlClient']; assert len(cls)==1; methods=[n.name for n in ast.walk(cls[0]) if isinstance(n, (ast.AsyncFunctionDef, ast.FunctionDef))]; assert 'scrape_url' in methods; assert 'scrape_batch' in methods; assert 'ping' in methods; print('PASS')\"",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-4",
+      "description": "FirecrawlClient implements retry logic with max 3 attempts and exponential backoff. Retry behavior must be testable and tested.",
+      "how_to_verify": "Run: grep -n 'retry\\|backoff\\|attempt\\|max_retries' server/services/firecrawl_client.py | wc -l | awk '{if ($1 >= 3) print \"PASS\"; else print \"FAIL\"}'  and  uv run pytest tests/ -k 'firecrawl' -k 'retry' -v --tb=short 2>&1 | tail -5",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-5",
+      "description": "GET /api/firecrawl/health endpoint exists in home_server.py, returns JSON with a 'status' key, and returns HTTP 200 when Firecrawl is reachable (mocked in tests) or HTTP 503 when unreachable",
+      "how_to_verify": "Run: uv run pytest tests/ -k 'firecrawl_health' -v --tb=short 2>&1 | grep -E 'PASSED|FAILED' and grep -q '/api/firecrawl/health' server/home_server.py && echo 'ROUTE EXISTS'",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-6",
+      "description": "scripts/start_firecrawl.sh exists, is executable, checks for Docker availability before running compose up, and references docker-compose.firecrawl.yml",
+      "how_to_verify": "Run: test -x scripts/start_firecrawl.sh && grep -q 'docker-compose.firecrawl.yml' scripts/start_firecrawl.sh && grep -q 'docker' scripts/start_firecrawl.sh && echo 'PASS'",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-7",
+      "description": "All new unit tests pass without requiring a live Firecrawl instance (fully mocked HTTP). At least 8 test functions exist covering: scrape success, scrape failure, batch success, batch partial failure, ping success, ping failure, retry exhaustion, and timeout handling.",
+      "how_to_verify": "Run: uv run pytest tests/ -k 'firecrawl' -v --tb=short 2>&1 | grep -c 'PASSED' | awk '{if ($1 >= 8) print \"PASS\"; else print \"FAIL: only \" $1 \" tests passed\"}'",
+      "max_score": 3,
+      "delegate": false
+    },
+    {
+      "id": "AC-8",
+      "description": "All existing tests (280 Python unit, 142 Vitest) continue to pass \u2014 no regressions introduced",
+      "how_to_verify": "Run: uv run pytest tests/ --tb=short -q 2>&1 | tail -3 (should show 0 failed)",
+      "max_score": 3,
+      "delegate": false
+    }
+  ],
+  "docs_to_update": [
+    "README.md",
+    "docs/setup.md",
+    "docs/architecture.md",
+    ".env.example"
+  ],
+  "test_requirements": "Create tests/test_firecrawl_client.py with at least 8 test functions using httpx mock (respx or pytest-httpx) to simulate Firecrawl API responses. Tests must cover: successful single scrape, failed single scrape (HTTP 500), successful batch scrape, partial batch failure, successful ping, failed ping (connection refused), retry exhaustion after 3 attempts, and request timeout handling. Create tests/test_firecrawl_health_endpoint.py with at least 2 tests: one for healthy response (mocked ping returns OK) and one for unhealthy response (mocked ping raises). All tests must run without Docker or network access.",
+  "estimated_files": [
+    "docker-compose.firecrawl.yml",
+    ".env.example",
+    ".env.local",
+    "server/services/__init__.py",
+    "server/services/firecrawl_client.py",
+    "server/home_server.py",
+    "server/config.py",
+    "scripts/start_firecrawl.sh",
+    "tests/test_firecrawl_client.py",
+    "tests/test_firecrawl_health_endpoint.py",
+    "README.md",
+    "docs/setup.md"
+  ],
+  "gemini_subtasks": [
+    "Add FIRECRAWL_API_URL=http://localhost:3002 with descriptive comment to .env.example and .env.local",
+    "Register FIRECRAWL_API_URL in server/config.py as a pydantic BaseSettings field with default value and description",
+    "Create scripts/start_firecrawl.sh with Docker pre-flight checks (docker info, port 3002 availability, file existence) and docker compose -f docker-compose.firecrawl.yml up -d",
+    "Create server/services/__init__.py with proper module exports for FirecrawlClient"
+  ],
+  "created_at": "20260403-014809",
+  "task_input": "Install and configure local Firecrawl instance via Docker Compose for JS-rendered web scraping \u2014 create docker-compose.firecrawl.yml, add FIRECRAWL_API_URL to .env.local, and wire a firecrawl_client.py helper into the project",
+  "status": "complete"
+}

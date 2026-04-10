@@ -133,6 +133,26 @@ CHANNELS: dict[str, dict] = {
     # Diagnostic Network recommended list; ~63K subs
     "supermario": {"url": "https://www.youtube.com/channel/UCaNH77hSGAZ5vF45hv6FpmQ/videos", "weight": 0.78, "focus": "professional"},
 
+    # ── European makes batch (2026-04-08) ────────────────────────────────────
+    # FCP Euro — Detailed technical guides for BMW, Mercedes, VW/Audi;
+    # engine diagnostic & maintenance guides (N20, M274, EA888), suspension,
+    # transmission (722.6, ZF 8HP); professional-grade depth; ~830K subs
+    "fcpeuro":    {"url": "https://www.youtube.com/@fcpeuro/videos",                "weight": 0.82, "focus": "professional"},
+
+    # ECU TESTING — European electrical specialist: wiring faults, CAN bus,
+    # module repair (BMW, Mercedes, VW); oscilloscope and multimeter methodology;
+    # ~295K subs
+    "ecutest":    {"url": "https://www.youtube.com/@Ecutestinglimited/videos",      "weight": 0.80, "focus": "professional"},
+
+    # BMW Repair Guide — BMW-specific EVAP, engine, electrical diagnosis;
+    # clear step-by-step procedures with fault codes; ~220K subs
+    "bmwrepair":  {"url": "https://www.youtube.com/@BMWRepairGuide/videos",         "weight": 0.78, "focus": "professional"},
+
+    # LM Auto Repairs — European in-depth "fault finding and repair" series;
+    # BMW, Mercedes, VW/Audi live diagnostics, 20-40 min per case, professional
+    # fault tracing with oscilloscope and scan tool; ~183K subs
+    "lmauto":     {"url": "https://www.youtube.com/@LMAutoRepairs/videos",          "weight": 0.82, "focus": "professional"},
+
     # ── Suspension / Drivetrain batch (2026-04-01) ────────────────────────────
     # NoNonsenseKnowHow — Chris Brown, ASE Master Tech; systematic diagnostics across
     # domestic/Asian/European platforms; suspension, axle, and transmission depth; ~790K subs

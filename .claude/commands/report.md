@@ -89,25 +89,39 @@ Use this schema exactly:
 - Write `customer_concern` and `findings` in plain language a customer can understand
 - Do NOT include internal confidence percentages or technical jargon in customer-facing fields
 
-### Step 4 — Write the JSON file and run the script
+### Step 4 — Write the JSON file and run the scripts
 
 1. Write the JSON to a temp file: `/tmp/diag_report_data.json`
-2. Run the generator:
+2. Run the PDF generator:
 
 ```bash
-.venv/bin/python3 scripts/generate_report.py /tmp/diag_report_data.json
+uv run python scripts/generate_report.py /tmp/diag_report_data.json
 ```
 
-The PDF will be saved to `reports/` with an auto-generated filename.
-Tell the mechanic the exact path.
+The PDF will be saved to the NAS (`/mnt/nas-reports/Customer/`) if mounted, otherwise to `reports/Customer/` locally.
+Capture the exact output path from the last line of the script output (`Report saved: <path>`).
+
+3. Save the session file (pass the PDF path captured above).
+   Add `--ingest` to also push the confirmed case into the RAG knowledge base immediately:
+
+```bash
+uv run python scripts/save_session.py /tmp/diag_report_data.json --pdf <pdf_path_from_step_2> --ingest
+```
+
+Capture the `SESSION_ID:` and `SESSION_FILE:` values from the output.
 
 ### Step 5 — Confirm output
 
+Tell the mechanic all three outputs:
+
 ```
-Report generated: reports/diag_report_2016_HONDA_CR-V_RO1234_20260315_1430.pdf
+PDF report:   <NAS or local path>
+Session ID:   <uuid>
+Session file: data/sessions/<filename>.session
 
 Open it, review, and print or send to customer.
 To regenerate with changes, just say what needs updating.
+To look up this case later: session ID is <first 8 chars of UUID>
 ```
 
 ---

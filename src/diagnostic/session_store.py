@@ -122,6 +122,22 @@ class SessionStore:
                 results.append(session)
         return results
 
+    def find_by_vin(self, vin: str) -> list[DiagnosticSession]:
+        """Return all sessions matching the given VIN (case-insensitive), newest-first."""
+        vin_upper = vin.strip().upper()
+        matches = []
+        for path in self._all_paths():
+            try:
+                fm = self._read_frontmatter(path)
+            except Exception:
+                continue
+            if fm.get("vehicle_vin", "").upper() == vin_upper:
+                session = self._parse_file(path)
+                if session is not None:
+                    matches.append(session)
+        matches.sort(key=lambda s: s.last_updated, reverse=True)
+        return matches
+
     def find_by_repair_order(self, repair_order: str) -> DiagnosticSession | None:
         """Return the most recent session with the given repair_order, or None."""
         for path in sorted(self._all_paths(), key=lambda p: p.stat().st_mtime, reverse=True):
@@ -214,6 +230,10 @@ class SessionStore:
             data["repair_order"] = session.repair_order
         if session.eliminated_hypotheses:
             data["eliminated_hypotheses"] = session.eliminated_hypotheses
+        # Store VIN in frontmatter for fast lookup without JSONL parse
+        vin = session.vehicle.get("vin", "")
+        if vin and vin.upper() != "N/A":
+            data["vehicle_vin"] = vin.upper()
         return yaml.dump(data, default_flow_style=False, allow_unicode=True)
 
     @staticmethod
@@ -277,6 +297,8 @@ class SessionStore:
             "model":  fm.get("vehicle_model", ""),
             "engine": fm.get("vehicle_engine", ""),
         }
+        if fm.get("vehicle_vin"):
+            vehicle["vin"] = fm["vehicle_vin"]
         try:
             return DiagnosticSession(
                 session_id=str(fm["session_id"]),

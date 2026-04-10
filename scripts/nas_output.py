@@ -1,13 +1,14 @@
 """NAS output path resolver for all report types.
 
-All diagnostic reports are written to the NAS at /mnt/z/ (Z:\\ on Windows),
-which maps directly to the Claude-Code-Diag-Reports share on the NAS
-(\\\\100.99.29.103\\Claude-Code-Diag-Reports).
+Reports go to the NAS when available, local fallback otherwise.
 
-If the NAS is not mounted, falls back to the local project reports/ directory.
+Mount points checked in order:
+  1. $NAS_REPORTS_MOUNT env var (explicit override)
+  2. /mnt/nas-reports   — NAS VM (NFS mount, claude-dev)
+  3. /mnt/z             — WSL desktop (Windows SMB mount)
 
-NAS folder structure (Z:\\ root = share root):
-    /mnt/z/
+NAS folder structure:
+    <mount>/
         Customer/       — customer-facing diagnostic PDFs (generate_report.py)
         Pre-Purchase/   — pre-purchase inspection checklists
         Fleet/          — batch/fleet comparison reports (batch_report.py, report_builder.py)
@@ -18,8 +19,24 @@ from datetime import datetime
 from pathlib import Path
 
 # ── NAS configuration ─────────────────────────────────────────────────────────
-# /mnt/z = desktop WSL (Windows SMB mount), /mnt/nas-reports = NAS VM (NFS mount)
-NAS_MOUNT = Path(os.environ.get("NAS_REPORTS_MOUNT", "/mnt/z"))
+def _find_nas_mount() -> Path:
+    """Return the first usable NAS mount, or /mnt/z as final default."""
+    env_override = os.environ.get("NAS_REPORTS_MOUNT")
+    candidates = (
+        [env_override] if env_override
+        else ["/mnt/nas-reports", "/mnt/z"]
+    )
+    for candidate in candidates:
+        p = Path(candidate)
+        try:
+            if p.is_mount() or (p.exists() and any(p.iterdir())):
+                return p
+        except OSError:
+            continue
+    return Path(candidates[-1])  # default even if not mounted (will fail gracefully)
+
+
+NAS_MOUNT = _find_nas_mount()
 NAS_REPORTS_ROOT = NAS_MOUNT  # share root IS the reports root (no subfolder needed)
 
 # Subfolders per report type — sit directly at Z:\ root
