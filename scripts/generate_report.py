@@ -82,6 +82,50 @@ def render_list(items: list[str], icon: str = "✓") -> str:
     )
 
 
+def render_estimate_table(sections: list[dict], total: float, rate: float) -> str:
+    """Render a professional parts+labor estimate table from estimate_sections."""
+    html = "<table class='estimate-table'>"
+    html += (
+        "<thead><tr>"
+        "<th>Description</th><th>Part #</th>"
+        "<th class='amt'>Parts</th><th class='amt'>Labor</th><th class='amt'>Total</th>"
+        "</tr></thead><tbody>"
+    )
+    for section in sections:
+        concern = escape(section.get("concern", ""))
+        html += f"<tr class='concern-header'><td colspan='5'>{concern}</td></tr>"
+        for line in section.get("lines", []):
+            desc = escape(line.get("description", ""))
+            part_no = escape(line.get("part_no", ""))
+            parts_val = line.get("parts", "")
+            hours = line.get("hours", 0)
+            labor_val = line.get("labor", 0)
+            line_total = line.get("total", 0)
+            note = line.get("note", "")
+            parts_str = f"${parts_val:.2f}" if isinstance(parts_val, (int, float)) else "—"
+            labor_str = f"${labor_val:.2f}" if labor_val else ("Incl." if note == "Included" else "—")
+            total_str = f"${line_total:.2f}" if line_total else (note or "—")
+            part_display = f"<span class='part-no'>{part_no}</span>" if part_no else "—"
+            html += (
+                f"<tr><td>{desc}</td><td>{part_display}</td>"
+                f"<td class='amt'>{parts_str}</td>"
+                f"<td class='amt'>{labor_str}</td>"
+                f"<td class='amt'>{total_str}</td></tr>"
+            )
+        subtotal = section.get("subtotal", 0)
+        html += (
+            f"<tr class='subtotal-row'>"
+            f"<td colspan='4'>Concern Subtotal</td>"
+            f"<td class='amt'>${subtotal:.2f}</td></tr>"
+        )
+    html += "</tbody></table>"
+    html += f"<div class='estimate-totals'>"
+    html += f"<span>Labor Rate: ${rate:.2f}/hr</span>"
+    html += f"<span class='grand-total'>ESTIMATE TOTAL: ${total:.2f}</span>"
+    html += "</div>"
+    return html
+
+
 def render_tests(tests: list[dict]) -> str:
     if not tests:
         return "<p class='none'>No tests recorded.</p>"
@@ -105,7 +149,12 @@ def generate_html(data: dict) -> str:
     ro = escape(data.get("ro_number", ""))
     date = escape(data.get("date", datetime.today().strftime("%B %d, %Y")))
     is_pre = data.get("report_type", "post_repair") == "pre_repair"
-    doc_title = "DIAGNOSTIC ASSESSMENT" if is_pre else "DIAGNOSTIC REPAIR REPORT"
+    doc_title = "DIAGNOSTIC ESTIMATE" if (is_pre and data.get("estimate_sections")) else (
+        "DIAGNOSTIC ASSESSMENT" if is_pre else "DIAGNOSTIC REPAIR REPORT"
+    )
+
+    customer_name = escape(data.get("customer_name", ""))
+    customer_phone = escape(data.get("customer_phone", ""))
 
     v = data.get("vehicle", {})
     year = escape(str(v.get("year", "")))
@@ -125,6 +174,14 @@ def generate_html(data: dict) -> str:
     recs_html = render_list(data.get("recommendations", []), "→")
     work_html = render_list(data.get("work_performed", []), "✓")
     declined_html = render_list(data.get("declined_services", []), "⚠")
+
+    estimate_sections = data.get("estimate_sections", [])
+    estimate_total = data.get("estimate_total", 0.0)
+    labor_rate = data.get("labor_rate", 100.0)
+    estimate_html = (
+        render_estimate_table(estimate_sections, estimate_total, labor_rate)
+        if estimate_sections else ""
+    )
 
     action_section = (
         f"""
@@ -176,6 +233,8 @@ def generate_html(data: dict) -> str:
 
     ro_line = f"<div><strong>RO #:</strong> {ro}</div>" if ro else ""
     tech_line = f"<div><strong>Technician:</strong> {tech}</div>" if tech else ""
+    customer_line = f"<div><strong>Customer:</strong> {customer_name}</div>" if customer_name else ""
+    phone_line = f"<div><strong>Phone:</strong> {customer_phone}</div>" if customer_phone else ""
     assess_badge = (
         f"<div class='assessment-badge'>{assessment}</div>" if assessment else ""
     )
@@ -331,6 +390,59 @@ def generate_html(data: dict) -> str:
   }}
   .none {{ color: #999; font-style: italic; }}
 
+  .estimate-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    margin-bottom: 10px;
+  }}
+  .estimate-table thead tr {{
+    background: #1a1a1a;
+    color: white;
+  }}
+  .estimate-table th {{
+    padding: 6px 8px;
+    text-align: left;
+    font-size: 8pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }}
+  .estimate-table th.amt {{ text-align: right; }}
+  .estimate-table td {{ padding: 5px 8px; border-bottom: 1px solid #e8e8e8; }}
+  .estimate-table td.amt {{ text-align: right; white-space: nowrap; }}
+  .estimate-table tr.concern-header td {{
+    background: #f0f0f0;
+    font-weight: 700;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 2px solid #ccc;
+    padding: 6px 8px;
+    color: #333;
+  }}
+  .estimate-table tr.subtotal-row td {{
+    font-weight: 700;
+    background: #f9f9f9;
+    border-top: 1px solid #ccc;
+    border-bottom: 2px solid #ccc;
+  }}
+  .estimate-table tr:hover td {{ background: #fafafa; }}
+  .part-no {{ color: #555; font-size: 9pt; font-family: monospace; }}
+  .estimate-totals {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 9.5pt;
+    color: #555;
+    border-top: 1px solid #ddd;
+  }}
+  .grand-total {{
+    font-size: 13pt;
+    font-weight: 800;
+    color: #1a1a1a;
+    letter-spacing: 0.5px;
+  }}
 
   .footer {{
     margin-top: 20px;
@@ -354,6 +466,8 @@ def generate_html(data: dict) -> str:
     <div><strong>Date:</strong> {date}</div>
     {ro_line}
     {tech_line}
+    {customer_line}
+    {phone_line}
   </div>
 </div>
 
@@ -389,6 +503,7 @@ def generate_html(data: dict) -> str:
   </div>
 </div>
 
+{"<div class='section'><div class='section-title'>Repair Estimate</div>" + estimate_html + "</div>" if estimate_html else ""}
 {action_section}
 {verify_section}
 {declined_section}
