@@ -71,6 +71,8 @@ def main() -> None:
         "ARCHITECT.md",
         "DOMAIN.md",
         "DIAGRAMS.md",
+        "/diagnostic-vault/",   # knowledge wiki — not a diagnostic report
+        "/skills/references/",  # internal reference/pattern files — not patient-facing reports
     )
     if any(frag in file_path for frag in _EXCLUDED_PATH_FRAGMENTS):
         sys.exit(0)
