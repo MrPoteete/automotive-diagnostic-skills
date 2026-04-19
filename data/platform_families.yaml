@@ -67,6 +67,34 @@ families:
         year_from: 2015
 
   # ---------------------------------------------------------------------------
+  # GM Gen V 3.6L V6 — LFY / LGX / LGZ
+  # LFY (Traverse/Acadia/Enclave/Colorado/Canyon), LGX (CT6/Camaro V6),
+  # LGZ (Camaro V6 convertible)
+  # Known issues: timing chain stretch, cam phaser rattle, oil consumption
+  # ---------------------------------------------------------------------------
+  - family: GM Gen V 3.6L V6
+    engine_codes: [LFY, LGX, LGZ, LGD, LGH]
+    displacement_aliases: ["3.6l", "3.6 l", "3.6 liter", "lfy", "lgx", "lgz"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+      - LUBRICATION
+    members:
+      - make: CHEVROLET
+        models: [TRAVERSE, CAMARO, COLORADO, BLAZER, EQUINOX]
+        year_from: 2012
+      - make: GMC
+        models: [ACADIA, CANYON]
+        year_from: 2012
+      - make: BUICK
+        models: [ENCLAVE, LACROSSE, REGAL]
+        year_from: 2012
+      - make: CADILLAC
+        models: [CT6, ATS, CTS, XT5, XT6]
+        year_from: 2013
+
+  # ---------------------------------------------------------------------------
   # GM 10-Speed Automatic — 10L80 / 10L90
   # Known issues: harsh shifts, shudder, delayed engagement, hesitation 1-2 mph
   # ---------------------------------------------------------------------------
