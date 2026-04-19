@@ -3,7 +3,7 @@
 Authoritative record of all curated YouTube channels in the `mechanics_forum` ChromaDB collection.
 Managed by `scripts/bulk_ingest.py`. Add new channels there first, then update this doc.
 
-**Corpus state (2026-04-08):** 1,352+ videos / 566K+ chunks
+**Corpus state (2026-04-19):** 28 active channels · 1,440 videos · ~570K chunks (scotty, hvacschool, motorage, motoragemag removed)
 
 ---
 
@@ -25,7 +25,6 @@ Managed by `scripts/bulk_ingest.py`. Add new channels there first, then update t
 |---|---|---|---|---|
 | `rainman` | Rainman Ray's Repairs | 0.75 | professional | Multi-make shop, systematic diagnostic walkthroughs |
 | `southmain` | South Main Auto | 0.75 | professional | Rural NY shop, live customer vehicle diagnostics |
-| `scotty` | Scotty Kilmer | 0.70 | professional | High-volume, broad coverage; lower weight reflects format |
 | `humble` | Humble Mechanic | 0.75 | professional | VW/Audi specialist, dealer-trained |
 | `fordtech` | FordTechMakuloco | 0.80 | professional | Ford-certified Master Tech, dealer-level depth |
 | `scanner` | Scanner Danner | 0.85 | professional | Electrical/network diagnostic authority; limit 40 videos |
@@ -45,8 +44,6 @@ Managed by `scripts/bulk_ingest.py`. Add new channels there first, then update t
 | `weberauto` | WeberAuto | 0.85 | professional | Weber State Univ — Prof. John Kelly; hybrid/EV HV systems, transmissions, vibration; university-level; ~467K subs |
 | `adeptape` | Adept Ape | 0.80 | professional | CAT Master Truck Tech; Caterpillar diesel / HD equipment; featured on CAT blog/podcast; ~250K subs |
 | `dieselron` | DieselTechRon | 0.82 | professional | Ford-certified Diesel Master Tech since 1982; Power Stroke 6.0/6.4/6.7; dealer-level Ford diesel; ~144K subs |
-| `motorage` | Motor Age Training | 0.80 | professional | Pete Meier ASE Master Tech; "The Trainer" series 100+ eps; scan tool, drivability, ASE prep; ~162K subs |
-| `motoragemag` | Motor Age Magazine | 0.80 | professional | Brandon Steckler Technical Editor; Mastering Diagnostics series 30+ eps; Vehicle Service Pros network; ~100K subs |
 | `mechanikmindset` | Mechanic Mindset | 0.82 | professional | Darren; oscilloscope/PicoScope/CAN bus specialist; training-first, high technical density; confirmed active 2026 |
 | `gotech` | GoTech | 0.85 | professional | CAN bus/network communication specialist; 3-part CAN series (topology → protocols → testing); ~225K subs |
 
@@ -57,7 +54,6 @@ Managed by `scripts/bulk_ingest.py`. Add new channels there first, then update t
 | Key | Channel | Weight | Focus | Notes |
 |---|---|---|---|---|
 | `waldos` | Waldo's World | 0.82 | professional | European luxury (Land Rover, BMW, Mercedes); complex HVAC/climate; Diagnostic Network top-rated; ~576K subs |
-| `hvacschool` | HVAC School (Bryan Orr) | 0.72 | professional | Refrigeration theory: manifold, superheat/subcool, leak detection, evacuation; skills transfer to automotive AC; ~453K subs |
 | `acservtech` | AC Service Tech LLC | 0.72 | professional | Manifold gauge technique, vacuum, evacuation, leak detection; refrigeration fundamentals for automotive AC |
 | `ratchets` | Ratchets and Wrenches | 0.73 | professional | General automotive + AC system work; bridges theory and hands-on; ~974K subs |
 | `supermario` | Super Mario Diagnostics | 0.78 | professional | Systematic diagnostic methodology, electrical/oscilloscope; Diagnostic Network recommended; ~63K subs |

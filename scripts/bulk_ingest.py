@@ -50,7 +50,6 @@ CHANNELS: dict[str, dict] = {
     # ── Original channels ──────────────────────────────────────────────────
     "rainman":    {"url": "https://www.youtube.com/@RainmanRaysRepairs/videos",   "weight": 0.75, "focus": "professional"},
     "southmain":  {"url": "https://www.youtube.com/@SouthMainAuto/videos",        "weight": 0.75, "focus": "professional"},
-    "scotty":     {"url": "https://www.youtube.com/@ScottyKilmer/videos",         "weight": 0.70, "focus": "professional"},
     "humble":     {"url": "https://www.youtube.com/@HumbleMechanic/videos",       "weight": 0.75, "focus": "professional"},
     "fordtech":   {"url": "https://www.youtube.com/@FordTechMakuloco/videos",     "weight": 0.80, "focus": "professional"},
     "scanner":    {"url": "https://www.youtube.com/@ScannerDanner/videos",        "weight": 0.85, "focus": "professional", "limit": 40},
@@ -94,15 +93,6 @@ CHANNELS: dict[str, dict] = {
     # 6.0/6.4/6.7 diagnostics; dealer-level Ford diesel resource; ~144K subs
     "dieselron":  {"url": "https://www.youtube.com/@DieselTechRon/videos",         "weight": 0.82, "focus": "professional"},
 
-    # Motor Age Training — Pete Meier ASE Master Tech; "The Trainer" series (100+ episodes),
-    # scan tool interpretation, drivability, ASE prep; oldest automotive trade publication;
-    # ~162K subs
-    "motorage":   {"url": "https://www.youtube.com/@MotorAgeTraining/videos",      "weight": 0.80, "focus": "professional"},
-
-    # Motor Age Magazine (Mastering Diagnostics series) — Brandon Steckler Technical Editor;
-    # Vehicle Service Pros network; Mastering Diagnostics series 30+ episodes; ~100K subs
-    "motoragemag": {"url": "https://www.youtube.com/@MotorAgeMagazine/videos",     "weight": 0.80, "focus": "professional"},
-
     # Mechanic Mindset — Darren, oscilloscope/PicoScope/CAN bus specialist;
     # training-first channel, small but extremely high technical density; confirmed active 2026
     "mechanikmindset": {"url": "https://www.youtube.com/@MechanicMindset/videos",  "weight": 0.82, "focus": "professional"},
@@ -116,10 +106,6 @@ CHANNELS: dict[str, dict] = {
     # Waldo's World — European luxury vehicle diagnostics (Land Rover, BMW, Mercedes);
     # complex HVAC/climate systems; Diagnostic Network top-rated; ~576K subs
     "waldos":     {"url": "https://www.youtube.com/@waldosworld/videos",              "weight": 0.82, "focus": "professional"},
-
-    # HVAC School (Bryan Orr) — refrigeration theory: manifold reading, superheat/subcool,
-    # leak detection, evacuation; not automotive but skills transfer directly; ~453K subs
-    "hvacschool": {"url": "https://www.youtube.com/@HVACS/videos",              "weight": 0.72, "focus": "professional"},
 
     # AC Service Tech LLC — manifold gauge technique, vacuum procedures, system evacuation,
     # leak detection; refrigeration fundamentals directly applicable to automotive AC

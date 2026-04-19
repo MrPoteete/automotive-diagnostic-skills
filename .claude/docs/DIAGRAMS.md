@@ -42,7 +42,7 @@ graph TB
     subgraph "Data Layer — VERIFIED COUNTS"
         ComplaintsDB[("automotive_complaints.db\n843 MB PRIMARY\n562K complaints FTS5\n211K TSBs\n7,166 recalls\n5,329 investigations\n49,806 EPA vehicles\n17,774 Canada recalls")]
         DiagnosticsDB[("automotive_diagnostics.db\n1.1 MB SECONDARY\n34,394 vehicles 1984–2026 145 makes\n3,073 DTC codes\n48 diagnosis history\n0 failure_patterns ⚠️")]
-        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum: ~569K docs · 32 channels · 1,353 videos\nscannerdanner_ebook: 182 docs")]
+        ChromaDB[("ChromaDB Vector Store\ndata/vector_store/chroma/\nmechanics_forum: 569,717 docs · 28 channels · 1,440 videos\nscannerdanner_ebook: 182 docs")]
     end
 
     subgraph "AI Tier"
@@ -113,7 +113,7 @@ graph TB
     end
 
     subgraph "ChromaDB  data/vector_store/chroma/"
-        MF["mechanics_forum collection\n~569K docs · 32 YT channels\n1,353 videos\nbulk_ingest.py · manifest: data/ingested_videos_manifest.jsonl"]
+        MF["mechanics_forum collection\n569,717 docs · 28 YT channels\n1,440 videos\nbulk_ingest.py · manifest: data/ingested_videos_manifest.jsonl"]
         SE["scannerdanner_ebook collection\n182 docs · ScannerDanner UTM ebook frames\ningest_ebook.py · ingested 2026-04-13"]
     end
 
@@ -182,7 +182,7 @@ flowchart LR
     subgraph "Import Scripts — scripts/"
         I1["import_nhtsa_recalls_api.py\n→ automotive_complaints.db\nnhtsa_recalls table\ncheckpoint resume"]
         I2["import_complaints_full.py\n→ automotive_complaints.db\nprocessed_complaints\ncomplaints_fts"]
-        I3["bulk_ingest.py\n→ ChromaDB\nmechanics_forum collection\n32 curated YT channels"]
+        I3["bulk_ingest.py\n→ ChromaDB\nmechanics_forum collection\n28 curated YT channels"]
         I4["import_epa_vehicles.py\n→ automotive_diagnostics.db\nvehicles table\n⚠️ currently only 2005 imported"]
         I5["import_canada_recalls.py\n→ automotive_complaints.db\ncanada_recalls table"]
     end
@@ -219,7 +219,7 @@ graph LR
         G4["✅ epa_vehicles\n49,806 rows\n1984–2026 in complaints.db"]
         G5["✅ vehicles table\n34,394 rows · 1984–2026\n145 makes · migrated 2026-03-26"]
         G6["⚠️ failure_patterns\n0 rows · empty\ndiagnostics.db"]
-        G7["✅ ChromaDB\nmechanics_forum: ~569K docs · 32 channels · 1,353 videos\nscannerdanner_ebook: 182 docs · ingested 2026-04-13"]
+        G7["✅ ChromaDB\nmechanics_forum: 569,717 docs · 28 channels · 1,440 videos\nscannerdanner_ebook: 182 docs · ingested 2026-04-13"]
         G8["✅ Weekly cron\nnhtsa-recall-refresh.timer\nSun 03:00 UTC"]
     end
 
