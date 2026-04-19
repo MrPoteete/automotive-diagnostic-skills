@@ -29,14 +29,26 @@ import pytest
 # without the real package being installed.
 # ---------------------------------------------------------------------------
 
-def _make_fake_chromadb(collection: MagicMock | None = None) -> types.ModuleType:
-    """Return a fake chromadb module whose PersistentClient returns *collection*."""
+def _make_fake_chromadb(
+    collection: MagicMock | None = None,
+    ebook_collection: MagicMock | None = None,
+) -> types.ModuleType:
+    """Return a fake chromadb module whose PersistentClient returns *collection*.
+
+    By default, get_collection (used for the ebook) raises ValueError so the
+    ebook collection is None and existing tests remain unaffected.
+    Pass ebook_collection to test the dual-collection path.
+    """
     fake_chromadb = types.ModuleType("chromadb")
     mock_client = MagicMock(name="PersistentClient_instance")
     if collection is None:
         collection = MagicMock(name="collection")
         collection.count.return_value = 0
     mock_client.get_or_create_collection.return_value = collection
+    if ebook_collection is None:
+        mock_client.get_collection.side_effect = ValueError("collection not found")
+    else:
+        mock_client.get_collection.return_value = ebook_collection
     fake_chromadb.PersistentClient = MagicMock(return_value=mock_client)  # type: ignore[attr-defined]
     return fake_chromadb
 
@@ -85,7 +97,7 @@ class TestChromaServiceInit:
 
     @pytest.mark.unit
     def test_init_success_creates_collection(self):
-        """Successful init must call get_or_create_collection with correct name."""
+        """Successful init must call get_or_create_collection for mechanics_forum."""
         col = _make_collection(count=0)
         fake = _make_fake_chromadb(collection=col)
 
@@ -98,6 +110,31 @@ class TestChromaServiceInit:
             name="mechanics_forum",
             metadata={"hnsw:space": "cosine"},
         )
+
+    @pytest.mark.unit
+    def test_init_attempts_ebook_collection(self):
+        """Init must attempt to load scannerdanner_ebook via get_collection."""
+        col = _make_collection(count=0)
+        fake = _make_fake_chromadb(collection=col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            ChromaService(path="/tmp/test_chroma")
+
+        client_instance = fake.PersistentClient.return_value  # type: ignore[attr-defined]
+        client_instance.get_collection.assert_called_once_with(name="scannerdanner_ebook")
+
+    @pytest.mark.unit
+    def test_init_ebook_unavailable_does_not_raise(self):
+        """If scannerdanner_ebook collection is absent, init must succeed silently."""
+        col = _make_collection(count=5)
+        fake = _make_fake_chromadb(collection=col)  # get_collection raises by default
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()  # must not raise
+
+        assert svc._ebook_collection is None
 
     @pytest.mark.unit
     def test_init_raises_import_error_if_chromadb_missing(self):
@@ -134,8 +171,8 @@ class TestDocumentCount:
     """Tests for ChromaService.document_count property."""
 
     @pytest.mark.unit
-    def test_document_count_delegates_to_collection(self):
-        """document_count must return exactly what collection.count() returns."""
+    def test_document_count_forum_only(self):
+        """document_count without ebook collection returns forum count only."""
         col = _make_collection(count=24_000)
         fake = _make_fake_chromadb(collection=col)
 
@@ -143,15 +180,13 @@ class TestDocumentCount:
             from src.data.chroma_service import ChromaService
             svc = ChromaService()
 
-        # Reset call count so we can assert cleanly on the property access
         col.count.reset_mock()
         col.count.return_value = 24_000
-
         assert svc.document_count == 24_000
 
     @pytest.mark.unit
     def test_document_count_zero_for_empty_collection(self):
-        """document_count must return 0 when the collection is empty."""
+        """document_count must return 0 when the forum collection is empty."""
         col = _make_collection(count=0)
         fake = _make_fake_chromadb(collection=col)
 
@@ -162,6 +197,23 @@ class TestDocumentCount:
         col.count.reset_mock()
         col.count.return_value = 0
         assert svc.document_count == 0
+
+    @pytest.mark.unit
+    def test_document_count_sums_both_collections(self):
+        """document_count must return forum + ebook counts when ebook is present."""
+        col = _make_collection(count=1000)
+        ebook_col = _make_collection(count=182)
+        fake = _make_fake_chromadb(collection=col, ebook_collection=ebook_col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        col.count.reset_mock()
+        col.count.return_value = 1000
+        ebook_col.count.reset_mock()
+        ebook_col.count.return_value = 182
+        assert svc.document_count == 1182
 
 
 # ===========================================================================
@@ -680,3 +732,137 @@ class TestSearchForComponents:
         # Must not raise
         result = svc.search_for_components("any query")
         assert result == []
+
+
+# ===========================================================================
+# scannerdanner_ebook collection — dual-collection behaviour
+# ===========================================================================
+
+
+class TestEbookCollection:
+    """Tests for dual-collection (forum + ebook) search behaviour."""
+
+    @pytest.mark.unit
+    def test_ebook_results_included_in_search(self):
+        """search must return results from both forum and ebook collections."""
+        forum_col = _make_collection(count=5)
+        forum_col.query.return_value = _build_query_response(
+            ids=["forum1"],
+            documents=["Forum post about MAF sensor cleaning"],
+            metadatas=[{"tags": "maf,fuel", "source": "stackexchange"}],
+            distances=[0.2],
+        )
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["ebook1"],
+            documents=["[scannerdanner_ebook] frame_0042 MAF sensor diagnostic procedure"],
+            metadatas=[{"source": "scannerdanner_ebook", "frame": "frame_0042.png",
+                        "content_type": "ebook_image", "confidence": 0.9}],
+            distances=[0.1],
+        )
+        fake = _make_fake_chromadb(collection=forum_col, ebook_collection=ebook_col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search("MAF sensor")
+        ids = [r["id"] for r in results]
+        assert "forum1" in ids
+        assert "ebook1" in ids
+
+    @pytest.mark.unit
+    def test_ebook_results_sorted_by_relevance(self):
+        """Higher relevance ebook result must rank above lower relevance forum result."""
+        forum_col = _make_collection(count=5)
+        forum_col.query.return_value = _build_query_response(
+            ids=["forum1"],
+            documents=["Forum post"],
+            metadatas=[{"tags": "maf"}],
+            distances=[0.4],  # relevance 0.6
+        )
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["ebook1"],
+            documents=["Ebook frame"],
+            metadatas=[{"source": "scannerdanner_ebook", "confidence": 0.9}],
+            distances=[0.1],  # relevance 0.9 — higher
+        )
+        fake = _make_fake_chromadb(collection=forum_col, ebook_collection=ebook_col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search("MAF sensor")
+        assert results[0]["id"] == "ebook1"
+
+    @pytest.mark.unit
+    def test_ebook_confidence_from_metadata(self):
+        """Ebook result confidence must use the value stored in metadata (0.9)."""
+        forum_col = _make_collection(count=1)
+        forum_col.query.return_value = _build_query_response(
+            ids=[], documents=[], metadatas=[], distances=[]
+        )
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["ebook1"],
+            documents=["Ebook content"],
+            metadatas=[{"source": "scannerdanner_ebook", "confidence": 0.9}],
+            distances=[0.15],
+        )
+        fake = _make_fake_chromadb(collection=forum_col, ebook_collection=ebook_col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search("vacuum leak")
+        ebook_result = next(r for r in results if r["id"] == "ebook1")
+        assert ebook_result["confidence"] == pytest.approx(0.9)
+
+    @pytest.mark.unit
+    def test_ebook_missing_does_not_affect_forum_search(self):
+        """When ebook collection is absent, search returns forum results normally."""
+        col = _make_collection(count=3)
+        col.query.return_value = _build_query_response(
+            ids=["forum1"],
+            documents=["Forum misfire diagnosis"],
+            metadatas=[{"tags": "engine,misfire"}],
+            distances=[0.2],
+        )
+        fake = _make_fake_chromadb(collection=col)  # no ebook_collection → raises
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search("misfire")
+        assert len(results) == 1
+        assert results[0]["id"] == "forum1"
+
+    @pytest.mark.unit
+    def test_search_respects_n_results_cap_after_merge(self):
+        """Merged results must be capped at n_results even when both collections return hits."""
+        forum_col = _make_collection(count=10)
+        forum_col.query.return_value = _build_query_response(
+            ids=[f"f{i}" for i in range(5)],
+            documents=[f"Forum doc {i}" for i in range(5)],
+            metadatas=[{"tags": "engine"}] * 5,
+            distances=[0.1 + i * 0.05 for i in range(5)],
+        )
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=[f"e{i}" for i in range(5)],
+            documents=[f"Ebook doc {i}" for i in range(5)],
+            metadatas=[{"source": "scannerdanner_ebook", "confidence": 0.9}] * 5,
+            distances=[0.12 + i * 0.05 for i in range(5)],
+        )
+        fake = _make_fake_chromadb(collection=forum_col, ebook_collection=ebook_col)
+
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search("engine", n_results=4)
+        assert len(results) <= 4
