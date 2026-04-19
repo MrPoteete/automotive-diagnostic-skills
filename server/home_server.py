@@ -449,6 +449,7 @@ class VehicleInfo(BaseModel):
     make: str = Field(..., description="Vehicle make (e.g. 'FORD')")
     model: str = Field(..., description="Vehicle model (e.g. 'F-150')")
     year: int = Field(..., ge=1990, le=2030, description="Model year")
+    engine_model: str | None = Field(None, description="Engine model code from VIN decode (e.g. 'L87 - DI, AFM, ALUM, GEN 5')")
 
 
 class DiagnosticRequest(BaseModel):

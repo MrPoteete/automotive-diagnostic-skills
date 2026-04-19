@@ -1,0 +1,242 @@
+# Platform Family Definitions
+#
+# Maps powertrain engine/transmission families to the vehicles that use them.
+# Used to expand TSB/complaint searches across platform siblings.
+#
+# component_types: NHTSA component categories where cross-platform generalization applies.
+#   ENGINE and POWER TRAIN TSBs are platform-wide; BODY/HVAC/ELECTRICAL are NOT.
+#
+# engine_codes: GM/Ford/etc. RPO codes as returned in NHTSA VIN decode "Engine Model" field.
+#   Match is done on the CODE PREFIX (first token before " - ").
+#   Example: "L87 - DI, AFM, ALUM, GEN 5" → code = "L87"
+#
+# displacement_aliases: fallback text strings for manual entry (no VIN).
+#   Matched case-insensitively against user-supplied engine description.
+#
+# members: list of {make, models, year_from, year_to (optional)} dicts.
+#   make/models must match values in nhtsa_tsbs/complaints_fts exactly (all caps).
+
+families:
+
+  # ---------------------------------------------------------------------------
+  # GM Gen V Small Block V8 — 6.2L
+  # L87 (truck/SUV DFM), LT1 (Corvette C7), LT2 (Corvette C8), L86 (Camaro SS)
+  # Known issues: AFM/DFM lifter collapse, timing chain, oil consumption
+  # ---------------------------------------------------------------------------
+  - family: GM Gen V 6.2L V8
+    engine_codes: [L87, LT1, LT2, L86]
+    displacement_aliases: ["6.2l", "6.2 l", "6.2 liter", "l87", "lt1", "lt2", "l86"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+      - LUBRICATION
+    members:
+      - make: CHEVROLET
+        models: [SILVERADO 1500, TAHOE, SUBURBAN, CAMARO, CORVETTE]
+        year_from: 2014
+      - make: GMC
+        models: [SIERRA 1500, YUKON, YUKON XL]
+        year_from: 2014
+      - make: CADILLAC
+        models: [ESCALADE, ESCALADE ESV]
+        year_from: 2015
+
+  # ---------------------------------------------------------------------------
+  # GM Gen V Small Block V8 — 5.3L
+  # L82 (Camaro), L83 (truck/SUV), L84 (truck/SUV DFM), L8T (heavy duty)
+  # Known issues: AFM/DFM lifter collapse, oil consumption, timing chain
+  # ---------------------------------------------------------------------------
+  - family: GM Gen V 5.3L V8
+    engine_codes: [L82, L83, L84, L8T]
+    displacement_aliases: ["5.3l", "5.3 l", "5.3 liter", "l83", "l84", "l82", "l8t"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+      - LUBRICATION
+    members:
+      - make: CHEVROLET
+        models: [SILVERADO 1500, SILVERADO 2500, TAHOE, SUBURBAN, CAMARO, SILVERADO 1500 LIMITED]
+        year_from: 2014
+      - make: GMC
+        models: [SIERRA 1500, SIERRA 2500, YUKON, YUKON XL]
+        year_from: 2014
+      - make: CADILLAC
+        models: [ESCALADE, ESCALADE ESV]
+        year_from: 2015
+
+  # ---------------------------------------------------------------------------
+  # GM 10-Speed Automatic — 10L80 / 10L90
+  # Known issues: harsh shifts, shudder, delayed engagement, hesitation 1-2 mph
+  # ---------------------------------------------------------------------------
+  - family: GM 10-Speed Automatic (10L80/10L90)
+    engine_codes: []
+    transmission_codes: [10L80, 10L90]
+    displacement_aliases: ["10l80", "10l90", "10 speed", "10-speed"]
+    component_types:
+      - POWER TRAIN
+      - VEHICLE SPEED CONTROL
+    members:
+      - make: CHEVROLET
+        models: [SILVERADO 1500, TAHOE, SUBURBAN, CAMARO, COLORADO]
+        year_from: 2019
+      - make: GMC
+        models: [SIERRA 1500, YUKON, YUKON XL, CANYON]
+        year_from: 2019
+      - make: CADILLAC
+        models: [ESCALADE, ESCALADE ESV, CT4, CT5]
+        year_from: 2019
+
+  # ---------------------------------------------------------------------------
+  # Ford Coyote 5.0L V8
+  # Gen 1 (2011-2014), Gen 2 (2015-2017), Gen 3 (2018+)
+  # Known issues: timing chain, cam phasers, oil consumption (Gen 3)
+  # ---------------------------------------------------------------------------
+  - family: Ford Coyote 5.0L V8
+    engine_codes: [COYOTE, 5.0, "5.0L TI-VCT"]
+    displacement_aliases: ["5.0l", "5.0 l", "5.0 liter", "coyote", "ti-vct"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+    members:
+      - make: FORD
+        models: [F-150, MUSTANG, MUSTANG GT]
+        year_from: 2011
+      - make: FORD
+        models: [F-150 RAPTOR]
+        year_from: 2021
+
+  # ---------------------------------------------------------------------------
+  # Ford 10R80 10-Speed Automatic
+  # Known issues: shudder, harsh 1-2 shift, hesitation, torque converter
+  # ---------------------------------------------------------------------------
+  - family: Ford 10-Speed Automatic (10R80)
+    engine_codes: []
+    transmission_codes: [10R80]
+    displacement_aliases: ["10r80", "10 speed", "10-speed"]
+    component_types:
+      - POWER TRAIN
+      - VEHICLE SPEED CONTROL
+    members:
+      - make: FORD
+        models: [F-150, MUSTANG, MUSTANG GT, EXPEDITION, EXPLORER, RANGER]
+        year_from: 2017
+      - make: LINCOLN
+        models: [NAVIGATOR, AVIATOR]
+        year_from: 2018
+
+  # ---------------------------------------------------------------------------
+  # Stellantis Pentastar 3.6L V6
+  # Known issues: valve train tick, oil consumption, cam phaser noise, head bolt
+  # ---------------------------------------------------------------------------
+  - family: Stellantis Pentastar 3.6L V6
+    engine_codes: [ERB, EZH, ESG, ERH]
+    displacement_aliases: ["3.6l", "3.6 l", "3.6 liter", "pentastar", "erb", "ezh"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+    members:
+      - make: JEEP
+        models: [WRANGLER, GRAND CHEROKEE, CHEROKEE, GLADIATOR]
+        year_from: 2011
+      - make: RAM
+        models: [1500, PROMASTER CITY]
+        year_from: 2011
+      - make: DODGE
+        models: [CHARGER, CHALLENGER, DURANGO, GRAND CARAVAN]
+        year_from: 2011
+      - make: CHRYSLER
+        models: [300, PACIFICA, TOWN & COUNTRY]
+        year_from: 2011
+
+  # ---------------------------------------------------------------------------
+  # Stellantis HEMI 5.7L V8
+  # Known issues: MDS lifter failure (same AFM-analog issue as GM), tick, oil
+  # ---------------------------------------------------------------------------
+  - family: Stellantis HEMI 5.7L V8
+    engine_codes: [EZH, EZD, EZB, MDS]
+    displacement_aliases: ["5.7l", "5.7 l", "5.7 hemi", "hemi", "mds"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+      - LUBRICATION
+    members:
+      - make: RAM
+        models: [1500, 2500, 3500]
+        year_from: 2009
+      - make: DODGE
+        models: [CHARGER, CHALLENGER, DURANGO]
+        year_from: 2009
+      - make: JEEP
+        models: [GRAND CHEROKEE]
+        year_from: 2011
+      - make: CHRYSLER
+        models: [300]
+        year_from: 2011
+
+  # ---------------------------------------------------------------------------
+  # Toyota 2GR 3.5L V6 (GR family)
+  # Known issues: oil consumption (2GR-FE), water pump (2GR-FE), PCV
+  # ---------------------------------------------------------------------------
+  - family: Toyota GR 3.5L V6
+    engine_codes: [2GR-FE, 2GR-FKS, 2GR-FXE]
+    displacement_aliases: ["3.5l", "3.5 l", "3.5 liter", "2gr", "2gr-fe", "2gr-fks"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+    members:
+      - make: TOYOTA
+        models: [TACOMA, 4RUNNER, SIENNA, CAMRY, AVALON, HIGHLANDER, VENZA]
+        year_from: 2005
+      - make: LEXUS
+        models: [RX350, GS350, ES350, IS350, GX460]
+        year_from: 2006
+
+  # ---------------------------------------------------------------------------
+  # Honda K-series 2.4L / 2.0L 4-cyl
+  # Known issues: oil consumption (K24), timing chain stretch, VTC actuator rattle
+  # ---------------------------------------------------------------------------
+  - family: Honda K-Series 4-Cylinder
+    engine_codes: [K24Z, K24W, K20C, K24A]
+    displacement_aliases: ["2.4l", "2.4 l", "k24", "k20", "2.0l vtec turbo"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+    members:
+      - make: HONDA
+        models: [CR-V, ACCORD, CIVIC TYPE R, PILOT]
+        year_from: 2013
+      - make: ACURA
+        models: [TLX, ILX, RDX]
+        year_from: 2015
+
+  # ---------------------------------------------------------------------------
+  # Honda ZF 9-Speed Automatic (ZF 9HP)
+  # Known issues: harsh shifts, hesitation, hunting between gears, software
+  # ---------------------------------------------------------------------------
+  - family: ZF 9-Speed Automatic (9HP / ZF9)
+    engine_codes: []
+    transmission_codes: [9HP, ZF9, ZF 9]
+    displacement_aliases: ["9 speed", "9-speed", "zf9", "9hp"]
+    component_types:
+      - POWER TRAIN
+      - VEHICLE SPEED CONTROL
+    members:
+      - make: HONDA
+        models: [CR-V, PILOT, PASSPORT, RIDGELINE, ODYSSEY]
+        year_from: 2016
+      - make: ACURA
+        models: [MDX, RDX, TLX]
+        year_from: 2016
+      - make: JEEP
+        models: [CHEROKEE, RENEGADE]
+        year_from: 2014
+      - make: CHRYSLER
+        models: [200]
+        year_from: 2015

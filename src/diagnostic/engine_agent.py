@@ -20,7 +20,9 @@ from typing import Any
 # Checked AGENTS.md - implementing session wiring directly because:
 # 1. diagnose() is the safety-critical orchestration path (GEMINI_WORKFLOW.md: keep with Claude)
 # 2. Session lifecycle touches confidence gating and error propagation — no delegation
+# 3. Platform family expansion is a read-only diagnostic enrichment — same safety class
 from src.data.db_service import DiagnosticDB
+from src.data.platform_service import PlatformService
 from src.diagnostic.confidence_scorer import score_results  # type: ignore[attr-defined]
 from src.diagnostic.session_state import DiagnosticSession
 from src.diagnostic.session_store import SessionStore
@@ -222,7 +224,8 @@ def _run_diagnosis(
     if not make or not model or not year:
         return _error_result(vehicle, symptoms, "Vehicle make, model, and year are required.")
 
-    normalized_vehicle = {"make": make, "model": model, "year": year}
+    engine_model = str(vehicle.get("engine_model") or "")
+    normalized_vehicle = {"make": make, "model": model, "year": year, "engine_model": engine_model}
 
     # Validate DTC codes
     valid_dtcs = _validate_dtc_codes(dtc_codes)
@@ -333,6 +336,27 @@ def _run_diagnosis(
         top.get("confidence", 0.0),
     )
 
+    # Step 2b: Platform family resolution (engine/powertrain components only)
+    platform_svc = PlatformService()
+    platform_family_name: str | None = None
+    platform_siblings: list[dict] = []
+    try:
+        platform_family_name, platform_siblings = platform_svc.expand_vehicle_list(
+            make=make,
+            model=model,
+            year=year,
+            engine_model=engine_model,
+            component_type=top.get("component", ""),
+            displacement_hint=symptoms,
+        )
+        if platform_family_name:
+            logger.info(
+                "[diagnose] Platform family resolved: %s (%d siblings)",
+                platform_family_name, len(platform_siblings),
+            )
+    except Exception as exc:
+        logger.debug("Platform family lookup failed: %s", exc)
+
     # Step 3: Safety alerts + confidence gating + trend analysis + TSB lookup
     enriched: list[dict] = []
     for candidate in scored[:10]:  # top 10 only
@@ -372,7 +396,7 @@ def _run_diagnosis(
             trend = "INSUFFICIENT_DATA"
             trend_data = {}
 
-        # TSB lookup
+        # TSB lookup — vehicle-specific
         try:
             tsbs = db.search_tsbs(
                 make=make,
@@ -385,6 +409,18 @@ def _run_diagnosis(
             logger.debug("TSB lookup failed for %s: %s", component, exc)
             tsbs = []
 
+        # Platform TSBs — siblings that share the same engine/transmission family
+        platform_tsbs: list[dict] = []
+        if platform_siblings and platform_svc._component_is_generalizable(component):
+            try:
+                platform_tsbs = db.search_tsbs_for_platform(
+                    siblings=platform_siblings,
+                    component=component,
+                    limit=5,
+                )
+            except Exception as exc:
+                logger.debug("Platform TSB lookup failed for %s: %s", component, exc)
+
         enriched.append({
             "component": component,
             "complaint_count": candidate.get("count", 0),
@@ -395,6 +431,7 @@ def _run_diagnosis(
             "trend": trend,
             "trend_data": trend_data,
             "tsbs": tsbs,
+            "platform_tsbs": platform_tsbs,
             "samples": candidate.get("samples", []),
         })
 
@@ -432,12 +469,17 @@ def _run_diagnosis(
         "recalls": recalls,
         "warnings": warnings,
         "ebook_context": ebook_context,
+        "platform_family": platform_family_name,
+        "platform_siblings": [
+            f"{s['make']} {s['model']}" for s in platform_siblings
+        ] if platform_siblings else [],
         "data_sources": {
             "complaints_db": "automotive_complaints.db (562K NHTSA complaints)",
             "tsbs_db": "automotive_complaints.db (211K NHTSA TSBs)",
             "recalls_db": f"nhtsa_recalls ({len(recalls)} recall campaigns for this vehicle/year)",
             "forum_db": f"ChromaDB mechanics_forum ({len(forum_candidates)} forum candidates)",
             "ebook_db": f"ScannerDanner ebook ({len(ebook_context)} relevant frames)",
+            "platform_db": f"Platform family: {platform_family_name} ({len(platform_siblings)} siblings)" if platform_family_name else "No platform family matched",
             "complaint_coverage": "Partial dataset — full import pending",
         },
     }

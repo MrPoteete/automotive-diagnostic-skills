@@ -292,6 +292,67 @@ class DiagnosticDB:
             )
             return []
 
+    # Checked AGENTS.md - implementing directly: same SQL pattern as search_tsbs above,
+    # read-only query, no schema changes, no safety logic.
+    def search_tsbs_for_platform(
+        self,
+        siblings: list[dict],
+        component: str,
+        year_window: int = 3,
+        limit: int = 10,
+    ) -> list[dict]:
+        """Retrieve TSBs across a list of platform sibling vehicles.
+
+        siblings: list of {make, model, year_from, year_to} dicts from PlatformService.
+        component: NHTSA component keyword to filter by (e.g. 'ENGINE').
+        year_window: how many years on either side of year_from/year_to to search.
+        Returns up to limit TSBs, tagged with platform_source=True.
+        """
+        if not siblings:
+            return []
+
+        conditions: list[str] = []
+        params: list[str | int] = []
+
+        for s in siblings:
+            year_from = (s.get("year_from") or 1990) - year_window
+            year_to = (s.get("year_to") or 2030) + year_window
+            conditions.append(
+                "(make LIKE ? AND model LIKE ? AND CAST(year AS INTEGER) BETWEEN ? AND ?)"
+            )
+            params.extend([f"%{s['make']}%", f"%{s['model']}%", year_from, year_to])
+
+        where = " OR ".join(conditions)
+        if component:
+            where = f"({where}) AND component LIKE ?"
+            params.append(f"%{component}%")
+
+        sql = f"""
+            SELECT nhtsa_id, bulletin_no, bulletin_date,
+                   make, model, year, component, summary, created_at
+            FROM nhtsa_tsbs
+            WHERE {where}
+            ORDER BY bulletin_date DESC
+            LIMIT ?
+        """
+        params.append(limit)
+
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(sql, params)
+            results = [dict(row) for row in cursor.fetchall()]
+            for r in results:
+                r["platform_source"] = True
+            logger.debug(
+                "search_tsbs_for_platform: %d siblings, component=%r → %d rows",
+                len(siblings), component, len(results),
+            )
+            return results
+        except sqlite3.Error as exc:
+            logger.error("search_tsbs_for_platform error: %s", exc)
+            return []
+
     def count_complaints(
         self,
         make: str,
