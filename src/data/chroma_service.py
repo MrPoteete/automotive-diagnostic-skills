@@ -165,6 +165,26 @@ class ChromaService:
         )
         return merged
 
+    def search_ebook(
+        self,
+        query: str,
+        n_results: int = 5,
+        min_score: float = 0.3,
+    ) -> list[dict[str, Any]]:
+        """
+        Semantic search restricted to the scannerdanner_ebook collection.
+
+        Returns raw text chunks suitable for inclusion in LLM context.
+        Empty list if ebook collection is unavailable or query is blank.
+        """
+        if not query or not query.strip() or self._ebook_collection is None:
+            return []
+        results = self._query_collection(
+            self._ebook_collection, EBOOK_BASE_CONFIDENCE, query, n_results, min_score
+        )
+        logger.debug("ChromaService.search_ebook(%r): %d hits", query[:50], len(results))
+        return results
+
     def search_for_components(
         self,
         query: str,

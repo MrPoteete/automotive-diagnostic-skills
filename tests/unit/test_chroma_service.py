@@ -866,3 +866,95 @@ class TestEbookCollection:
 
         results = svc.search("engine", n_results=4)
         assert len(results) <= 4
+
+
+# ===========================================================================
+# ChromaService.search_ebook
+# ===========================================================================
+
+
+class TestSearchEbook:
+    """Tests for ChromaService.search_ebook(query, n_results, min_score)."""
+
+    @pytest.mark.unit
+    def test_empty_query_returns_empty(self):
+        """Blank query must return [] without hitting ChromaDB."""
+        fake = _make_fake_chromadb()
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+        assert svc.search_ebook("") == []
+        assert svc.search_ebook("   ") == []
+
+    @pytest.mark.unit
+    def test_no_ebook_collection_returns_empty(self):
+        """When ebook collection is absent, search_ebook must return []."""
+        col = _make_collection(count=100)
+        # No ebook_collection arg → get_collection raises → _ebook_collection is None
+        fake = _make_fake_chromadb(collection=col)
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+        assert svc.search_ebook("fuel trim") == []
+
+    @pytest.mark.unit
+    def test_returns_ebook_chunks(self):
+        """search_ebook must return structured dicts from the ebook collection."""
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["e1", "e2"],
+            documents=["[scannerdanner_ebook] frame_0010\nFuel trim theory...", "[scannerdanner_ebook] frame_0011\nLTFT explanation..."],
+            metadatas=[
+                {"source": "scannerdanner_ebook", "frame": "frame_0010.png", "confidence": 0.9},
+                {"source": "scannerdanner_ebook", "frame": "frame_0011.png", "confidence": 0.9},
+            ],
+            distances=[0.1, 0.2],
+        )
+        fake = _make_fake_chromadb(ebook_collection=ebook_col)
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search_ebook("fuel trim misfire", n_results=5)
+        assert len(results) == 2
+        r = results[0]
+        assert "document" in r
+        assert "relevance" in r
+        assert "confidence" in r
+        assert r["confidence"] == 0.9
+        assert r["relevance"] == pytest.approx(1.0 - 0.1, abs=0.01)
+
+    @pytest.mark.unit
+    def test_min_score_filters_low_relevance(self):
+        """Results below min_score must be excluded."""
+        ebook_col = _make_collection(count=10)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["e1", "e2"],
+            documents=["High relevance doc", "Low relevance doc"],
+            metadatas=[{"source": "scannerdanner_ebook", "confidence": 0.9}] * 2,
+            distances=[0.1, 0.8],  # relevance 0.9 and 0.2
+        )
+        fake = _make_fake_chromadb(ebook_collection=ebook_col)
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        results = svc.search_ebook("query", min_score=0.5)
+        assert len(results) == 1
+        assert results[0]["document"] == "High relevance doc"
+
+    @pytest.mark.unit
+    def test_n_results_cap(self):
+        """search_ebook must request at most n_results from the collection."""
+        ebook_col = _make_collection(count=182)
+        ebook_col.query.return_value = _build_query_response(
+            ids=["e1"], documents=["doc"], metadatas=[{"confidence": 0.9}], distances=[0.2],
+        )
+        fake = _make_fake_chromadb(ebook_collection=ebook_col)
+        with patch.dict(sys.modules, {"chromadb": fake}):
+            from src.data.chroma_service import ChromaService
+            svc = ChromaService()
+
+        svc.search_ebook("query", n_results=3)
+        call_kwargs = ebook_col.query.call_args[1]
+        assert call_kwargs["n_results"] == 3

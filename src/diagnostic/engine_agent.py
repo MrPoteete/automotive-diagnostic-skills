@@ -238,18 +238,32 @@ def _run_diagnosis(
         valid_dtcs,
     )
 
-    # Step 1a: Forum semantic search (Phase 4 — optional, degrades gracefully)
+    # Step 1a: Forum + ebook semantic search (Phase 4 — optional, degrades gracefully)
     # Skip if no symptoms — make/model alone produces noise with no diagnostic value
     forum_candidates: list[dict] = []
+    ebook_context: list[dict] = []
     try:
         from src.data.chroma_service import ChromaService  # type: ignore[attr-defined]
         chroma = ChromaService()
         if chroma.document_count > 0 and symptoms:
+            rag_query = f"{make} {model} {symptoms}"
             forum_candidates = chroma.search_for_components(
-                query=f"{make} {model} {symptoms}",
+                query=rag_query,
                 n_results=20,
             )
             logger.info("Forum search returned %d candidate components", len(forum_candidates))
+            ebook_hits = chroma.search_ebook(query=rag_query, n_results=5)
+            ebook_context = [
+                {
+                    "frame": h["metadata"].get("frame", ""),
+                    "text": h["document"],
+                    "relevance": h["relevance"],
+                    "confidence": h["confidence"],
+                }
+                for h in ebook_hits
+            ]
+            if ebook_context:
+                logger.info("Ebook search returned %d relevant frames", len(ebook_context))
     except Exception as exc:
         logger.debug("Forum search unavailable (ChromaDB not ready?): %s", exc)
 
@@ -417,11 +431,13 @@ def _run_diagnosis(
         "candidates": enriched,
         "recalls": recalls,
         "warnings": warnings,
+        "ebook_context": ebook_context,
         "data_sources": {
             "complaints_db": "automotive_complaints.db (562K NHTSA complaints)",
             "tsbs_db": "automotive_complaints.db (211K NHTSA TSBs)",
             "recalls_db": f"nhtsa_recalls ({len(recalls)} recall campaigns for this vehicle/year)",
             "forum_db": f"ChromaDB mechanics_forum ({len(forum_candidates)} forum candidates)",
+            "ebook_db": f"ScannerDanner ebook ({len(ebook_context)} relevant frames)",
             "complaint_coverage": "Partial dataset — full import pending",
         },
     }
