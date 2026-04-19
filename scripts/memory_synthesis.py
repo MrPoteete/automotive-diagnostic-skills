@@ -15,8 +15,7 @@ What it does:
   2. Extracts user messages, assistant corrections, and tool failure events
   3. Calls Claude Haiku to identify new facts, corrections, or preferences
   4. Writes/updates memory files in the memory/ directory
-  5. Runs memory_prune.py to archive TTL-expired entries
-  6. Git-commits the memory directory with a timestamped message
+  5. Git-commits the memory directory with a timestamped message
 """
 
 import argparse
@@ -30,7 +29,6 @@ from pathlib import Path
 
 MEMORY_DIR = Path("/home/poteete/.claude/projects/-home-poteete-projects-automotive-diagnostic-skills/memory")
 PROJECT_DIR = Path("/home/poteete/.claude/projects/-home-poteete-projects-automotive-diagnostic-skills")
-PRUNE_SCRIPT = Path("/home/poteete/projects/automotive-diagnostic-skills/scripts/memory_prune.py")
 STATE_FILE = MEMORY_DIR / ".synthesis_last_run"
 
 
@@ -304,13 +302,6 @@ def run(since_hours: int, dry_run: bool) -> None:
         print(f"  Memory updates written: {count}")
     elif dry_run:
         print(f"  Haiku response preview:\n{result[:500]}")
-
-    # Run prune script
-    print("  Running memory_prune.py...")
-    prune_cmd = ["uv", "run", "python", str(PRUNE_SCRIPT)]
-    if dry_run:
-        prune_cmd.append("--dry-run")
-    subprocess.run(prune_cmd, cwd="/home/poteete/projects/automotive-diagnostic-skills")
 
     # Git commit
     git_commit_memory(dry_run)
