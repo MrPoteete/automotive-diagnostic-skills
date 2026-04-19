@@ -1,0 +1,12 @@
+[Unit]
+Description=Automotive Diagnostic RAG Corpus Weekly Ingest
+After=network.target
+
+[Service]
+Type=oneshot
+User=poteete
+WorkingDirectory=/home/poteete/projects/automotive-diagnostic-skills
+EnvironmentFile=/home/poteete/projects/automotive-diagnostic-skills/.env
+ExecStart=/home/poteete/.local/bin/uv run python -u scripts/bulk_ingest.py
+StandardOutput=append:/home/poteete/projects/automotive-diagnostic-skills/logs/ingest.log
+StandardError=append:/home/poteete/projects/automotive-diagnostic-skills/logs/ingest.log
