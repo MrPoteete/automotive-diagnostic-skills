@@ -268,3 +268,67 @@ families:
       - make: CHRYSLER
         models: [200]
         year_from: 2015
+
+  # ---------------------------------------------------------------------------
+  # BMW B47/B58 Powertrain
+  # B47 (2.0L diesel): 3-Series (F30/G20), 5-Series (G30), X3 (F25/G01), X5 (F15/G05)
+  # B58 (3.0L inline-6 gas): 3-Series (G20), 5-Series (G30), 7-Series (G11),
+  #   X3 (G01), X5 (G05), Z4 (G29), Supra (J29 - Toyota collaboration)
+  # Known issues: HPFP failures, injector carbon buildup, VANOS solenoid faults, DME updates
+  # ---------------------------------------------------------------------------
+  - family: BMW B47/B58 Powertrain
+    engine_codes: [B47, B58, B47D20, B58B30]
+    displacement_aliases: ["b47", "b58", "2.0l diesel", "2.0 diesel", "3.0l", "3.0 l", "3.0 liter", "b47d20", "b58b30"]
+    component_types:
+      - ENGINE AND ENGINE COOLING
+      - ENGINE
+      - POWER TRAIN
+      - FUEL SYSTEM
+    members:
+      - make: BMW
+        models: [3 SERIES, 5 SERIES, X3, X5, Z4, 7 SERIES]
+        year_from: 2014
+      - make: TOYOTA
+        models: [SUPRA]
+        year_from: 2020
+
+  # ---------------------------------------------------------------------------
+  # Honda BDGA/MPYA 4-Speed Automatic
+  # Used in: CR-V (K24), Accord 4cyl (K24), Element, TSX (CL9)
+  # Known issues: 3rd gear clutch pack wear, torque converter shudder,
+  #   ATF degradation, shift solenoid A/B faults
+  # ---------------------------------------------------------------------------
+  - family: Honda BDGA/MPYA 4-Speed Automatic
+    engine_codes: []
+    transmission_codes: [BDGA, MPYA, BGRA, MGPA]
+    displacement_aliases: ["bdga", "mpya", "4 speed", "4-speed automatic", "bgra", "mgpa"]
+    component_types:
+      - POWER TRAIN
+      - VEHICLE SPEED CONTROL
+    members:
+      - make: HONDA
+        models: [CR-V, ACCORD, ELEMENT]
+        year_from: 2002
+        year_to: 2007
+      - make: ACURA
+        models: [TSX]
+        year_from: 2004
+        year_to: 2008
+
+  # ---------------------------------------------------------------------------
+  # Toyota UA80 8-Speed Automatic (UA80E/UA80F)
+  # Used in: Camry V6, Avalon, RAV4 2.5L, Venza, Crown
+  # Known issues: harsh 1-2 upshift, TCM reprogramming, ATF capacity 7.4 qt,
+  #   shudder on light throttle
+  # ---------------------------------------------------------------------------
+  - family: Toyota UA80 8-Speed Automatic
+    engine_codes: []
+    transmission_codes: [UA80E, UA80F, UA80]
+    displacement_aliases: ["ua80", "ua80e", "ua80f", "8 speed", "8-speed"]
+    component_types:
+      - POWER TRAIN
+      - VEHICLE SPEED CONTROL
+    members:
+      - make: TOYOTA
+        models: [CAMRY, AVALON, RAV4, VENZA, CROWN]
+        year_from: 2018
