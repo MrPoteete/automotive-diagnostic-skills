@@ -254,3 +254,268 @@ class TestExpandVehicleList:
         )
         assert name is None
         assert siblings == []
+
+
+# ===========================================================================
+# New platform families — BMW B47/B58, Honda BDGA/MPYA, Toyota UA80
+# These tests use the live platform_families.yaml (no inline fixture needed).
+# ===========================================================================
+
+_LIVE_YAML = (
+    pathlib.Path(__file__).resolve().parent.parent.parent
+    / "data"
+    / "platform_families.yaml"
+)
+
+
+@pytest.fixture
+def live_svc() -> PlatformService:
+    return PlatformService(families_path=str(_LIVE_YAML))
+
+
+# ---------------------------------------------------------------------------
+# BMW B47/B58 Powertrain
+# ---------------------------------------------------------------------------
+
+class TestBMWB47B58Family:
+    @pytest.mark.unit
+    def test_engine_code_b58_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="BMW", model="3 SERIES", year=2020,
+            engine_model="B58B30",
+        )
+        assert family is not None
+        assert family["family"] == "BMW B47/B58 Powertrain"
+
+    @pytest.mark.unit
+    def test_engine_code_b47_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="BMW", model="X3", year=2019,
+            engine_model="B47D20",
+        )
+        assert family is not None
+        assert family["family"] == "BMW B47/B58 Powertrain"
+
+    @pytest.mark.unit
+    def test_alias_diesel_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="BMW", model="5 SERIES", year=2021,
+            engine_model="2.0l diesel",
+        )
+        assert family is not None
+        assert family["family"] == "BMW B47/B58 Powertrain"
+
+    @pytest.mark.unit
+    def test_toyota_supra_is_sibling(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="BMW", model="Z4", year=2021,
+            engine_model="B58B30",
+        )
+        assert family is not None
+        siblings = live_svc.get_sibling_vehicles(family, exclude_make="BMW", exclude_model="Z4")
+        makes = {s["make"] for s in siblings}
+        assert "TOYOTA" in makes
+
+    @pytest.mark.unit
+    def test_no_match_wrong_year(self, live_svc: PlatformService):
+        # B47/B58 introduced 2014; pre-2014 should not match
+        family = live_svc.find_family(
+            make="BMW", model="3 SERIES", year=2012,
+            engine_model="B58B30",
+        )
+        assert family is None
+
+    @pytest.mark.unit
+    def test_non_generalizable_body_component_blocked(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="BMW", model="X5", year=2022,
+            engine_model="B58B30",
+            component_type="BODY",
+        )
+        assert family is None
+
+    @pytest.mark.unit
+    def test_fuel_system_component_generalizable(self, live_svc: PlatformService):
+        # HPFP failures are FUEL SYSTEM — must be generalizable for this family
+        family = live_svc.find_family(
+            make="BMW", model="X5", year=2022,
+            engine_model="B58B30",
+            component_type="FUEL SYSTEM",
+        )
+        assert family is not None
+
+    @pytest.mark.unit
+    def test_expand_vehicle_list_returns_siblings(self, live_svc: PlatformService):
+        name, siblings = live_svc.expand_vehicle_list(
+            make="BMW", model="5 SERIES", year=2021,
+            engine_model="B58B30",
+            component_type="ENGINE AND ENGINE COOLING",
+        )
+        assert name == "BMW B47/B58 Powertrain"
+        assert len(siblings) > 0
+        # Query vehicle excluded
+        assert not any(
+            s["make"] == "BMW" and s["model"] == "5 SERIES" for s in siblings
+        )
+
+
+# ---------------------------------------------------------------------------
+# Honda BDGA/MPYA 4-Speed Automatic
+# ---------------------------------------------------------------------------
+
+class TestHondaBDGAFamily:
+    @pytest.mark.unit
+    def test_transmission_code_bdga_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="HONDA", model="CR-V", year=2005,
+            engine_model="BDGA",
+        )
+        assert family is not None
+        assert family["family"] == "Honda BDGA/MPYA 4-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_transmission_code_mpya_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="HONDA", model="ACCORD", year=2004,
+            engine_model="MPYA",
+        )
+        assert family is not None
+        assert family["family"] == "Honda BDGA/MPYA 4-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_acura_tsx_in_family(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="ACURA", model="TSX", year=2006,
+            engine_model="BDGA",
+        )
+        assert family is not None
+        assert family["family"] == "Honda BDGA/MPYA 4-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_no_match_year_too_new(self, live_svc: PlatformService):
+        # year_to is 2007 for HONDA members; 2009 should not match
+        family = live_svc.find_family(
+            make="HONDA", model="CR-V", year=2009,
+            engine_model="BDGA",
+        )
+        assert family is None
+
+    @pytest.mark.unit
+    def test_no_match_year_too_old(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="HONDA", model="ACCORD", year=2001,
+            engine_model="MPYA",
+        )
+        assert family is None
+
+    @pytest.mark.unit
+    def test_honda_element_is_member(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="HONDA", model="ELEMENT", year=2004,
+            engine_model="BDGA",
+        )
+        assert family is not None
+
+    @pytest.mark.unit
+    def test_cross_brand_siblings_include_acura(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="HONDA", model="CR-V", year=2005,
+            engine_model="BDGA",
+        )
+        assert family is not None
+        siblings = live_svc.get_sibling_vehicles(family, exclude_make="HONDA", exclude_model="CR-V")
+        makes = {s["make"] for s in siblings}
+        assert "ACURA" in makes
+
+    @pytest.mark.unit
+    def test_expand_vehicle_list_power_train(self, live_svc: PlatformService):
+        name, siblings = live_svc.expand_vehicle_list(
+            make="HONDA", model="ACCORD", year=2005,
+            engine_model="MPYA",
+            component_type="POWER TRAIN",
+        )
+        assert name == "Honda BDGA/MPYA 4-Speed Automatic"
+        assert len(siblings) > 0
+
+
+# ---------------------------------------------------------------------------
+# Toyota UA80 8-Speed Automatic
+# ---------------------------------------------------------------------------
+
+class TestToyotaUA80Family:
+    @pytest.mark.unit
+    def test_transmission_code_ua80e_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="CAMRY", year=2020,
+            engine_model="UA80E",
+        )
+        assert family is not None
+        assert family["family"] == "Toyota UA80 8-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_transmission_code_ua80f_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="RAV4", year=2021,
+            engine_model="UA80F",
+        )
+        assert family is not None
+        assert family["family"] == "Toyota UA80 8-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_alias_8speed_match(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="AVALON", year=2022,
+            engine_model="8-speed automatic",
+        )
+        assert family is not None
+        assert family["family"] == "Toyota UA80 8-Speed Automatic"
+
+    @pytest.mark.unit
+    def test_toyota_crown_is_member(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="CROWN", year=2023,
+            engine_model="UA80E",
+        )
+        assert family is not None
+
+    @pytest.mark.unit
+    def test_toyota_venza_is_member(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="VENZA", year=2022,
+            engine_model="UA80E",
+        )
+        assert family is not None
+
+    @pytest.mark.unit
+    def test_no_match_year_too_old(self, live_svc: PlatformService):
+        # year_from is 2018
+        family = live_svc.find_family(
+            make="TOYOTA", model="CAMRY", year=2017,
+            engine_model="UA80E",
+        )
+        assert family is None
+
+    @pytest.mark.unit
+    def test_sibling_includes_avalon_when_querying_camry(self, live_svc: PlatformService):
+        family = live_svc.find_family(
+            make="TOYOTA", model="CAMRY", year=2020,
+            engine_model="UA80E",
+        )
+        assert family is not None
+        siblings = live_svc.get_sibling_vehicles(family, exclude_make="TOYOTA", exclude_model="CAMRY")
+        models = {s["model"] for s in siblings}
+        assert "AVALON" in models
+
+    @pytest.mark.unit
+    def test_expand_vehicle_list_returns_correct_family(self, live_svc: PlatformService):
+        name, siblings = live_svc.expand_vehicle_list(
+            make="TOYOTA", model="RAV4", year=2022,
+            engine_model="UA80F",
+            component_type="POWER TRAIN",
+        )
+        assert name == "Toyota UA80 8-Speed Automatic"
+        assert len(siblings) > 0
+        # RAV4 itself excluded
+        assert not any(
+            s["make"] == "TOYOTA" and s["model"] == "RAV4" for s in siblings
+        )
