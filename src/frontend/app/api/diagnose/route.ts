@@ -48,6 +48,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'vehicle must have make, model, and year.' }, { status: 400 });
   }
 
+  // Build vehicle object — pass engine_model through if present (used by PlatformService)
+  const vehiclePayload: Record<string, unknown> = {
+    make: v.make,
+    model: v.model,
+    year: v.year,
+  };
+  if (v.engine_model && typeof v.engine_model === 'string') {
+    vehiclePayload.engine_model = v.engine_model;
+  }
+
   if (!symptoms || typeof symptoms !== 'string' || symptoms.trim().length < 3) {
     return NextResponse.json({ error: 'symptoms is required (min 3 chars).' }, { status: 400 });
   }
@@ -70,7 +80,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        vehicle,
+        vehicle: vehiclePayload,
         symptoms,
         dtc_codes: Array.isArray(dtc_codes) ? dtc_codes : [],
       }),

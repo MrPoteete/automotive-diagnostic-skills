@@ -17,6 +17,7 @@ type VehicleIdentity = {
     make: string;
     model: string;
     engine?: string;
+    engine_model?: string;
     drive_type?: string;
 };
 
@@ -124,6 +125,42 @@ describe('handleDiagnose — routing and behavior', () => {
                 vehicle: MOCK_VEHICLE,
                 symptoms: MOCK_SYMPTOMS,
                 dtc_codes: [],
+            });
+        });
+
+        it('passes engine_model from VehicleIdentity to api.diagnose vehicle payload', async () => {
+            const identityWithEngine: VehicleIdentity = {
+                make: 'CHEVROLET', model: 'TRAVERSE', year: 2017,
+                engine_model: 'LFY',
+            };
+            const { user } = await setupWithVehicleAndSymptoms();
+
+            // Re-select vehicle with engine_model
+            act(() => { capturedOnVehicleSelected(identityWithEngine); });
+
+            const textarea = screen.getByLabelText(/symptoms/i);
+            await user.clear(textarea);
+            await user.type(textarea, MOCK_SYMPTOMS);
+
+            const button = screen.getByRole('button', { name: /run diagnostic/i });
+            await user.click(button);
+
+            await waitFor(() => {
+                expect(vi.mocked(api.diagnose)).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        vehicle: expect.objectContaining({ engine_model: 'LFY' }),
+                    })
+                );
+            });
+        });
+
+        it('omits engine_model from api.diagnose vehicle payload when not set', async () => {
+            const { user, button } = await setupWithVehicleAndSymptoms();
+            await user.click(button);
+
+            await waitFor(() => {
+                const callArg = vi.mocked(api.diagnose).mock.calls[0][0];
+                expect(callArg.vehicle).not.toHaveProperty('engine_model');
             });
         });
 

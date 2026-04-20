@@ -105,6 +105,7 @@ export interface VehicleInfo {
     make: string;
     model: string;
     year: number;
+    engine_model?: string;
 }
 
 export interface DiagnoseRequest {
@@ -927,6 +928,7 @@ export interface VinDecodeResult {
     make?: string;
     model?: string;
     engine?: string;
+    engine_model?: string;
     drive_type?: string;
     body_class?: string;
     trim?: string;
