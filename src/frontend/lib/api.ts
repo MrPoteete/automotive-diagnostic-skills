@@ -106,6 +106,7 @@ export interface VehicleInfo {
     model: string;
     year: number;
     engine_model?: string;
+    transmission_model?: string;
 }
 
 export interface DiagnoseRequest {
@@ -929,6 +930,7 @@ export interface VinDecodeResult {
     model?: string;
     engine?: string;
     engine_model?: string;
+    transmission_model?: string;
     drive_type?: string;
     body_class?: string;
     trim?: string;

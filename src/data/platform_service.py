@@ -85,13 +85,16 @@ class PlatformService:
         year: int,
         engine_model: str = "",
         component_type: str = "",
+        transmission_model: str = "",
     ) -> dict[str, Any] | None:
         """
         Find the platform family for a vehicle.
 
         Lookup priority:
           1. engine_model code match (from VIN decode) — most precise
-          2. displacement_aliases text match (fallback for manual entry)
+          2. transmission_model match (from TransmissionLookupService) — enables
+             transmission-based families (Honda BDGA/MPYA, Toyota UA80, Ford 10R80, etc.)
+          3. displacement_aliases text match (fallback for manual entry)
 
         Returns None if no family matches or component_type is not generalizable.
         """
@@ -101,24 +104,37 @@ class PlatformService:
         make_up = make.upper()
         model_up = model.upper()
         engine_code = _extract_engine_code(engine_model)
+        tx_code_up = transmission_model.strip().upper()
 
         for family in self._families:
             # Check year range for this vehicle in any member group
             if not self._vehicle_in_family(make_up, model_up, year, family):
                 continue
 
-            # Priority 1: engine code match
+            # Priority 1: engine code match against engine_codes or transmission_codes
             if engine_code:
                 codes = [c.upper() for c in family.get("engine_codes", [])]
-                tx_codes = [c.upper() for c in family.get("transmission_codes", [])]
-                if engine_code in codes or engine_code in tx_codes:
+                fam_tx_codes = [c.upper() for c in family.get("transmission_codes", [])]
+                if engine_code in codes or engine_code in fam_tx_codes:
                     logger.debug(
                         "Platform match (engine code): %s → %s",
                         engine_code, family["family"],
                     )
                     return family
 
-            # Priority 2: displacement alias match from engine_model string
+            # Priority 2: transmission_model match against family's transmission_codes
+            # This enables transmission-only families (BDGA/MPYA/UA80/10R80/10L80)
+            # to be found even when engine_codes are not set on the family.
+            if tx_code_up:
+                fam_tx_codes = [c.upper() for c in family.get("transmission_codes", [])]
+                if any(tx_code_up.startswith(fc) or fc.startswith(tx_code_up) for fc in fam_tx_codes):
+                    logger.debug(
+                        "Platform match (transmission model %s): %s %s %d → %s",
+                        tx_code_up, make_up, model_up, year, family["family"],
+                    )
+                    return family
+
+            # Priority 3: displacement alias match from engine_model string
             em_lower = engine_model.lower()
             for alias in family.get("displacement_aliases", []):
                 if alias.lower() in em_lower:
@@ -195,6 +211,7 @@ class PlatformService:
         engine_model: str = "",
         component_type: str = "",
         displacement_hint: str = "",
+        transmission_model: str = "",
     ) -> tuple[str | None, list[dict[str, Any]]]:
         """
         High-level convenience: resolve family + return siblings in one call.
@@ -203,7 +220,9 @@ class PlatformService:
         family_name is None if no platform family found.
         sibling_list is empty if no family or component not generalizable.
         """
-        family = self.find_family(make, model, year, engine_model, component_type)
+        family = self.find_family(
+            make, model, year, engine_model, component_type, transmission_model
+        )
 
         if family is None and displacement_hint:
             family = self.find_family_by_displacement(

@@ -225,6 +225,7 @@ def _run_diagnosis(
         return _error_result(vehicle, symptoms, "Vehicle make, model, and year are required.")
 
     engine_model = str(vehicle.get("engine_model") or "")
+    transmission_model = str(vehicle.get("transmission_model") or "")
     normalized_vehicle = {"make": make, "model": model, "year": year, "engine_model": engine_model}
 
     # Validate DTC codes
@@ -348,6 +349,7 @@ def _run_diagnosis(
             engine_model=engine_model,
             component_type=top.get("component", ""),
             displacement_hint=symptoms,
+            transmission_model=transmission_model,
         )
         if platform_family_name:
             logger.info(

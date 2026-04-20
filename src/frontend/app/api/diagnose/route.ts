@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'vehicle must have make, model, and year.' }, { status: 400 });
   }
 
-  // Build vehicle object — pass engine_model through if present (used by PlatformService)
+  // Build vehicle object — pass engine_model and transmission_model through if present
+  // (both are used by PlatformService for cross-vehicle TSB family matching)
   const vehiclePayload: Record<string, unknown> = {
     make: v.make,
     model: v.model,
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
   };
   if (v.engine_model && typeof v.engine_model === 'string') {
     vehiclePayload.engine_model = v.engine_model;
+  }
+  if (v.transmission_model && typeof v.transmission_model === 'string') {
+    vehiclePayload.transmission_model = v.transmission_model;
   }
 
   if (!symptoms || typeof symptoms !== 'string' || symptoms.trim().length < 3) {
