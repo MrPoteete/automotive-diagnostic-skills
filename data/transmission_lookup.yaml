@@ -1,0 +1,418 @@
+# Transmission Model Lookup
+# Maps (make, model, year_range, optional engine_codes) → transmission_model
+# Used to infer transmission family when VIN decode doesn't encode it directly.
+#
+# Match priority (highest to lowest):
+#   1. make + model + year in [year_from, year_to] + engine_code prefix in engine_codes
+#   2. make + model + year in [year_from, year_to] (no engine_code required)
+#
+# 'transmission_model' values must match transmission_codes in platform_families.yaml
+# where applicable (e.g. "10L80" matches 10L80/10L90 family, "UA80E" matches UA80 family).
+#
+# Notes:
+#   - make/model values must match NHTSA all-caps format (same as nhtsa_tsbs table)
+#   - year_to is inclusive; omit year_to for "current production" entries
+#   - engine_codes are RPO prefix codes as returned by NHTSA VIN decode "Engine Model"
+#     field (first token before " - "). Omit the list to match all engines for that model/year.
+#
+# Source: Mined from 211K NHTSA TSBs + automotive domain knowledge (2026-04-20)
+
+entries:
+
+  # ---------------------------------------------------------------------------
+  # GM Full-Size Trucks & SUVs — 6-Speed (6L80E)
+  # Silverado/Sierra/Tahoe/Suburban/Yukon/Escalade, 2014-2018 with 5.3L or 6.2L
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [SILVERADO 1500, TAHOE, SUBURBAN]
+    year_from: 2014
+    year_to: 2018
+    engine_codes: [L83, L84, L82]   # 5.3L Gen V
+    transmission_model: 6L80E
+
+  - make: CHEVROLET
+    models: [SILVERADO 1500, TAHOE, SUBURBAN, CAMARO, CORVETTE]
+    year_from: 2014
+    year_to: 2018
+    engine_codes: [L87, LT1, LT2, L86]   # 6.2L Gen V
+    transmission_model: 6L80E
+
+  - make: GMC
+    models: [SIERRA 1500, YUKON, YUKON XL]
+    year_from: 2014
+    year_to: 2018
+    engine_codes: [L83, L84, L87]
+    transmission_model: 6L80E
+
+  - make: CADILLAC
+    models: [ESCALADE, ESCALADE ESV]
+    year_from: 2015
+    year_to: 2018
+    transmission_model: 6L80E
+
+  # ---------------------------------------------------------------------------
+  # GM Full-Size Trucks & SUVs — 8-Speed (8L90E)
+  # 2019+ with 5.3L; 6.2L uses 10L80E (see below)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [SILVERADO 1500, TAHOE, SUBURBAN]
+    year_from: 2019
+    engine_codes: [L84, L8T, L83]   # 5.3L DFM and HD
+    transmission_model: 8L90E
+
+  - make: GMC
+    models: [SIERRA 1500, YUKON, YUKON XL]
+    year_from: 2019
+    engine_codes: [L84, L8T]
+    transmission_model: 8L90E
+
+  - make: CADILLAC
+    models: [ESCALADE, ESCALADE ESV]
+    year_from: 2019
+    engine_codes: [L84, L8T]
+    transmission_model: 8L90E
+
+  # 8L45 — Camaro/Corvette 6.2L LT1 (non-truck 8-speed)
+  - make: CHEVROLET
+    models: [CAMARO, CORVETTE]
+    year_from: 2016
+    engine_codes: [LT1, LT2, L86]
+    transmission_model: 8L45
+
+  # ---------------------------------------------------------------------------
+  # GM Full-Size Trucks & SUVs — 10-Speed (10L80E/10L90E)
+  # 6.2L L87 trucks and HD applications
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [SILVERADO 1500, TAHOE, SUBURBAN, COLORADO]
+    year_from: 2019
+    engine_codes: [L87]   # 6.2L only gets 10-speed
+    transmission_model: 10L80
+
+  - make: GMC
+    models: [SIERRA 1500, YUKON, YUKON XL, CANYON]
+    year_from: 2019
+    engine_codes: [L87]
+    transmission_model: 10L80
+
+  - make: CADILLAC
+    models: [ESCALADE, ESCALADE ESV]
+    year_from: 2021
+    engine_codes: [L87]
+    transmission_model: 10L90
+
+  # ---------------------------------------------------------------------------
+  # GM Heavy Duty — 6L80/6L90 (2500/3500 HD, 2015-2023)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [SILVERADO 2500, SILVERADO 3500]
+    year_from: 2015
+    year_to: 2023
+    transmission_model: 6L80E
+
+  - make: GMC
+    models: [SIERRA 2500, SIERRA 3500]
+    year_from: 2015
+    year_to: 2023
+    transmission_model: 6L80E
+
+  # ---------------------------------------------------------------------------
+  # GM FWD/AWD 6-Speed — 6T70 / 6T75 (3.6L V6 applications)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [TRAVERSE, EQUINOX, BLAZER]
+    year_from: 2010
+    year_to: 2022
+    engine_codes: [LFY, LGX, LGZ, LGD]   # 3.6L Gen V V6
+    transmission_model: 6T75
+
+  - make: GMC
+    models: [ACADIA]
+    year_from: 2010
+    year_to: 2022
+    engine_codes: [LFY, LGX]
+    transmission_model: 6T75
+
+  - make: BUICK
+    models: [ENCLAVE, LACROSSE, REGAL]
+    year_from: 2010
+    year_to: 2022
+    engine_codes: [LFY, LGX, LGZ]
+    transmission_model: 6T70
+
+  - make: CADILLAC
+    models: [SRX, XT5, XT6]
+    year_from: 2010
+    year_to: 2022
+    transmission_model: 6T70
+
+  # ---------------------------------------------------------------------------
+  # GM FWD 6-Speed — 6T40 / 6T45 (4-cylinder compact applications)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [MALIBU, EQUINOX, TRAX, CRUZE]
+    year_from: 2010
+    year_to: 2022
+    engine_codes: [LCV, LKW, LTG, LUJ, LUV]   # 1.5T/2.0T/2.5L 4-cyl
+    transmission_model: 6T40
+
+  - make: BUICK
+    models: [LACROSSE, VERANO, ENCORE]
+    year_from: 2010
+    year_to: 2020
+    engine_codes: [LCV, LKW, LTG]
+    transmission_model: 6T40
+
+  # ---------------------------------------------------------------------------
+  # GM Legacy 4T65-E (FWD V6, pre-2010)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [IMPALA, MONTE CARLO, VENTURE]
+    year_from: 1997
+    year_to: 2010
+    transmission_model: 4T65E
+
+  - make: BUICK
+    models: [LACROSSE, CENTURY, REGAL, RENDEZVOUS]
+    year_from: 1997
+    year_to: 2010
+    transmission_model: 4T65E
+
+  - make: PONTIAC
+    models: [GRAND PRIX, BONNEVILLE, AZTEK]
+    year_from: 1997
+    year_to: 2009
+    transmission_model: 4T65E
+
+  # ---------------------------------------------------------------------------
+  # Ford F-150 / Expedition — 6R80 (2011-2016)
+  # ---------------------------------------------------------------------------
+  - make: FORD
+    models: [F-150, EXPEDITION]
+    year_from: 2011
+    year_to: 2016
+    transmission_model: 6R80
+
+  - make: LINCOLN
+    models: [NAVIGATOR]
+    year_from: 2011
+    year_to: 2017
+    transmission_model: 6R80
+
+  # Ford Mustang GT — 6R80 auto (5.0L Coyote)
+  - make: FORD
+    models: [MUSTANG, MUSTANG GT]
+    year_from: 2011
+    year_to: 2016
+    engine_codes: [COYOTE]
+    transmission_model: 6R80
+
+  # ---------------------------------------------------------------------------
+  # Ford F-150 / Expedition — 10R80 (2017+)
+  # ---------------------------------------------------------------------------
+  - make: FORD
+    models: [F-150, EXPEDITION, MUSTANG, MUSTANG GT, EXPLORER, RANGER]
+    year_from: 2017
+    transmission_model: 10R80
+
+  - make: LINCOLN
+    models: [NAVIGATOR, AVIATOR]
+    year_from: 2018
+    transmission_model: 10R80
+
+  # ---------------------------------------------------------------------------
+  # Ford FWD/AWD — 6F35 / 6F55 (Fusion, Edge, Explorer)
+  # ---------------------------------------------------------------------------
+  - make: FORD
+    models: [FUSION, EDGE, ESCAPE]
+    year_from: 2010
+    year_to: 2020
+    transmission_model: 6F35
+
+  - make: FORD
+    models: [EXPLORER]
+    year_from: 2011
+    year_to: 2016
+    transmission_model: 6F50
+
+  - make: LINCOLN
+    models: [MKX, MKZ, MKC]
+    year_from: 2010
+    year_to: 2020
+    transmission_model: 6F35
+
+  # ---------------------------------------------------------------------------
+  # Ford Mustang GT — TR3650 / TR6060 manual
+  # (included so platform service can exclude from 6R80 auto if manual detected)
+  # ---------------------------------------------------------------------------
+  - make: FORD
+    models: [MUSTANG, MUSTANG GT]
+    year_from: 2011
+    year_to: 2014
+    engine_codes: [COYOTE]
+    transmission_model: MT82   # Ford MT82 6-speed manual (Getrag)
+
+  - make: FORD
+    models: [MUSTANG SHELBY GT500]
+    year_from: 2013
+    year_to: 2014
+    transmission_model: TR6060
+
+  # ---------------------------------------------------------------------------
+  # Toyota Camry V6 / Avalon — UA80E (2018+)
+  # ---------------------------------------------------------------------------
+  - make: TOYOTA
+    models: [CAMRY, AVALON, VENZA, CROWN]
+    year_from: 2018
+    engine_codes: [2GR-FKS, 2GR-FXE, 2GR-FE]   # V6
+    transmission_model: UA80E
+
+  # ---------------------------------------------------------------------------
+  # Toyota RAV4 / Highlander 2.5L — UA80F (AWD, 2019+)
+  # ---------------------------------------------------------------------------
+  - make: TOYOTA
+    models: [RAV4, HIGHLANDER]
+    year_from: 2019
+    engine_codes: [A25A-FKS, A25A-FXS, 2AR-FE]   # 2.5L 4-cyl
+    transmission_model: UA80F
+
+  # ---------------------------------------------------------------------------
+  # Toyota Legacy — A340E / A340F (Tundra/Tacoma/4Runner pre-2010)
+  # Confirmed by TSB mining: Tundra 2000-2009 shows A340E/A340F hits
+  # ---------------------------------------------------------------------------
+  - make: TOYOTA
+    models: [TUNDRA, 4RUNNER]
+    year_from: 2000
+    year_to: 2009
+    transmission_model: A340F
+
+  - make: TOYOTA
+    models: [TACOMA]
+    year_from: 1995
+    year_to: 2015
+    transmission_model: A340E
+
+  # ---------------------------------------------------------------------------
+  # Honda CR-V K24 2002-2006 — BDGA 4-Speed Automatic
+  # (matches Honda BDGA/MPYA platform family in platform_families.yaml)
+  # ---------------------------------------------------------------------------
+  - make: HONDA
+    models: [CR-V]
+    year_from: 2002
+    year_to: 2006
+    engine_codes: [K24A, K24Z]
+    transmission_model: BDGA
+
+  # ---------------------------------------------------------------------------
+  # Honda Accord 4-cyl 2003-2007 — MPYA 4-Speed Automatic
+  # ---------------------------------------------------------------------------
+  - make: HONDA
+    models: [ACCORD]
+    year_from: 2003
+    year_to: 2007
+    engine_codes: [K24A, K24Z]
+    transmission_model: MPYA
+
+  # Honda Element / TSX (BGRA/MGPA variants)
+  - make: HONDA
+    models: [ELEMENT]
+    year_from: 2003
+    year_to: 2011
+    transmission_model: BGRA
+
+  - make: ACURA
+    models: [TSX]
+    year_from: 2004
+    year_to: 2008
+    transmission_model: MGPA
+
+  # ---------------------------------------------------------------------------
+  # Honda ZF 9-Speed (9HP) — 2016+ CR-V, Pilot, Odyssey, Acura MDX/RDX/TLX
+  # ---------------------------------------------------------------------------
+  - make: HONDA
+    models: [CR-V, PILOT, PASSPORT, RIDGELINE, ODYSSEY]
+    year_from: 2016
+    transmission_model: 9HP
+
+  - make: ACURA
+    models: [MDX, RDX, TLX]
+    year_from: 2016
+    transmission_model: 9HP
+
+  # ---------------------------------------------------------------------------
+  # BMW B58 3.0L I6 — ZF 8HP51 / ZF 8HP75 (3/5-Series, Z4)
+  # ---------------------------------------------------------------------------
+  - make: BMW
+    models: [3 SERIES, 5 SERIES, Z4]
+    year_from: 2017
+    engine_codes: [B58, B58B30]
+    transmission_model: ZF8HP51
+
+  # BMW X5/X7 B58 — ZF 8HP76 (torque-rated for larger SUVs)
+  - make: BMW
+    models: [X5, X7]
+    year_from: 2019
+    engine_codes: [B58, B58B30]
+    transmission_model: ZF8HP76
+
+  # BMW B47 2.0L diesel — ZF 8HP45
+  - make: BMW
+    models: [3 SERIES, 5 SERIES, X3, X5]
+    year_from: 2014
+    engine_codes: [B47, B47D20]
+    transmission_model: ZF8HP45
+
+  # ---------------------------------------------------------------------------
+  # Mercedes-Benz — 7G-TRONIC / 9G-TRONIC
+  # Confirmed by TSB mining: S500 2000-era shows 7G-TRONIC
+  # ---------------------------------------------------------------------------
+  - make: MERCEDES BENZ
+    models: [C CLASS, E CLASS, S CLASS, GLC, GLE]
+    year_from: 2003
+    year_to: 2013
+    transmission_model: 7G-TRONIC
+
+  - make: MERCEDES BENZ
+    models: [C CLASS, E CLASS, S CLASS, GLC, GLE, GLS]
+    year_from: 2014
+    transmission_model: 9G-TRONIC
+
+  # ---------------------------------------------------------------------------
+  # Jeep Grand Cherokee — NAG1 (W5A580) — 5.7L/6.4L HEMI
+  # Confirmed by TSB mining: Grand Cherokee 2005-2010 shows NAG1
+  # ---------------------------------------------------------------------------
+  - make: JEEP
+    models: [GRAND CHEROKEE]
+    year_from: 2005
+    year_to: 2010
+    engine_codes: [EZD, EZH, EZB]   # 5.7L / 6.4L HEMI
+    transmission_model: NAG1
+
+  # Jeep Grand Cherokee ZF 8HP post-2011 (WK2)
+  - make: JEEP
+    models: [GRAND CHEROKEE]
+    year_from: 2011
+    engine_codes: [EZD, EZH, ERB]
+    transmission_model: ZF8HP70
+
+  # ---------------------------------------------------------------------------
+  # Nissan CVT — RE0F10/RE0F11 (Altima, Sentra, Rogue)
+  # ---------------------------------------------------------------------------
+  - make: NISSAN
+    models: [ALTIMA, SENTRA, ROGUE, MURANO, PATHFINDER]
+    year_from: 2007
+    transmission_model: CVT8
+
+  - make: NISSAN
+    models: [VERSA, KICKS]
+    year_from: 2012
+    transmission_model: CVT7
+
+  # ---------------------------------------------------------------------------
+  # GM Spark — CVT7 (Confirmed by TSB mining: Spark 2010-2019)
+  # ---------------------------------------------------------------------------
+  - make: CHEVROLET
+    models: [SPARK]
+    year_from: 2010
+    year_to: 2022
+    transmission_model: CVT7

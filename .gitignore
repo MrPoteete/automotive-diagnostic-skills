@@ -82,6 +82,8 @@ tmp/
 # Data files (raw import data — root-level only)
 /data/
 !/data/ingested_videos_manifest.jsonl
+!/data/platform_families.yaml
+!/data/transmission_lookup.yaml
 *.csv
 *.tsv
 

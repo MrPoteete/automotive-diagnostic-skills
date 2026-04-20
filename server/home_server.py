@@ -27,6 +27,9 @@ from dotenv import load_dotenv
 
 from src.diagnostic.engine_agent import diagnose as run_diagnosis
 from scripts.nas_output import fleet_reports_dir
+from src.data.transmission_lookup_service import TransmissionLookupService
+
+_tx_lookup = TransmissionLookupService()
 
 load_dotenv()
 
@@ -622,7 +625,21 @@ async def decode_vin(
         except ValueError:
             pass
 
-    logger.info("VIN decoded: %s → %s %s %s %s", vin, year_val, fields.get("Make"), fields.get("Model"), engine)
+    # Infer transmission model from (make, model, year, engine_model).
+    # VIN standard does not encode transmissions; we use a curated lookup.
+    transmission_model: str | None = None
+    if year_val and fields.get("Make") and fields.get("Model"):
+        transmission_model = _tx_lookup.lookup(
+            make=fields.get("Make") or "",
+            model=fields.get("Model") or "",
+            year=year_val,
+            engine_model=engine_model,
+        )
+
+    logger.info(
+        "VIN decoded: %s → %s %s %s %s tx=%s",
+        vin, year_val, fields.get("Make"), fields.get("Model"), engine, transmission_model,
+    )
 
     return {
         "vin": vin,
@@ -632,6 +649,7 @@ async def decode_vin(
         "model": fields.get("Model"),
         "engine": engine,
         "engine_model": engine_model,
+        "transmission_model": transmission_model,
         "drive_type": fields.get("Drive Type"),
         "body_class": fields.get("Body Class"),
         "trim": fields.get("Trim"),

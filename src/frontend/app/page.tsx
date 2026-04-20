@@ -184,6 +184,7 @@ export default function Home() {
             model: selectedVehicle.model,
             year: selectedVehicle.year,
             ...(selectedVehicle.engine_model ? { engine_model: selectedVehicle.engine_model } : {}),
+            ...(selectedVehicle.transmission_model ? { transmission_model: selectedVehicle.transmission_model } : {}),
         };
         handleDiagnose(vehicleInfo, symptoms, parseDtcInput(dtcInput));
     };
