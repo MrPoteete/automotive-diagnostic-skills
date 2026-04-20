@@ -17,6 +17,7 @@ export interface VehicleIdentity {
     make: string;
     model: string;
     engine?: string;
+    engine_model?: string;
     drive_type?: string;
 }
 
@@ -126,6 +127,7 @@ export default function VehicleIdentification({ onVehicleSelected, isProcessing 
                 make: result.make,
                 model: result.model,
                 engine: result.engine,
+                engine_model: result.engine_model,
                 drive_type: result.drive_type,
             };
             saveRecent(identity);

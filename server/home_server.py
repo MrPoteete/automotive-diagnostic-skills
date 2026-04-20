@@ -610,6 +610,10 @@ async def decode_vin(
             parts.append(cyl_label)
         engine = " ".join(parts) if parts else None
 
+    # Extract engine model code (e.g. "LFY", "L87", "B58") from NHTSA "Engine Model" field.
+    # Used by PlatformService for cross-vehicle TSB matching.
+    engine_model: str | None = fields.get("Engine Model") or None
+
     year_val: int | None = None
     raw_year = fields.get("Model Year", "")
     if raw_year:
@@ -627,6 +631,7 @@ async def decode_vin(
         "make": fields.get("Make"),
         "model": fields.get("Model"),
         "engine": engine,
+        "engine_model": engine_model,
         "drive_type": fields.get("Drive Type"),
         "body_class": fields.get("Body Class"),
         "trim": fields.get("Trim"),

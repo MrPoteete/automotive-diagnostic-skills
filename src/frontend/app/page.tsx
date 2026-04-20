@@ -183,6 +183,7 @@ export default function Home() {
             make: selectedVehicle.make,
             model: selectedVehicle.model,
             year: selectedVehicle.year,
+            ...(selectedVehicle.engine_model ? { engine_model: selectedVehicle.engine_model } : {}),
         };
         handleDiagnose(vehicleInfo, symptoms, parseDtcInput(dtcInput));
     };
