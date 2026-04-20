@@ -121,6 +121,19 @@ export interface SafetyAlert {
     terms?: string[];       // backend: matched safety terms
 }
 
+export interface PlatformTsb {
+    nhtsa_id: string;
+    bulletin_no: string;
+    bulletin_date: string;   // "YYYYMMDD" string from backend
+    make: string;
+    model: string;
+    year: number;
+    component: string;
+    summary: string;
+    created_at?: string;
+    platform_source: true;
+}
+
 export interface DiagnosticCandidate {
     component: string;
     complaint_count: number;  // backend field name (was incorrectly typed as "count")
@@ -131,6 +144,7 @@ export interface DiagnosticCandidate {
     trend: string;
     trend_data?: unknown;
     tsbs: unknown[];
+    platform_tsbs: PlatformTsb[];
     samples: unknown[];
 }
 
@@ -156,6 +170,8 @@ export interface DiagnoseResponse {
     recalls: RecallItem[];
     warnings: string[];
     data_sources: Record<string, unknown>;
+    platform_family: string | null;
+    platform_siblings: string[];
 }
 
 // Checked AGENTS.md - Updating to use security-engineer approved routes (agent a8a8f66)

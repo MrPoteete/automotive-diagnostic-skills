@@ -13,7 +13,8 @@ import ReportModal from './components/ReportModal';
 import DiagnosisHistory from './components/DiagnosisHistory';
 import ChecklistPanel from './components/ChecklistPanel';
 import { parseDtcInput } from './components/VehicleForm';
-import { api, saveHistory, type VehicleInfo } from '../lib/api';
+import { api, saveHistory, type VehicleInfo, type DiagnoseResponse } from '../lib/api';
+import PlatformTsbPanel from './components/PlatformTsbPanel';
 
 // Carbon icon SVG inlines — avoids SCSS import issues in test environment
 function IconActivity() {
@@ -114,6 +115,7 @@ export default function Home() {
     const [symptoms, setSymptoms] = useState('');
     const [dtcInput, setDtcInput] = useState('');
     const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [lastDiagnosisResult, setLastDiagnosisResult] = useState<DiagnoseResponse | null>(null);
 
     // Check backend health on mount
     useEffect(() => {
@@ -144,6 +146,7 @@ export default function Home() {
             const diagData = await api.diagnose({ vehicle, symptoms, dtc_codes: dtcCodes });
             const formattedDiagnosis = api.formatDiagnosis(diagData);
             setMessages(prev => [...prev, { role: 'system', content: formattedDiagnosis }]);
+            setLastDiagnosisResult(diagData);
             // Fire-and-forget — never block the diagnosis flow
             saveHistory({
                 vin: selectedVehicle?.vin,
@@ -171,6 +174,7 @@ export default function Home() {
         setSelectedVehicle(vehicle);
         setSymptoms('');
         setDtcInput('');
+        setLastDiagnosisResult(null);
     };
 
     const handleSubmitDiagnose = () => {
@@ -278,6 +282,7 @@ export default function Home() {
         setSymptoms('');
         setDtcInput('');
         setMessages([]);
+        setLastDiagnosisResult(null);
     };
 
     const handleClearSearch = () => {
@@ -615,6 +620,18 @@ export default function Home() {
 
                                 {isProcessing && <LoadingState />}
                             </div>
+
+                            {/* Platform Family TSBs — shown after diagnosis when platform data is available */}
+                            {!isProcessing &&
+                                lastDiagnosisResult?.platform_family &&
+                                (
+                                    <PlatformTsbPanel
+                                        platformFamily={lastDiagnosisResult.platform_family}
+                                        platformSiblings={lastDiagnosisResult.platform_siblings ?? []}
+                                        candidates={lastDiagnosisResult.candidates}
+                                    />
+                                )
+                            }
                         </div>
                     )}
 
